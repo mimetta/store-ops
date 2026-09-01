@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --brand: #1E1C1A;
+    --brand-lighter: #2A2826;
+    --brand-surface: #252321;
+  }
+
+  body {
+    @apply bg-brand-900 text-white antialiased;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #110F0E;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #383532;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #504C48;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-brand-800 border border-brand-700 rounded-xl;
+  }
+
+  .card-hover {
+    @apply bg-brand-800 border border-brand-700 rounded-xl transition-all duration-200
+           hover:bg-brand-700 hover:border-brand-600 cursor-pointer;
+  }
+
+  .btn-primary {
+    @apply bg-white text-brand-900 font-semibold px-4 py-2 rounded-lg
+           transition-all duration-200 hover:bg-brand-100 active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply text-brand-300 px-3 py-1.5 rounded-lg transition-all duration-150
+           hover:bg-brand-700 hover:text-white;
+  }
+
+  .input-field {
+    @apply w-full bg-brand-800 border border-brand-600 text-white placeholder-brand-400
+           rounded-lg px-4 py-2.5 text-sm outline-none transition-all duration-150
+           focus:border-white focus:ring-1 focus:ring-white/20;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-brand-300
+           transition-all duration-150 hover:bg-brand-700 hover:text-white;
+  }
+
+  .sidebar-link-active {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm bg-brand-700 text-white;
+  }
+
+  .badge {
+    @apply text-xs font-medium px-2 py-0.5 rounded-full;
+  }
+}
