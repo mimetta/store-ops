@@ -33,7 +33,7 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-950 flex items-center justify-center px-4">
+    <div className="min-h-full bg-brand-950 flex items-center justify-center px-4">
       {/* Background pattern */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
