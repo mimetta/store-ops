@@ -37,3 +37,7 @@ next-env.d.ts
 
 # supabase CLI local state
 supabase/.temp/
+
+# UAT test-account credentials — never commit
+.uat-accounts.local.md
+*.local.md
