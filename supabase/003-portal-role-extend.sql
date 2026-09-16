@@ -68,20 +68,25 @@ alter table profiles drop constraint if exists profiles_portal_role_check;
 
 alter table profiles add constraint profiles_portal_role_check
   check (portal_role in (
-    -- existing, preserved
-    'superadmin',
+    -- the seven assignable roles
     'admin',
     'manager',
-    'staff',
-    'inactive',
-    -- new
     'supervisor',
     'ka',
-    'part_time',
     'logistics',
     'people',
-    'marketing'
+    'marketing',
+    -- pre-existing values that rows already use and so cannot be removed yet
+    'superadmin',   -- superset of admin; see src/lib/permissions.ts
+    'staff',        -- holds NO capabilities now — reassign these people
+    'inactive'      -- deactivation marker
   ));
+
+-- NOTE: 'part_time' is deliberately absent. Part-time is an employment fact,
+-- already held in profiles.employment_type, and drives pay behaviour (no OT
+-- multiplier, no commission, excluded from the commission pool denominator) —
+-- not screen access. Modelling it as a role would put the same fact in two
+-- columns that can contradict each other.
 
 commit;
 

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { can } from "@/lib/permissions"
 import type { RetailBranch } from "@/types/retail"
 
 const DENOMS = [1, 5, 10, 20, 50, 100, 500, 1000] as const
@@ -30,7 +31,7 @@ function fmt(n: number) { return n.toLocaleString("th-TH") }
 
 export default function PosMoneyPage() {
   const { profile } = useProfile()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  const canManageBills = can(profile, "bills")
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
@@ -48,7 +49,7 @@ export default function PosMoneyPage() {
     createClient().from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
-      if (!isManager && profile.branch_id) {
+      if (!canManageBills && profile.branch_id) {
         setSelectedBranch(profile.branch_id)
       } else if (list.length > 0) {
         setSelectedBranch((prev) => prev || list[0].id)
@@ -123,7 +124,7 @@ export default function PosMoneyPage() {
         <select
           value={selectedBranch}
           onChange={(e) => setSelectedBranch(e.target.value)}
-          disabled={!isManager}
+          disabled={!canManageBills}
           className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40 disabled:opacity-60 disabled:cursor-default"
         >
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}

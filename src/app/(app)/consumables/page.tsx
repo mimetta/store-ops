@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { can } from "@/lib/permissions"
 import { logActivity } from "@/lib/activity"
 import type { RetailBranch, Product } from "@/types/retail"
 
@@ -54,7 +55,9 @@ function StatusBadge({ status }: { status: StatusType }) {
 export default function ConsumablesPage() {
   const { profile } = useProfile()
   const supabase = createClient()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  // TODO(role-model): 'consumables' is not named in the capability spec.
+  // 'stock.count' is the closest fit — confirm or correct.
+  const canManageConsumables = can(profile, "stock.count")
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
@@ -72,7 +75,7 @@ export default function ConsumablesPage() {
     supabase.from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
-      if (!isManager && profile.branch_id) {
+      if (!canManageConsumables && profile.branch_id) {
         setSelectedBranch(profile.branch_id)
       } else if (list.length > 0) {
         setSelectedBranch((prev) => prev || list[0].id)
@@ -191,7 +194,7 @@ export default function ConsumablesPage() {
         <select
           value={selectedBranch}
           onChange={(e) => setSelectedBranch(e.target.value)}
-          disabled={!isManager}
+          disabled={!canManageConsumables}
           className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40 disabled:opacity-60 disabled:cursor-default"
         >
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}

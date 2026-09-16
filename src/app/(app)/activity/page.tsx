@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { can } from "@/lib/permissions"
 import PageHeader from "@/components/retail/PageHeader"
 import type { RetailBranch } from "@/types/retail"
 
@@ -64,7 +65,9 @@ const MODULE_COLORS: Record<string, string> = {
 export default function ActivityPage() {
   const { profile } = useProfile()
   const supabase = createClient()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  // TODO(role-model): 'activity' is not named in the capability spec.
+  // 'settings' is the closest fit — confirm or correct.
+  const canViewActivity = can(profile, "settings")
 
   const now = new Date()
   const [logs, setLogs] = useState<ActivityLog[]>([])
@@ -135,7 +138,7 @@ export default function ActivityPage() {
     })
   }
 
-  if (!isManager) {
+  if (!canViewActivity) {
     return (
       <div className="flex items-center justify-center h-64 text-brand-400 flex-col gap-2">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { can } from "@/lib/permissions"
 import PageHeader from "@/components/retail/PageHeader"
 import Drawer from "@/components/retail/Drawer"
 import type { TrainingSession, TrainingProgress, TrainingStatus } from "@/types/retail"
@@ -33,14 +34,16 @@ export default function TrainingPage() {
   const [assignStaffId, setAssignStaffId] = useState("")
 
   const supabase = createClient()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  // TODO(role-model): 'training' is not named in the capability spec.
+  // 'shifts.manage' is the closest fit — confirm or correct.
+  const canManageTraining = can(profile, "shifts.manage")
 
   const loadData = useCallback(async () => {
     if (!profile) return
     setLoading(true)
     const [sessRes, staffRes] = await Promise.all([
       supabase.from("training_sessions").select("*").order("created_at", { ascending: false }),
-      isManager ? supabase.from("profiles").select("*").order("full_name") : Promise.resolve({ data: [profile] }),
+      canManageTraining ? supabase.from("profiles").select("*").order("full_name") : Promise.resolve({ data: [profile] }),
     ])
     const sessList = (sessRes.data ?? []) as TrainingSession[]
     setSessions(sessList)
@@ -48,11 +51,11 @@ export default function TrainingPage() {
 
     // Load progress
     let pq = supabase.from("training_progress").select("*, profiles(full_name,nickname), training_sessions(title)")
-    if (!isManager) pq = pq.eq("staff_id", profile.id)
+    if (!canManageTraining) pq = pq.eq("staff_id", profile.id)
     const { data: prog } = await pq
     setAllProgress((prog ?? []) as TrainingProgress[])
     setLoading(false)
-  }, [profile, isManager])
+  }, [profile, canManageTraining])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -88,7 +91,7 @@ export default function TrainingPage() {
   }
 
   async function cycleStatus(progressId: string, current: TrainingStatus) {
-    if (!isManager) return
+    if (!canManageTraining) return
     const next = STATUS_ORDER[(STATUS_ORDER.indexOf(current) + 1) % STATUS_ORDER.length]
     await supabase.from("training_progress").update({
       status: next,
@@ -107,7 +110,7 @@ export default function TrainingPage() {
 
   // Sessions the current staff member is assigned to
   const myProgress = allProgress.filter((p) => p.staff_id === profile?.id)
-  const displaySessions = isManager ? sessions : sessions.filter((s) => myProgress.some((p) => p.session_id === s.id))
+  const displaySessions = canManageTraining ? sessions : sessions.filter((s) => myProgress.some((p) => p.session_id === s.id))
 
   return (
     <div className="h-full overflow-y-auto">
@@ -116,7 +119,7 @@ export default function TrainingPage() {
           title="Training"
           subtitle="Training sessions and staff progress"
           actions={
-            isManager && (
+            canManageTraining && (
               <button onClick={() => setDrawerOpen(true)} className="btn-primary text-sm py-2 flex items-center gap-2">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 New Session
@@ -147,7 +150,7 @@ export default function TrainingPage() {
           <div className="space-y-3">
             {displaySessions.length === 0 && (
               <p className="text-brand-500 text-sm py-12 text-center">
-                {isManager ? "No sessions yet. Create one to get started." : "No training sessions assigned to you."}
+                {canManageTraining ? "No sessions yet. Create one to get started." : "No training sessions assigned to you."}
               </p>
             )}
             {displaySessions.map((session) => {
@@ -160,14 +163,14 @@ export default function TrainingPage() {
                     {session.description && <p className="text-brand-400 text-sm mt-0.5">{session.description}</p>}
                     <div className="flex items-center gap-3 mt-2">
                       <span className="badge bg-brand-700 text-brand-300 border border-brand-600 text-[10px]">For: {session.required_for}</span>
-                      {!isManager && myProg && (
+                      {!canManageTraining && myProg && (
                         <span className={`badge ${STATUS_STYLES[myProg.status].bg} ${STATUS_STYLES[myProg.status].text} text-[10px]`}>
                           {STATUS_STYLES[myProg.status].label}
                         </span>
                       )}
                     </div>
                   </div>
-                  {isManager && (
+                  {canManageTraining && (
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
                         <p className="text-xs text-brand-400 mb-1">Completion</p>
@@ -222,8 +225,8 @@ export default function TrainingPage() {
                           <td key={session.id} className="px-3 py-2.5 text-center">
                             <button
                               onClick={() => cycleStatus(prog.id, prog.status)}
-                              className={`badge ${style.bg} ${style.text} text-[10px] ${isManager ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
-                              title={isManager ? "Click to cycle status" : style.label}
+                              className={`badge ${style.bg} ${style.text} text-[10px] ${canManageTraining ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
+                              title={canManageTraining ? "Click to cycle status" : style.label}
                             >
                               {prog.status === "completed" ? "✓" : prog.status === "in_progress" ? "⋯" : "○"}
                             </button>
@@ -235,7 +238,7 @@ export default function TrainingPage() {
                 </tbody>
               </table>
             </div>
-            {isManager && (
+            {canManageTraining && (
               <div className="px-4 py-2 border-t border-brand-700 text-xs text-brand-500">
                 Click a status cell to cycle: Not started → In progress → Completed
               </div>

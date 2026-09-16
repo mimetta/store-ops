@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { can } from "@/lib/permissions"
 import type { RetailBranch, Product } from "@/types/retail"
 
 // ── Payment methods ───────────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ interface SalesRow {
 
 export default function SalesPage() {
   const { profile } = useProfile()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  const canEnterSales = can(profile, "sales.manual")
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
@@ -68,7 +69,7 @@ export default function SalesPage() {
     createClient().from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
-      if (!isManager && profile.branch_id) {
+      if (!canEnterSales && profile.branch_id) {
         setSelectedBranch(profile.branch_id)
       } else if (list.length > 0) {
         setSelectedBranch((prev) => prev || list[0].id)
@@ -257,7 +258,7 @@ export default function SalesPage() {
     return acc
   }, {} as Record<string, number>)
 
-  const colCount    = isManager ? 5 : 4
+  const colCount    = canEnterSales ? 5 : 4
   const payTotal    = calcPayTotal(payCounts)
   const parsedDaily = parseInt(dailyTotal) || 0
   const mismatch    = dailyTotal !== "" && parsedDaily !== payTotal
@@ -271,7 +272,7 @@ export default function SalesPage() {
         <select
           value={selectedBranch}
           onChange={(e) => setSelectedBranch(e.target.value)}
-          disabled={!isManager}
+          disabled={!canEnterSales}
           className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40 disabled:opacity-60 disabled:cursor-default"
         >
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -304,7 +305,7 @@ export default function SalesPage() {
               <th className="text-left px-4 py-2.5 text-brand-400 font-medium text-xs">Category</th>
               <th className="text-center px-4 py-2.5 text-brand-400 font-medium text-xs">Units Sold</th>
               <th className="text-right px-4 py-2.5 text-brand-400 font-medium text-xs whitespace-nowrap">Last Updated</th>
-              {isManager && <th className="text-center px-4 py-2.5 text-brand-400 font-medium text-xs">Action</th>}
+              {canEnterSales && <th className="text-center px-4 py-2.5 text-brand-400 font-medium text-xs">Action</th>}
             </tr>
           </thead>
           <tbody>
@@ -340,7 +341,7 @@ export default function SalesPage() {
                     ? new Date(r.lastSaved).toLocaleString("en-GB", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
                     : "—"}
                 </td>
-                {isManager && (
+                {canEnterSales && (
                   <td className="px-4 py-2.5 text-center">
                     {r.savedUnits != null && r.savedUnits > 0 && (
                       <button

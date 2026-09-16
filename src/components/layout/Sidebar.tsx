@@ -3,11 +3,18 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { Profile } from "@/types/database"
+import { canAny, type Capability } from "@/lib/permissions"
 
 interface NavItem {
   label: string
   href: string
   icon: React.ReactNode
+  /**
+   * Capabilities that reveal this item. Undefined means everyone sees it —
+   * used for pages that are personal rather than privileged (your own
+   * dashboard, your own leave, your own training).
+   */
+  needs?: readonly Capability[]
 }
 
 interface SidebarProps {
@@ -41,28 +48,38 @@ const HISTORY_ICON    = "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m2
 // ── Daily operations — every store user sees these ───────────────────────────
 
 const DAILY_ITEMS: NavItem[] = [
-  { label: "FG Stock",      href: "/stock",       icon: <Icon d={STOCK_ICON} /> },
-  { label: "Sales Record",  href: "/sales",       icon: <Icon d={SALES_ICON} /> },
-  { label: "POS Money",     href: "/pos-money",   icon: <Icon d={MONEY_ICON} /> },
-  { label: "Consumables",   href: "/consumables", icon: <Icon d={CONSUMABLE_ICON} /> },
-  { label: "Shop Traffic",  href: "/traffic",     icon: <Icon d={TRAFFIC_ICON} /> },
-  { label: "Reports",       href: "/reports",     icon: <Icon d={REPORTS_ICON} /> },
+  { label: "FG Stock",      href: "/stock",       icon: <Icon d={STOCK_ICON} />,       needs: ["stock.count"] },
+  { label: "Sales Record",  href: "/sales",       icon: <Icon d={SALES_ICON} />,       needs: ["sales.manual", "sales.import"] },
+  { label: "POS Money",     href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["bills"] },
+  // consumables: not in the capability spec — closest fit is stock.count
+  { label: "Consumables",   href: "/consumables", icon: <Icon d={CONSUMABLE_ICON} />,  needs: ["stock.count"] },
+  { label: "Shop Traffic",  href: "/traffic",     icon: <Icon d={TRAFFIC_ICON} />,     needs: ["traffic"] },
+  { label: "Reports",       href: "/reports",     icon: <Icon d={REPORTS_ICON} />,     needs: ["stock.reports"] },
 ]
 
 // ── People & scheduling ──────────────────────────────────────────────────────
 
 const PEOPLE_ITEMS: NavItem[] = [
-  { label: "Calendar",      href: "/calendar",    icon: <Icon d={CALENDAR_ICON} /> },
+  { label: "Calendar",      href: "/calendar",    icon: <Icon d={CALENDAR_ICON} />, needs: ["calendar.manage"] },
+  // Leave and Training are personal: everyone requests their own leave and
+  // views their own training. The pages gate the manager-only parts inside.
   { label: "Leave",         href: "/leave",       icon: <Icon d={LEAVE_ICON} /> },
-  { label: "Work Schedule", href: "/schedule",    icon: <Icon d={SCHEDULE_ICON} /> },
+  { label: "Work Schedule", href: "/schedule",    icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
   { label: "Training",      href: "/training",    icon: <Icon d={TRAINING_ICON} /> },
 ]
 
-// ── Manager-only ─────────────────────────────────────────────────────────────
+// ── Manage ───────────────────────────────────────────────────────────────────
 
 const MANAGER_ITEMS: NavItem[] = [
-  { label: "Settings",      href: "/settings",    icon: <Icon d={SETTINGS_ICON} /> },
-  { label: "Activity Log",  href: "/activity",    icon: <Icon d={HISTORY_ICON} /> },
+  { label: "Settings",      href: "/settings",    icon: <Icon d={SETTINGS_ICON} />, needs: ["settings"] },
+  // activity: not in the capability spec — closest fit is settings
+  { label: "Activity Log",  href: "/activity",    icon: <Icon d={HISTORY_ICON} />,  needs: ["settings"] },
+]
+
+const SECTIONS: { label: string; items: NavItem[] }[] = [
+  { label: "Daily Ops", items: DAILY_ITEMS },
+  { label: "People",    items: PEOPLE_ITEMS },
+  { label: "Manage",    items: MANAGER_ITEMS },
 ]
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -75,8 +92,9 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function Sidebar({ profile }: SidebarProps) {
   const pathname   = usePathname()
-  const portalRole = profile?.portal_role ?? "staff"
-  const isManager  = portalRole === "admin" || portalRole === "manager" || portalRole === "superadmin"
+  // Nav visibility comes from the same matrix the pages use — see
+  // lib/permissions.ts. Nothing here re-derives permissions from portal_role.
+  const visible = (item: NavItem) => !item.needs || canAny(profile, item.needs)
 
   function checkActive(href: string): boolean {
     if (href === "/") return pathname === "/"
@@ -104,18 +122,19 @@ export default function Sidebar({ profile }: SidebarProps) {
           <span className="flex-1">Dashboard</span>
         </Link>
 
-        <SectionLabel>Daily Ops</SectionLabel>
-        {DAILY_ITEMS.map(renderItem)}
-
-        <SectionLabel>People</SectionLabel>
-        {PEOPLE_ITEMS.map(renderItem)}
-
-        {isManager && (
-          <>
-            <SectionLabel>Manage</SectionLabel>
-            {MANAGER_ITEMS.map(renderItem)}
-          </>
-        )}
+        {/* A section disappears entirely when the role holds none of its
+            capabilities — no empty headings, no links that lead to a
+            "you don't have access" page. */}
+        {SECTIONS.map(({ label, items }) => {
+          const allowed = items.filter(visible)
+          if (allowed.length === 0) return null
+          return (
+            <div key={label}>
+              <SectionLabel>{label}</SectionLabel>
+              {allowed.map(renderItem)}
+            </div>
+          )
+        })}
       </nav>
 
       {profile?.chapter && (

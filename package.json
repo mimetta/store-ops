@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check:permissions": "node scripts/check-permission-drift.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

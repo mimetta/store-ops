@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { can } from "@/lib/permissions"
 import { logActivity } from "@/lib/activity"
 import PageHeader from "@/components/retail/PageHeader"
 import BranchSelect from "@/components/retail/BranchSelect"
@@ -61,7 +62,7 @@ export default function CalendarPage() {
   const [submitError, setSubmitError] = useState("")
 
   const supabase = createClient()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  const canManageCalendar = can(profile, "calendar.manage")
 
   const year = now.getFullYear()
   const month = now.getMonth()
@@ -181,7 +182,7 @@ export default function CalendarPage() {
           actions={
             <>
               <BranchSelect branches={branches} value={selectedBranch} onChange={setSelectedBranch} />
-              {isManager && (
+              {canManageCalendar && (
                 <button onClick={openAdd} className="btn-primary text-sm py-2 flex items-center gap-2">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add Event
@@ -274,7 +275,7 @@ export default function CalendarPage() {
                 {selectedEvent.description && <p className="text-brand-400">{selectedEvent.description}</p>}
               </div>
 
-              {isManager && (
+              {canManageCalendar && (
                 deleteConfirm ? (
                   <div className="border-t border-brand-700 pt-4">
                     <p className="text-sm text-white mb-3">Delete this event?</p>

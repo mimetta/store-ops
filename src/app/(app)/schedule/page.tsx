@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { can } from "@/lib/permissions"
 import { logActivity } from "@/lib/activity"
 import Drawer from "@/components/retail/Drawer"
 import type { RetailBranch, ShiftType, WorkSchedule } from "@/types/retail"
@@ -65,7 +66,7 @@ function initials(p: Profile): string {
 export default function SchedulePage() {
   const { profile } = useProfile()
   const supabase = createClient()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  const canManageShifts = can(profile, "shifts.manage")
 
   const [view, setView]                           = useState<"monthly" | "weekly">("monthly")
   const [branchScope, setBranchScope]             = useState<"this" | "all">("this")
@@ -103,7 +104,7 @@ export default function SchedulePage() {
     supabase.from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
-      if (!isManager && profile.branch_id) {
+      if (!canManageShifts && profile.branch_id) {
         setSelectedBranch(profile.branch_id)
       } else if (list.length > 0) {
         setSelectedBranch((prev) => prev || list[0].id)
@@ -123,7 +124,7 @@ export default function SchedulePage() {
     if (!selectedBranch && branchScope === "this") { setLoading(false); return }
     setLoading(true)
 
-    if (branchScope === "all" && isManager) {
+    if (branchScope === "all" && canManageShifts) {
       // All branches: load everything, display grouped by branch
       const [schedRes, profilesRes] = await Promise.all([
         supabase.from("work_schedules").select("*").gte("date", startISO).lte("date", endISO),
@@ -174,12 +175,12 @@ export default function SchedulePage() {
       setOtherShifts(otherMap)
     }
     setLoading(false)
-  }, [selectedBranch, branchScope, startISO, endISO, isManager, branches])
+  }, [selectedBranch, branchScope, startISO, endISO, canManageShifts, branches])
 
   useEffect(() => { loadData() }, [loadData])
 
   function cycleShift(staffId: string, date: string) {
-    if (!isManager) return
+    if (!canManageShifts) return
     const key = `${staffId}_${date}`
     const current = draft[key]
     const idx = current ? SHIFTS.indexOf(current) : -1
@@ -303,7 +304,7 @@ export default function SchedulePage() {
   // Render monthly grid — accepts optional draftOverride for read-only "all branches" view
   function renderMonthlyGrid(members: Profile[], draftOverride?: Record<string, ShiftType>) {
     const d = draftOverride ?? draft
-    const editable = !draftOverride && isManager
+    const editable = !draftOverride && canManageShifts
     // Only show cross-branch conflicts in the editable "this branch" view
     const others = draftOverride ? {} : otherShifts
     if (members.length === 0) return (
@@ -360,7 +361,7 @@ export default function SchedulePage() {
   // Render weekly grid — accepts optional draftOverride for read-only "all branches" view
   function renderWeeklyGrid(members: Profile[], draftOverride?: Record<string, ShiftType>) {
     const d = draftOverride ?? draft
-    const editable = !draftOverride && isManager
+    const editable = !draftOverride && canManageShifts
     const others = draftOverride ? {} : otherShifts
     if (members.length === 0) return (
       <tr><td colSpan={8} className="px-4 py-6 text-center text-brand-500 text-sm">No staff in schedule.</td></tr>
@@ -434,7 +435,7 @@ export default function SchedulePage() {
           </div>
 
           {/* This branch / All branches toggle — manager only */}
-          {isManager && (
+          {canManageShifts && (
             <div className="flex bg-brand-800 border border-brand-700 rounded-lg p-0.5 gap-0.5">
               {(["this", "all"] as const).map((s) => (
                 <button
@@ -455,7 +456,7 @@ export default function SchedulePage() {
             <select
               value={selectedBranch}
               onChange={(e) => { setSelectedBranch(e.target.value); setResetConfirm(false) }}
-              disabled={!isManager}
+              disabled={!canManageShifts}
               className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40 disabled:opacity-60 disabled:cursor-default"
             >
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -487,7 +488,7 @@ export default function SchedulePage() {
           )}
 
           <div className="ml-auto flex gap-2 items-center">
-            {view === "monthly" && isManager && branchScope === "this" && (
+            {view === "monthly" && canManageShifts && branchScope === "this" && (
               resetConfirm ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-amber-400">Reset all to Off?</span>
@@ -498,7 +499,7 @@ export default function SchedulePage() {
                 <button onClick={() => setResetConfirm(true)} className="btn-ghost border border-brand-700 text-xs py-1.5 px-3">Reset month</button>
               )
             )}
-            {isManager && branchScope === "this" && (
+            {canManageShifts && branchScope === "this" && (
               <button onClick={handleSave} disabled={saving} className="btn-primary text-sm py-1.5 px-4">
                 {saving ? "Saving…" : saved ? "✓ Saved!" : "Save & Publish"}
               </button>
@@ -555,7 +556,7 @@ export default function SchedulePage() {
                 </table>
               )}
             </div>
-            {isManager && (
+            {canManageShifts && (
               <div className="px-4 py-2.5 border-t border-brand-700 text-xs text-brand-500">
                 Click any cell to cycle: AM → PM → Full → Off → Leave. Save &amp; Publish to commit.
               </div>
@@ -564,7 +565,7 @@ export default function SchedulePage() {
         )}
 
         {/* ── "All branches" grid — read-only overview ── */}
-        {branchScope === "all" && isManager && (
+        {branchScope === "all" && canManageShifts && (
           <div className="space-y-4">
             {loading ? (
               <div className="card p-10 text-center text-brand-500">Loading…</div>
@@ -632,7 +633,7 @@ export default function SchedulePage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-white">Schedule Staff</h3>
-              {isManager && (
+              {canManageShifts && (
                 <button onClick={openAddStaff} className="btn-ghost border border-brand-700 text-xs py-1.5 px-3 flex items-center gap-1.5">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add staff to schedule
@@ -659,7 +660,7 @@ export default function SchedulePage() {
                           <p className="text-brand-500 text-xs truncate">{s.chapter ?? "Staff"}</p>
                         )}
                       </div>
-                      {isManager && (
+                      {canManageShifts && (
                         isConfirming ? (
                           <div className="flex flex-col gap-1 shrink-0">
                             <button

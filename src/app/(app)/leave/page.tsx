@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { can } from "@/lib/permissions"
 import { logActivity } from "@/lib/activity"
 import PageHeader from "@/components/retail/PageHeader"
 import Drawer from "@/components/retail/Drawer"
@@ -63,7 +64,9 @@ interface HRRow {
 export default function LeavePage() {
   const { profile } = useProfile()
   const supabase = createClient()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  // TODO(role-model): 'leave' is not named in the capability spec.
+  // 'shifts.manage' is the closest fit — confirm or correct.
+  const canManageLeave = can(profile, "shifts.manage")
 
   const now = new Date()
   const [tab, setTab] = useState<"requests" | "hr">("requests")
@@ -90,7 +93,7 @@ export default function LeavePage() {
       setBranches(list)
       if (list.length > 0) setHrBranch((prev) => prev || list[0].id)
       // Pre-fill branch in form for staff
-      if (!isManager && profile.branch_id) {
+      if (!canManageLeave && profile.branch_id) {
         setForm((f) => ({ ...f, branch_id: profile.branch_id ?? "" }))
       }
     })
@@ -112,17 +115,17 @@ export default function LeavePage() {
       .gte("start_date", monthStart)
       .lte("start_date", monthEnd)
 
-    if (!isManager) q = q.eq("staff_id", profile.id)
+    if (!canManageLeave) q = q.eq("staff_id", profile.id)
 
     const { data } = await q
     setRequests((data ?? []) as LeaveRequest[])
     setLoading(false)
-  }, [profile, isManager, monthYear])
+  }, [profile, canManageLeave, monthYear])
 
   useEffect(() => { loadRequests() }, [loadRequests])
 
   const loadHRSummary = useCallback(async () => {
-    if (!isManager || !hrBranch) return
+    if (!canManageLeave || !hrBranch) return
     setHrLoading(true)
 
     const [y, m] = monthYear.split("-").map(Number)
@@ -154,7 +157,7 @@ export default function LeavePage() {
 
     setHrRows(rows)
     setHrLoading(false)
-  }, [isManager, hrBranch, monthYear])
+  }, [canManageLeave, hrBranch, monthYear])
 
   useEffect(() => { if (tab === "hr") loadHRSummary() }, [tab, loadHRSummary])
 
@@ -236,14 +239,14 @@ export default function LeavePage() {
   }
 
   const days = daysBetween(form.start_date, form.end_date)
-  const colCount = isManager ? 8 : 6
+  const colCount = canManageLeave ? 8 : 6
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
         <PageHeader
           title="Leave"
-          subtitle={isManager ? "All leave requests for retail staff" : "Your leave requests"}
+          subtitle={canManageLeave ? "All leave requests for retail staff" : "Your leave requests"}
           actions={
             <button onClick={() => setDrawerOpen(true)} className="btn-primary text-sm py-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -264,7 +267,7 @@ export default function LeavePage() {
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-brand-800">
-          {(["requests", "hr"] as const).filter((t) => t === "requests" || isManager).map((t) => (
+          {(["requests", "hr"] as const).filter((t) => t === "requests" || canManageLeave).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -298,7 +301,7 @@ export default function LeavePage() {
               </div>
             </div>
 
-            {!isManager && (
+            {!canManageLeave && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="card p-4">
                   <p className="text-brand-400 text-xs font-medium mb-1">Annual Leave</p>
@@ -324,14 +327,14 @@ export default function LeavePage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-brand-700">
-                      {isManager && <th className="text-left px-4 py-3 text-brand-400 font-medium">Staff</th>}
+                      {canManageLeave && <th className="text-left px-4 py-3 text-brand-400 font-medium">Staff</th>}
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Type</th>
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Branch</th>
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Dates</th>
                       <th className="text-right px-4 py-3 text-brand-400 font-medium">Days</th>
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Reason</th>
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Status</th>
-                      {isManager && <th className="px-4 py-3" />}
+                      {canManageLeave && <th className="px-4 py-3" />}
                     </tr>
                   </thead>
                   <tbody>
@@ -343,7 +346,7 @@ export default function LeavePage() {
                       const ss = STATUS_STYLES[r.status]
                       return (
                         <tr key={r.id} className="border-b border-brand-800 hover:bg-brand-800/40 transition-colors">
-                          {isManager && (
+                          {canManageLeave && (
                             <td className="px-4 py-3 text-white">
                               {(r.profiles as { full_name: string | null; nickname: string | null } | undefined)?.nickname ??
                                (r.profiles as { full_name: string | null; nickname: string | null } | undefined)?.full_name ?? "—"}
@@ -359,7 +362,7 @@ export default function LeavePage() {
                           <td className="px-4 py-3">
                             <span className={`badge border ${ss.bg} ${ss.text} capitalize`}>{r.status}</span>
                           </td>
-                          {isManager && r.status === "pending" && (
+                          {canManageLeave && r.status === "pending" && (
                             <td className="px-4 py-3">
                               <div className="flex gap-2">
                                 <button onClick={() => handleApprove(r.id, "approved")} className="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors cursor-pointer">Approve</button>
@@ -367,7 +370,7 @@ export default function LeavePage() {
                               </div>
                             </td>
                           )}
-                          {isManager && r.status !== "pending" && <td />}
+                          {canManageLeave && r.status !== "pending" && <td />}
                         </tr>
                       )
                     })}
@@ -379,7 +382,7 @@ export default function LeavePage() {
         )}
 
         {/* ── HR Summary tab ── */}
-        {tab === "hr" && isManager && (
+        {tab === "hr" && canManageLeave && (
           <>
             <div className="flex items-center gap-3 flex-wrap">
               <select

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useProfile } from "@/lib/hooks"
+import { branchScope } from "@/lib/permissions"
 import type { RetailBranch } from "@/types/retail"
 
 const PAYMENT_METHODS = [
@@ -43,7 +44,9 @@ function KpiCard({ label, value, sub }: { label: string; value: string; sub?: st
 
 export default function RetailDashboard() {
   const { profile } = useProfile()
-  const isManager = profile?.portal_role === "admin" || profile?.portal_role === "manager" || profile?.portal_role === "superadmin"
+  // This page uses branch SCOPE, not a capability: supervisor and ka are
+  // confined to their assigned branch, everyone else sees all branches.
+  const seesAllBranches = branchScope(profile) === "all"
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
@@ -64,7 +67,7 @@ export default function RetailDashboard() {
     createClient().from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
-      if (!isManager && profile.branch_id) {
+      if (!seesAllBranches && profile.branch_id) {
         setSelectedBranch(profile.branch_id)
       } else if (list.length > 0) {
         setSelectedBranch((prev) => prev || list[0].id)
@@ -153,7 +156,7 @@ export default function RetailDashboard() {
         <select
           value={selectedBranch}
           onChange={(e) => setSelectedBranch(e.target.value)}
-          disabled={!isManager}
+          disabled={!seesAllBranches}
           className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40 disabled:opacity-60 disabled:cursor-default"
         >
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -312,7 +315,7 @@ export default function RetailDashboard() {
             </div>
 
             {/* ROW 4 — Branch Comparison (managers, 2+ branches) */}
-            {isManager && branches.length > 1 && (
+            {seesAllBranches && branches.length > 1 && (
               <div className="bg-brand-900 border border-brand-800 rounded-xl overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-brand-800">
                   <span className="text-brand-400 text-xs font-medium uppercase tracking-wide">Branch Comparison</span>
