@@ -76,6 +76,8 @@ insert into role_capabilities (role, capability) values
   ('admin','sales.import'),      ('manager','sales.import'),      ('supervisor','sales.import'),
   ('admin','sales.manual'),      ('manager','sales.manual'),      ('supervisor','sales.manual'),
   ('admin','bills'),             ('manager','bills'),             ('supervisor','bills'),
+  ('admin','pos.money'),         ('manager','pos.money'),         ('supervisor','pos.money'),
+  ('ka','pos.money'),
   ('admin','traffic'),           ('manager','traffic'),           ('supervisor','traffic'),
 
   ('admin','stock.count'),       ('manager','stock.count'),       ('supervisor','stock.count'),
@@ -97,6 +99,17 @@ insert into role_capabilities (role, capability) values
   ('ka','shifts.view_own'),
 
   ('admin','shifts.manage'),     ('manager','shifts.manage'),     ('people','shifts.manage'),
+
+  -- leave and training split into an "everyone" verb and a "decider" verb
+  ('admin','leave.request'),     ('manager','leave.request'),     ('supervisor','leave.request'),
+  ('ka','leave.request'),        ('logistics','leave.request'),   ('people','leave.request'),
+  ('marketing','leave.request'),
+  ('admin','leave.approve'),     ('manager','leave.approve'),     ('people','leave.approve'),
+
+  ('admin','training.view'),     ('manager','training.view'),     ('supervisor','training.view'),
+  ('ka','training.view'),        ('logistics','training.view'),   ('people','training.view'),
+  ('marketing','training.view'),
+  ('admin','training.manage'),   ('manager','training.manage'),   ('people','training.manage'),
   ('admin','overtime.record'),   ('manager','overtime.record'),   ('people','overtime.record'),
   ('admin','payout.view'),       ('manager','payout.view'),       ('people','payout.view'),
 
@@ -229,13 +242,15 @@ create policy "write daily_sales_summary" on daily_sales_summary
 -- ── pos_money_records ──────────────────────────────────────────────────────
 drop policy if exists "Authenticated users can manage pos_money_records" on pos_money_records;
 
+-- 'bills' is a different feature (daily customer-bill counts by nationality)
+-- and has no table yet. Till reconciliation is pos.money.
 create policy "read pos_money_records" on pos_money_records
   for select to authenticated
-  using (public.has_capability('bills') and public.can_access_branch(branch_id));
+  using (public.has_capability('pos.money') and public.can_access_branch(branch_id));
 create policy "write pos_money_records" on pos_money_records
   for all to authenticated
-  using (public.has_capability('bills') and public.can_access_branch(branch_id))
-  with check (public.has_capability('bills') and public.can_access_branch(branch_id));
+  using (public.has_capability('pos.money') and public.can_access_branch(branch_id))
+  with check (public.has_capability('pos.money') and public.can_access_branch(branch_id));
 
 -- ── shop_traffic ───────────────────────────────────────────────────────────
 drop policy if exists "Authenticated can view shop_traffic"   on shop_traffic;
@@ -332,14 +347,14 @@ drop policy if exists "Superadmins can update leave_requests"    on leave_reques
 
 create policy "read leave_requests" on leave_requests
   for select to authenticated
-  using (staff_id = auth.uid() or public.has_capability('shifts.manage'));
+  using (staff_id = auth.uid() or public.has_capability('leave.approve'));
 create policy "insert own leave_requests" on leave_requests
   for insert to authenticated
-  with check (staff_id = auth.uid());
+  with check (staff_id = auth.uid() and public.has_capability('leave.request'));
 create policy "decide leave_requests" on leave_requests
   for update to authenticated
-  using (public.has_capability('shifts.manage'))
-  with check (public.has_capability('shifts.manage'));
+  using (public.has_capability('leave.approve'))
+  with check (public.has_capability('leave.approve'));
 
 -- ── calendar_events ────────────────────────────────────────────────────────
 drop policy if exists "Authenticated can view calendar_events"     on calendar_events;

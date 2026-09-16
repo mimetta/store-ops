@@ -25,17 +25,23 @@ from production in exactly the places we have already been bitten by.
 A dump reproduces what is actually there. It needs the production database
 password, so run it yourself:
 
+Use the **pooler** host, not `db.<ref>.supabase.co`. The direct host is
+IPv6-only and fails to resolve from this machine — verified 2026-09-16 against
+the UAT project, where it gave `could not translate host name ... No address
+associated with hostname`. The pooler works.
+
 ```bash
 cd "/Users/admin/Claude Projects/store-ops"
 
 supabase db dump \
-  --db-url "postgresql://postgres:<KINDOS_DB_PASSWORD>@db.gwncamipwckpknxpiksv.supabase.co:5432/postgres" \
+  --db-url "postgresql://postgres.gwncamipwckpknxpiksv:<KINDOS_DB_PASSWORD>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres" \
   --schema-only \
   -f supabase/uat/prod-schema.sql
 ```
 
-Alternatively, Supabase Dashboard → KindOS → Database → Backups, or
-Settings → Database → Connection string for the URL.
+Note the username is `postgres.<project-ref>`, not plain `postgres` — the
+pooler needs the ref to route. The password is KindOS's database password from
+Dashboard → KindOS → Settings → Database.
 
 **This is a read-only operation.** `db dump` issues `SELECT`s and
 `pg_dump`-style reads; it writes nothing to production.
@@ -53,20 +59,35 @@ Two things to check in the output before it is used:
 
 ## Step 2 — Apply it to UAT
 
-Once `prod-schema.sql` exists:
+**Status as of 2026-09-16: UAT is empty.** Verified by dumping its public
+schema — zero tables, zero policies. So this step has not happened, and
+nothing downstream can run until it does.
 
-```bash
-supabase db push --db-url "postgresql://postgres:$(cat ~/.store-ops-uat-db-password)@db.jgijsurgbciuopicqceo.supabase.co:5432/postgres"
+The UAT connection string (same pooler form):
+
 ```
-
-(Exact command depends on the dump's shape — confirm before running.)
+postgresql://postgres.jgijsurgbciuopicqceo:$(cat ~/.store-ops-uat-db-password)@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
+```
 
 ---
 
-## Step 3 — Role model change
+## Step 3 — Migrations, in this order
 
-See `../003-portal-role-extend.sql`. Read its header first: adding roles to the
-database does not by itself give them any distinct behaviour in the app.
+All four depend on the schema from step 2 existing. Running any of them against
+the current empty UAT fails immediately on a missing table.
+
+| # | File | What it does | Reversible? |
+|---|---|---|---|
+| 003 | `003-portal-role-extend.sql` | Adds the seven roles to the `portal_role` constraint | Yes, while no row uses a new value |
+| 005 | `005-migrate-staff-to-ka.sql` | Moves `staff` rows to `ka` and fills branch_id | Only with a record of the old values |
+| 004 | `004-rbac-rls.sql` | Capability + branch-scope RLS | **No** — drops existing policies |
+| — | seed | Master data and test accounts | n/a |
+
+005 runs before 004 so nobody is briefly left holding no capabilities.
+
+004 is the one that cannot be casually undone: it drops pre-existing policies,
+and its STEP 0 inventory is the only record of what they were. Take that output
+and keep it.
 
 ---
 

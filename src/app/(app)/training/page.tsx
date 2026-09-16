@@ -34,9 +34,9 @@ export default function TrainingPage() {
   const [assignStaffId, setAssignStaffId] = useState("")
 
   const supabase = createClient()
-  // TODO(role-model): 'training' is not named in the capability spec.
-  // 'shifts.manage' is the closest fit — confirm or correct.
-  const canManageTraining = can(profile, "shifts.manage")
+  // Two verbs: everyone sees their own training, a smaller set administers it.
+  const canViewTraining   = can(profile, "training.view")
+  const canManageTraining = can(profile, "training.manage")
 
   const loadData = useCallback(async () => {
     if (!profile) return
@@ -111,6 +111,13 @@ export default function TrainingPage() {
   // Sessions the current staff member is assigned to
   const myProgress = allProgress.filter((p) => p.staff_id === profile?.id)
   const displaySessions = canManageTraining ? sessions : sessions.filter((s) => myProgress.some((p) => p.session_id === s.id))
+
+  if (!canViewTraining) return (
+    <div className="flex items-center justify-center h-64 text-brand-400 flex-col gap-2">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <p className="text-sm">You do not have access to Training.</p>
+    </div>
+  )
 
   return (
     <div className="h-full overflow-y-auto">

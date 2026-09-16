@@ -31,7 +31,9 @@ function fmt(n: number) { return n.toLocaleString("th-TH") }
 
 export default function PosMoneyPage() {
   const { profile } = useProfile()
-  const canManageBills = can(profile, "bills")
+  // POS Money is till cash reconciliation. Customer-bill counts by
+// nationality are a different feature ("bills"), not yet built.
+  const canRecordPosMoney = can(profile, "pos.money")
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
@@ -49,7 +51,7 @@ export default function PosMoneyPage() {
     createClient().from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
-      if (!canManageBills && profile.branch_id) {
+      if (!canRecordPosMoney && profile.branch_id) {
         setSelectedBranch(profile.branch_id)
       } else if (list.length > 0) {
         setSelectedBranch((prev) => prev || list[0].id)
@@ -124,7 +126,7 @@ export default function PosMoneyPage() {
         <select
           value={selectedBranch}
           onChange={(e) => setSelectedBranch(e.target.value)}
-          disabled={!canManageBills}
+          disabled={!canRecordPosMoney}
           className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40 disabled:opacity-60 disabled:cursor-default"
         >
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}

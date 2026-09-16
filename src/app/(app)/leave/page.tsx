@@ -64,9 +64,9 @@ interface HRRow {
 export default function LeavePage() {
   const { profile } = useProfile()
   const supabase = createClient()
-  // TODO(role-model): 'leave' is not named in the capability spec.
-  // 'shifts.manage' is the closest fit — confirm or correct.
-  const canManageLeave = can(profile, "shifts.manage")
+  // Two verbs: everyone raises their own request, a smaller set decides.
+  const canRequestLeave = can(profile, "leave.request")
+  const canApproveLeave = can(profile, "leave.approve")
 
   const now = new Date()
   const [tab, setTab] = useState<"requests" | "hr">("requests")
@@ -93,7 +93,7 @@ export default function LeavePage() {
       setBranches(list)
       if (list.length > 0) setHrBranch((prev) => prev || list[0].id)
       // Pre-fill branch in form for staff
-      if (!canManageLeave && profile.branch_id) {
+      if (!canApproveLeave && profile.branch_id) {
         setForm((f) => ({ ...f, branch_id: profile.branch_id ?? "" }))
       }
     })
@@ -115,17 +115,17 @@ export default function LeavePage() {
       .gte("start_date", monthStart)
       .lte("start_date", monthEnd)
 
-    if (!canManageLeave) q = q.eq("staff_id", profile.id)
+    if (!canApproveLeave) q = q.eq("staff_id", profile.id)
 
     const { data } = await q
     setRequests((data ?? []) as LeaveRequest[])
     setLoading(false)
-  }, [profile, canManageLeave, monthYear])
+  }, [profile, canApproveLeave, monthYear])
 
   useEffect(() => { loadRequests() }, [loadRequests])
 
   const loadHRSummary = useCallback(async () => {
-    if (!canManageLeave || !hrBranch) return
+    if (!canApproveLeave || !hrBranch) return
     setHrLoading(true)
 
     const [y, m] = monthYear.split("-").map(Number)
@@ -157,7 +157,7 @@ export default function LeavePage() {
 
     setHrRows(rows)
     setHrLoading(false)
-  }, [canManageLeave, hrBranch, monthYear])
+  }, [canApproveLeave, hrBranch, monthYear])
 
   useEffect(() => { if (tab === "hr") loadHRSummary() }, [tab, loadHRSummary])
 
@@ -239,14 +239,21 @@ export default function LeavePage() {
   }
 
   const days = daysBetween(form.start_date, form.end_date)
-  const colCount = canManageLeave ? 8 : 6
+  const colCount = canApproveLeave ? 8 : 6
+
+  if (!canRequestLeave) return (
+    <div className="flex items-center justify-center h-64 text-brand-400 flex-col gap-2">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <p className="text-sm">You do not have access to Leave.</p>
+    </div>
+  )
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
         <PageHeader
           title="Leave"
-          subtitle={canManageLeave ? "All leave requests for retail staff" : "Your leave requests"}
+          subtitle={canApproveLeave ? "All leave requests for retail staff" : "Your leave requests"}
           actions={
             <button onClick={() => setDrawerOpen(true)} className="btn-primary text-sm py-2 flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -267,7 +274,7 @@ export default function LeavePage() {
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-brand-800">
-          {(["requests", "hr"] as const).filter((t) => t === "requests" || canManageLeave).map((t) => (
+          {(["requests", "hr"] as const).filter((t) => t === "requests" || canApproveLeave).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -301,7 +308,7 @@ export default function LeavePage() {
               </div>
             </div>
 
-            {!canManageLeave && (
+            {!canApproveLeave && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="card p-4">
                   <p className="text-brand-400 text-xs font-medium mb-1">Annual Leave</p>
@@ -327,14 +334,14 @@ export default function LeavePage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-brand-700">
-                      {canManageLeave && <th className="text-left px-4 py-3 text-brand-400 font-medium">Staff</th>}
+                      {canApproveLeave && <th className="text-left px-4 py-3 text-brand-400 font-medium">Staff</th>}
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Type</th>
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Branch</th>
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Dates</th>
                       <th className="text-right px-4 py-3 text-brand-400 font-medium">Days</th>
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Reason</th>
                       <th className="text-left px-4 py-3 text-brand-400 font-medium">Status</th>
-                      {canManageLeave && <th className="px-4 py-3" />}
+                      {canApproveLeave && <th className="px-4 py-3" />}
                     </tr>
                   </thead>
                   <tbody>
@@ -346,7 +353,7 @@ export default function LeavePage() {
                       const ss = STATUS_STYLES[r.status]
                       return (
                         <tr key={r.id} className="border-b border-brand-800 hover:bg-brand-800/40 transition-colors">
-                          {canManageLeave && (
+                          {canApproveLeave && (
                             <td className="px-4 py-3 text-white">
                               {(r.profiles as { full_name: string | null; nickname: string | null } | undefined)?.nickname ??
                                (r.profiles as { full_name: string | null; nickname: string | null } | undefined)?.full_name ?? "—"}
@@ -362,7 +369,7 @@ export default function LeavePage() {
                           <td className="px-4 py-3">
                             <span className={`badge border ${ss.bg} ${ss.text} capitalize`}>{r.status}</span>
                           </td>
-                          {canManageLeave && r.status === "pending" && (
+                          {canApproveLeave && r.status === "pending" && (
                             <td className="px-4 py-3">
                               <div className="flex gap-2">
                                 <button onClick={() => handleApprove(r.id, "approved")} className="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors cursor-pointer">Approve</button>
@@ -370,7 +377,7 @@ export default function LeavePage() {
                               </div>
                             </td>
                           )}
-                          {canManageLeave && r.status !== "pending" && <td />}
+                          {canApproveLeave && r.status !== "pending" && <td />}
                         </tr>
                       )
                     })}
@@ -382,7 +389,7 @@ export default function LeavePage() {
         )}
 
         {/* ── HR Summary tab ── */}
-        {tab === "hr" && canManageLeave && (
+        {tab === "hr" && canApproveLeave && (
           <>
             <div className="flex items-center gap-3 flex-wrap">
               <select

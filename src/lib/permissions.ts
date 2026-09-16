@@ -53,7 +53,10 @@ export type AnyRole = Role | LegacyRole
 export const CAPABILITIES = [
   "sales.import",
   "sales.manual",
+  // bills = daily count of customer bills by nationality. NOT the till cash
+  // reconciliation — that is pos.money. No page exists for bills yet.
   "bills",
+  "pos.money",
   "traffic",
   "stock.count",
   "stock.variance.explain",
@@ -63,6 +66,12 @@ export const CAPABILITIES = [
   "transfers",
   "shifts.view_own",
   "shifts.manage",
+  // Split verbs: everyone acts on their own record, a smaller set decides for
+  // others. Same shape as shift swaps.
+  "leave.request",
+  "leave.approve",
+  "training.view",
+  "training.manage",
   "overtime.record",
   "payout.view",
   "commission.settings",
@@ -78,13 +87,14 @@ export type Capability = (typeof CAPABILITIES)[number]
  * The matrix. Each capability lists exactly the roles that hold it.
  *
  * `superadmin` is intentionally absent from every row — it is granted
- * everything by the short-circuit in `can()` rather than by being repeated
- * nineteen times.
+ * everything by the short-circuit in `can()` rather than by being repeated in
+ * every row.
  */
 const CAPABILITY_ROLES: Record<Capability, readonly Role[]> = {
   "sales.import":             ["admin", "manager", "supervisor"],
   "sales.manual":             ["admin", "manager", "supervisor"],
   "bills":                    ["admin", "manager", "supervisor"],
+  "pos.money":                ["admin", "manager", "supervisor", "ka"],
   "traffic":                  ["admin", "manager", "supervisor"],
 
   "stock.count":              ["admin", "manager", "supervisor", "ka"],
@@ -97,6 +107,14 @@ const CAPABILITY_ROLES: Record<Capability, readonly Role[]> = {
 
   "shifts.view_own":          ["ka"],
   "shifts.manage":            ["admin", "manager", "people"],
+
+  // every role — written out rather than via a constant so the matrix stays
+  // literal and machine-comparable against supabase/004-rbac-rls.sql
+  "leave.request":            ["admin", "manager", "supervisor", "ka", "logistics", "people", "marketing"],
+  "leave.approve":            ["admin", "manager", "people"],
+  "training.view":            ["admin", "manager", "supervisor", "ka", "logistics", "people", "marketing"],
+  "training.manage":          ["admin", "manager", "people"],
+
   "overtime.record":          ["admin", "manager", "people"],
   "payout.view":              ["admin", "manager", "people"],
   "commission.settings":      ["admin", "manager"],

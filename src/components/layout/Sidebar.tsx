@@ -50,7 +50,7 @@ const HISTORY_ICON    = "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m2
 const DAILY_ITEMS: NavItem[] = [
   { label: "FG Stock",      href: "/stock",       icon: <Icon d={STOCK_ICON} />,       needs: ["stock.count"] },
   { label: "Sales Record",  href: "/sales",       icon: <Icon d={SALES_ICON} />,       needs: ["sales.manual", "sales.import"] },
-  { label: "POS Money",     href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["bills"] },
+  { label: "POS Money",     href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["pos.money"] },
   // consumables: not in the capability spec — closest fit is stock.count
   { label: "Consumables",   href: "/consumables", icon: <Icon d={CONSUMABLE_ICON} />,  needs: ["stock.count"] },
   { label: "Shop Traffic",  href: "/traffic",     icon: <Icon d={TRAFFIC_ICON} />,     needs: ["traffic"] },
@@ -61,11 +61,11 @@ const DAILY_ITEMS: NavItem[] = [
 
 const PEOPLE_ITEMS: NavItem[] = [
   { label: "Calendar",      href: "/calendar",    icon: <Icon d={CALENDAR_ICON} />, needs: ["calendar.manage"] },
-  // Leave and Training are personal: everyone requests their own leave and
-  // views their own training. The pages gate the manager-only parts inside.
-  { label: "Leave",         href: "/leave",       icon: <Icon d={LEAVE_ICON} /> },
+  // Leave and Training are gated on the "everyone" half of their split
+  // capability, never left ungated. The pages gate the deciding half inside.
+  { label: "Leave",         href: "/leave",       icon: <Icon d={LEAVE_ICON} />,    needs: ["leave.request"] },
   { label: "Work Schedule", href: "/schedule",    icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
-  { label: "Training",      href: "/training",    icon: <Icon d={TRAINING_ICON} /> },
+  { label: "Training",      href: "/training",    icon: <Icon d={TRAINING_ICON} />, needs: ["training.view"] },
 ]
 
 // ── Manage ───────────────────────────────────────────────────────────────────
