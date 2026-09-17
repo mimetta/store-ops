@@ -292,48 +292,34 @@
 <div class="wrap">
 
 <header class="masthead">
-  <p class="eyebrow">Approved 17 Sep · three changes applied to UAT</p>
+  <p class="eyebrow">Approved 17 Sep · changes applied to UAT · tenant confirmed</p>
   <h1>Store Ops Schema</h1>
   <p class="standfirst">The retail tables are empty in both databases. That makes this the one moment the schema can be designed rather than worked around — and it changes which piece gets built first.</p>
   <div class="meta">
     <span><b>17 Sep 2026</b></span>
     <span>UAT <b>store-ops-uat</b></span>
     <span>Prod <b>KindOS</b></span>
-    <span>Migrations <b>001–010</b></span>
+    <span>Migrations <b>001–011</b></span>
     <span>Proposed new <b>20</b></span>
   </div>
 </header>
 
 <section>
-  <h2>Is <span class="mono">MMT2025</span> our tenant?</h2>
+  <h2><span class="mono">MMT2025</span> is our tenant — confirmed</h2>
+
+  <p>One legal entity, <b>MIMETTA CO., LTD.</b> (tax ID 0105567127188, 760 Soi Vanich 2). Onest and Kind Collective are brands inside it, sharing one AccCloud tenant. <code>MMT2025</code> abbreviates Mimetta.</p>
+
+  <p>Settled by an AccCloud delivery order — <code>DOD-05-2605/0001</code>, branch <b>Talat Noi</b>, warehouse <span class="mono">คลังกลาง</span>, lines <code>FG2-HW300-CLR / -NG / -ST</code>. Talat Noi is one of our seven branches and those are our products, on a document issued under that company code.</p>
 
   <div class="callout">
-    <h3>No — and the evidence says it is somebody else's</h3>
-    <p><code>MMT2025</code> appears in exactly one place across all seven repositories: <code>onest-wms/PLAN.md</code>, recorded as <b>confirmed</b> for Onest's warehouse system against <code>https://acccloud.me/api</code>. Nothing in store-ops, kcp-portal or the expense portal references a company code at all.</p>
-    <p>Store Operations serves <b>Kind Collective Co., Ltd.</b> — its own legal entity, its own Supabase project. An AccCloud <code>companyCode</code> identifies one tenant's books. Two different businesses do not share one.</p>
-    <p>Stronger than that: <b>there is no evidence Kind Collective has an AccCloud account.</b> Every AccCloud reference in the workspace belongs to an Onest or Mimetta system. The only mention inside store-ops is the <code>acccloud.sync</code> capability added last week.</p>
+    <h3>An earlier reading of this was wrong</h3>
+    <p>A previous version of this page argued <code>MMT2025</code> belonged to a different tenant, inferring separate legal entities from separate branding and separate Supabase projects. Brands are not entities. The document above settles it and the conclusion is withdrawn.</p>
+    <p>One thing that pointed the wrong way is worth fixing on its own account: store-ops' login page renders <b>&ldquo;&copy; Kind Collective Co., Ltd.&rdquo;</b>, inherited from kcp-portal. If Mimetta is the legal entity, that footer is wrong on both apps.</p>
   </div>
 
-  <p>That does not make D-24 useless — it makes it useful for one half and dangerous for the other.</p>
+  <p><b>D-24 is inheritable in full, tenant included.</b> The endpoints, the auth shape, the 1000-row cap, <code>prodTName</code> over <code>prodName</code>, the misspelled <code>differnce</code>, the absence of barcodes — and now the company code, the key pair and the product master itself. The <code>whCode</code> mapping can come from the same tenant's warehouse list; <span class="mono">คลังกลาง</span> on that delivery order is the first known one.</p>
 
-  <h3>Safe to inherit — properties of the product, not the tenant</h3>
-  <ul>
-    <li>Endpoint paths, and that the item master needs two of them joined on <code>prodCode</code></li>
-    <li>Auth shape: <code>x-api-key</code> and <code>x-secret-key</code> headers, <code>companyCode</code> in the body, <code>status: "000"</code> for success</li>
-    <li>The 1000-row cap under <code>searchAll='N'</code></li>
-    <li><code>prodTName</code> is the name; <code>prodName</code> is a concatenated display string</li>
-    <li>The misspelled <code>differnce</code> field</li>
-    <li>No barcode data from any endpoint</li>
-  </ul>
-
-  <h3>Must not be inherited — tenant-specific</h3>
-  <ul>
-    <li>The <code>companyCode</code> value and the key pair</li>
-    <li><b>The entire product master.</b> A different tenant has different products, warehouse codes and product group codes — so Q4's <code>whCode</code> mapping cannot come from onest-wms under any circumstances</li>
-    <li>Q1 and Q2 must be re-answered against Kind Collective's own tenant. UOM configuration is per-tenant, so an answer that holds for Onest need not hold here</li>
-  </ul>
-
-  <p><b>Worth settling before Phase 1 is scheduled:</b> whether Kind Collective has an AccCloud tenant at all, and if so under what code. If it does not, Phase 1 is not blocked on credentials — it needs a different source for the product master entirely, and CSV import becomes the primary path rather than the fallback.</p>
+  <p>Q1 and Q2 still need one real API response each, but now against the same tenant rather than a foreign one, which makes them confirmations rather than open questions. <b>The API stays the Phase 1 path; CSV remains the fallback.</b></p>
 </section>
 
 <section>
@@ -377,7 +363,8 @@
     <div class="spec-head"><span class="spec-name">branches</span><span class="tag redesign">redesign</span><span class="tag new" style="border-style:dashed">applied 008</span></div>
     <div class="spec-body">
       <p>Adds <code>store_type</code> — <code>own_store</code> | <code>consignment</code> | <code>popup</code>, not null, constrained. Plus the unique <code>name</code> from 006.</p>
-      <p class="why"><b>Every existing branch was backfilled to <code>own_store</code>, which is a guess.</b> The column is not null so it cannot be silently skipped, but nothing yet distinguishes the consignment counters from the shops. Correct those seven values before store_type drives commission or reporting, or the first tier calculation will be confidently wrong.</p>
+      <p class="why"><b>Real values applied in 011.</b> <code>own_store</code>: Song Wat, Talat Noi. <code>consignment</code>: Siam Discovery, Vanich House, Lofteyes, Ecotopia, Gaysorn. No popups yet. The 008 placeholder is gone from every row.</p>
+      <p class="why"><b>Vanich House is the office, not a shop</b> — Soi Vanich 2, the registered address — yet it carries a retail type. Commission tiers read <code>store_type</code>, branch pickers filter on <code>active</code> rather than type, and <code>branch_monthly_goals</code> will accept a target against it. An <code>office</code> type excluded from all three is the cheap fix now; see the note at the foot of 011.</p>
     </div>
   </div>
 
@@ -699,7 +686,8 @@
     <li><b>Which nationalities are counted on bills and traffic?</b> Still open. Determines the seed list, not the schema — <code>nationality</code> is free text against a reference list, so an unrecognised value surfaces in reporting rather than being rejected at the door.</li>
     <li><b style="color:var(--accent)">Answered — <code>shop_traffic</code> moves to rows.</b> Applied in 010 while the table was empty.</li>
     <li><b style="color:var(--accent)">Answered — multiple warehouses per branch.</b> No unique constraint on <code>branch_id</code>; <code>is_default</code> decides which one a branch posts to.</li>
-    <li><b>Which branches are consignment or popup?</b> New, and created by 008. All seven were backfilled to <code>own_store</code> because the column is not null — that is a placeholder, not a fact, and commission tiers will read it.</li>
+    <li><b style="color:var(--accent)">Answered — store types applied in 011.</b> Two own stores, five consignment, no popups.</li>
+    <li><b>Should an office have its own <code>store_type</code>?</b> Vanich House is the office but is typed <code>consignment</code>, so every calculation reading <code>store_type</code> will treat it as a consignment shop — including commission weighting and monthly goals.</li>
   </ol>
 </section>
 
@@ -711,7 +699,7 @@
     <div class="phase-n">01</div>
     <div>
       <h3>AccCloud item master</h3>
-      <p>Both endpoints, joined on <code>prodCode</code>. Paging, the 1000-row guard, and the two assertions from Q1 and Q2 on first run.</p>
+      <p>Both endpoints, joined on <code>prodCode</code>, against tenant <code>MMT2025</code>. Paging, the 1000-row guard, and the Q1/Q2 assertions on first run. CSV import stays as the fallback path, not the primary one.</p>
       <p class="tbls">warehouses · products · product_uoms · erp_sync_runs · erp_import_rows</p>
     </div>
   </div>
