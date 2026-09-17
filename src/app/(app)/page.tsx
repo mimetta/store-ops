@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { SHOP_STORE_TYPES } from "@/lib/branches"
 import { useProfile } from "@/lib/hooks"
 import { branchScope } from "@/lib/permissions"
 import type { RetailBranch } from "@/types/retail"
@@ -64,7 +65,7 @@ export default function RetailDashboard() {
 
   useEffect(() => {
     if (!profile) return
-    createClient().from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
+    createClient().from("branches").select("*").eq("active", true).in("store_type", SHOP_STORE_TYPES).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
       if (!seesAllBranches && profile.branch_id) {

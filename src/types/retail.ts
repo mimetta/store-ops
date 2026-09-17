@@ -13,6 +13,8 @@ export interface RetailBranch {
   name: string
   location: string | null
   active: boolean
+  /** own_store | consignment | popup | office — see lib/branches.ts */
+  store_type: string | null
   created_at: string
 }
 

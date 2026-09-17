@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { SHOP_STORE_TYPES, ALL_STORE_TYPES, STORE_TYPE_LABELS, type StoreType } from "@/lib/branches"
 import { useProfile } from "@/lib/hooks"
 import { can } from "@/lib/permissions"
 import PageHeader from "@/components/retail/PageHeader"
@@ -37,7 +38,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 // ── Branch tab ────────────────────────────────────────────────────────────────
 
-const EMPTY_BRANCH = { name: "", location: "", active: true }
+const EMPTY_BRANCH = { name: "", location: "", active: true, store_type: "own_store" as StoreType }
 
 function BranchesTab({ toast }: { toast: (t: "ok" | "err", m: string) => void }) {
   const supabase = createClient()
@@ -58,12 +59,12 @@ function BranchesTab({ toast }: { toast: (t: "ok" | "err", m: string) => void })
   useEffect(() => { load() }, [load])
 
   function openAdd() { setEditing(null); setForm(EMPTY_BRANCH); setDrawerOpen(true) }
-  function openEdit(b: RetailBranch) { setEditing(b); setForm({ name: b.name, location: b.location ?? "", active: b.active }); setDrawerOpen(true) }
+  function openEdit(b: RetailBranch) { setEditing(b); setForm({ name: b.name, location: b.location ?? "", active: b.active, store_type: (b.store_type ?? "own_store") as StoreType }); setDrawerOpen(true) }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    const payload = { name: form.name, location: form.location || null, active: form.active }
+    const payload = { name: form.name, location: form.location || null, active: form.active, store_type: form.store_type }
     const { error } = editing
       ? await supabase.from("branches").update(payload).eq("id", editing.id)
       : await supabase.from("branches").insert(payload)
@@ -130,6 +131,22 @@ function BranchesTab({ toast }: { toast: (t: "ok" | "err", m: string) => void })
           <div>
             <label className="block text-sm font-medium text-brand-300 mb-1.5">Location</label>
             <input type="text" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Siam" className="input-field" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-brand-300 mb-1.5">Store type *</label>
+            <select
+              required
+              value={form.store_type}
+              onChange={(e) => setForm({ ...form, store_type: e.target.value as StoreType })}
+              className="input-field"
+            >
+              {ALL_STORE_TYPES.map((t) => (
+                <option key={t} value={t}>{STORE_TYPE_LABELS[t]}</option>
+              ))}
+            </select>
+            <p className="text-brand-500 text-xs mt-1.5">
+              Offices are excluded from shop pickers and cannot carry a monthly goal.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setForm({ ...form, active: !form.active })}
@@ -503,7 +520,7 @@ function StockLevelsTab({ toast }: { toast: (t: "ok" | "err", m: string) => void
 
   useEffect(() => {
     Promise.all([
-      supabase.from("branches").select("*").eq("active", true).order("name"),
+      supabase.from("branches").select("*").eq("active", true).in("store_type", SHOP_STORE_TYPES).order("name"),
       supabase.from("products").select("*").eq("active", true).order("name"),
       supabase.from("stock_levels").select("product_id, branch_id, quantity, minimum_override"),
     ]).then(([b, p, s]) => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { SHOP_STORE_TYPES } from "@/lib/branches"
 import { useProfile } from "@/lib/hooks"
 import { can } from "@/lib/permissions"
 import type { RetailBranch, Product } from "@/types/retail"
@@ -66,7 +67,7 @@ export default function SalesPage() {
 
   useEffect(() => {
     if (!profile) return
-    createClient().from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
+    createClient().from("branches").select("*").eq("active", true).in("store_type", SHOP_STORE_TYPES).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
       if (!canEnterSales && profile.branch_id) {

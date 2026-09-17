@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { SHOP_STORE_TYPES } from "@/lib/branches"
 import { useProfile } from "@/lib/hooks"
 import { can } from "@/lib/permissions"
 import { logActivity } from "@/lib/activity"
@@ -88,7 +89,7 @@ export default function LeavePage() {
 
   useEffect(() => {
     if (!profile) return
-    supabase.from("branches").select("*").eq("active", true).order("name").then(({ data }) => {
+    supabase.from("branches").select("*").eq("active", true).in("store_type", SHOP_STORE_TYPES).order("name").then(({ data }) => {
       const list = (data ?? []) as RetailBranch[]
       setBranches(list)
       if (list.length > 0) setHrBranch((prev) => prev || list[0].id)
