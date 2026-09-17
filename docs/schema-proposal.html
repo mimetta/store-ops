@@ -1,0 +1,679 @@
+<title>Store Ops Schema Proposal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --ground:    #FBFCFD;
+    --surface:   #EFF3F6;
+    --surface-2: #E4EAEF;
+    --ink:       #1A2430;
+    --muted:     #5B6A7C;
+    --hairline:  #D3DCE4;
+    --accent:    #0E6E7D;
+    --accent-dim:#D9EAEC;
+    --keep:      #4B5C6B;
+    --redesign:  #9A6205;
+    --new:       #0E6E7D;
+    --drop:      #A32C22;
+    --warn-bg:   #FDF3E3;
+    --warn-br:   #E8C88A;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:    #11151B;
+      --surface:   #19202A;
+      --surface-2: #212A36;
+      --ink:       #DCE4ED;
+      --muted:     #8D9CAD;
+      --hairline:  #2C3743;
+      --accent:    #5FBFCC;
+      --accent-dim:#16303A;
+      --keep:      #93A3B3;
+      --redesign:  #D8A24A;
+      --new:       #5FBFCC;
+      --drop:      #E08B80;
+      --warn-bg:   #2A2317;
+      --warn-br:   #5C4A24;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:    #11151B;
+    --surface:   #19202A;
+    --surface-2: #212A36;
+    --ink:       #DCE4ED;
+    --muted:     #8D9CAD;
+    --hairline:  #2C3743;
+    --accent:    #5FBFCC;
+    --accent-dim:#16303A;
+    --keep:      #93A3B3;
+    --redesign:  #D8A24A;
+    --new:       #5FBFCC;
+    --drop:      #E08B80;
+    --warn-bg:   #2A2317;
+    --warn-br:   #5C4A24;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 24px 96px;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; }
+
+  /* ── masthead ─────────────────────────────────────────── */
+  header.masthead {
+    padding: 56px 0 28px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 8px;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-family: Newsreader, Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(34px, 5.5vw, 50px);
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0 0 16px;
+  }
+  .standfirst {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 60ch;
+    margin: 0;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 28px;
+    margin-top: 26px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .meta b { color: var(--ink); font-weight: 500; }
+
+  /* ── sections ─────────────────────────────────────────── */
+  section { margin-top: 56px; }
+  h2 {
+    font-family: Newsreader, Georgia, serif;
+    font-weight: 600;
+    font-size: 27px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 6px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  h3 {
+    font-family: "Public Sans", sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.01em;
+    margin: 34px 0 10px;
+  }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  ul { margin: 0 0 14px; padding-left: 20px; max-width: 70ch; }
+  li { margin-bottom: 7px; }
+  a { color: var(--accent); }
+
+  code, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.875em;
+  }
+  p code, li code, td code {
+    background: var(--surface);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ── callout ──────────────────────────────────────────── */
+  .callout {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-br);
+    border-radius: 4px;
+    padding: 20px 22px;
+    margin: 22px 0;
+  }
+  .callout h3 { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ── table spec blocks ────────────────────────────────── */
+  .spec {
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--keep);
+    border-radius: 3px;
+    background: var(--surface);
+    margin: 18px 0;
+    overflow: hidden;
+  }
+  .spec.is-new      { border-left-color: var(--new); }
+  .spec.is-redesign { border-left-color: var(--redesign); }
+  .spec.is-drop     { border-left-color: var(--drop); }
+
+  .spec-head {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .spec-name {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 500;
+    font-size: 15px;
+  }
+  .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+    border: 1px solid currentColor;
+  }
+  .tag.keep     { color: var(--keep); }
+  .tag.new      { color: var(--new); }
+  .tag.redesign { color: var(--redesign); }
+  .tag.drop     { color: var(--drop); }
+
+  .spec-body { padding: 14px 18px 16px; }
+  .spec-body > p:first-child { margin-top: 0; }
+  .spec-body > p:last-child  { margin-bottom: 0; }
+
+  .cols { overflow-x: auto; margin: 0 0 12px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 6px 12px 6px 0;
+    border-bottom: 1px solid var(--hairline);
+    white-space: nowrap;
+  }
+  td {
+    padding: 7px 12px 7px 0;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.c {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+  td.t { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+
+  .why {
+    border-top: 1px dashed var(--hairline);
+    padding-top: 11px;
+    margin-top: 4px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .why b { color: var(--ink); font-weight: 600; }
+
+  /* ── phases ───────────────────────────────────────────── */
+  .phase {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .phase:last-child { border-bottom: none; }
+  .phase-n {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--accent);
+    padding-top: 3px;
+  }
+  .phase h3 { margin: 0 0 5px; }
+  .phase p  { margin: 0 0 6px; font-size: 14.5px; }
+  .phase .tbls {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── questions ────────────────────────────────────────── */
+  ol.q { counter-reset: q; list-style: none; padding: 0; max-width: 72ch; }
+  ol.q > li {
+    counter-increment: q;
+    position: relative;
+    padding: 14px 0 14px 38px;
+    border-bottom: 1px solid var(--hairline);
+    margin: 0;
+  }
+  ol.q > li::before {
+    content: "Q" counter(q);
+    position: absolute; left: 0; top: 15px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--accent);
+  }
+  ol.q b { display: block; margin-bottom: 3px; }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--hairline);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Proposal · for agreement before build</p>
+  <h1>Store Ops Schema</h1>
+  <p class="standfirst">The retail tables are empty in both databases. That makes this the one moment the schema can be designed rather than worked around — and it changes which piece gets built first.</p>
+  <div class="meta">
+    <span><b>17 Sep 2026</b></span>
+    <span>UAT <b>store-ops-uat</b></span>
+    <span>Prod <b>KindOS</b></span>
+    <span>Existing tables <b>25</b></span>
+    <span>Proposed new <b>16</b></span>
+  </div>
+</header>
+
+<section>
+  <h2>The build order needs one correction</h2>
+
+  <p>AccCloud-first is right. <code>getProductRemain</code> is the wrong endpoint for it, and building against that assumption would cost a sprint.</p>
+
+  <div class="callout">
+    <h3>getProductRemain cannot produce a product master</h3>
+    <p>It returns quantity on hand per product per warehouse — balances only. No unit, no conversion factor, no category, no barcode. Syncing it into an empty database gives you stock figures for products that have no records.</p>
+    <p>This is already settled work: onest-wms investigated the same API and recorded it as <b>D-17</b>, then received the owner's final spec as <b>D-24</b>. Both are in <code>onest-wms/DECISIONS.md</code>.</p>
+  </div>
+
+  <p>The item master needs <b>two</b> endpoints joined on <code>prodCode</code>:</p>
+  <ul>
+    <li><code>ProductMaster1/getByProd</code> — codes and names</li>
+    <li>Get Product By Warehouse — unit and conversion factor</li>
+  </ul>
+  <p><code>getProductRemain</code> then becomes step two: opening balances and ongoing reconciliation, once there are products to reconcile against.</p>
+
+  <p>Four constraints from D-24 shape the tables below, so they are worth stating here:</p>
+  <ul>
+    <li><b>Auth</b> is two headers, <code>x-api-key</code> and <code>x-secret-key</code>, with <code>companyCode</code> in the body. Success is <code>status: "000"</code>.</li>
+    <li><b>No barcodes, from any endpoint.</b> Barcode identity is ours to own, which promotes barcode capture from a detail to real scope.</li>
+    <li><b>1000-row cap</b> when <code>searchAll='N'</code>. A response of exactly 1000 must fail loudly — a silently truncated sync reporting "no variances" is worse than one that errors.</li>
+    <li><b>Field names verbatim, including the misspelled <code>differnce</code>.</b> Correcting it in our code reads <code>undefined</code> at runtime and reports a zero variance.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Branches — settled and applied</h2>
+  <p>Your canonical list is seven names, and UAT already held exactly those seven. There was no extra one to remove. Production is the database with extras: <code>Head Office</code>, <code>Factory</code> and <code>Retail</code>, seeded by <code>schema.sql</code> as organisational entries rather than shops.</p>
+  <p><code>006-canonical-branches.sql</code> is written as an allowlist, so it produces the same end state in either database regardless of what each started with. It <b>deactivates, never deletes</b> — six tables reference branches with <code>ON DELETE CASCADE</code>, so deleting one would silently destroy that branch's entire sales history, stock levels and movement ledger.</p>
+  <p>Applied to UAT: seven active, zero stranded staff. It also adds a unique constraint on <code>branches.name</code> — without one, <code>on conflict do nothing</code> has no index to detect a conflict against, and re-running the file produced fourteen branches instead of seven.</p>
+</section>
+
+<section>
+  <h2>A · Master data and AccCloud identity</h2>
+
+  <div class="spec">
+    <div class="spec-head"><span class="spec-name">branches</span><span class="tag keep">keep</span></div>
+    <div class="spec-body">
+      <p>Unchanged beyond the unique constraint on <code>name</code> added in 006.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">warehouses</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">id</td><td class="t">uuid pk</td><td></td></tr>
+        <tr><td class="c">wh_code</td><td class="t">text unique</td><td>AccCloud <code>whCode</code>, verbatim</td></tr>
+        <tr><td class="c">name</td><td class="t">text</td><td></td></tr>
+        <tr><td class="c">branch_id</td><td class="t">uuid → branches</td><td>nullable — not every warehouse is a shop</td></tr>
+        <tr><td class="c">is_default</td><td class="t">boolean</td><td>which warehouse a branch posts to</td></tr>
+        <tr><td class="c">active</td><td class="t">boolean</td><td></td></tr>
+      </table></div>
+      <p class="why"><b>Why a table, not a column on branches.</b> AccCloud speaks in warehouse codes; the app speaks in branches. Every balance, receipt and reconciliation arrives keyed by <code>whCode</code>. A branch may map to more than one warehouse, and some warehouses map to none — a column cannot express either. Without this table every sync guesses the mapping, and a wrong guess puts a shop's stock in the wrong shop.</p>
+    </div>
+  </div>
+
+  <div class="spec is-redesign">
+    <div class="spec-head"><span class="spec-name">products</span><span class="tag redesign">redesign</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">id</td><td class="t">uuid pk</td><td></td></tr>
+        <tr><td class="c">prod_code</td><td class="t">text unique</td><td>the join key between both AccCloud endpoints</td></tr>
+        <tr><td class="c">acccloud_master_id</td><td class="t">text unique null</td><td>from <code>productMaster1Id</code></td></tr>
+        <tr><td class="c">name</td><td class="t">text</td><td>from <code>prodTName</code></td></tr>
+        <tr><td class="c">group_code</td><td class="t">text</td><td><code>productGroupCode</code> — the paging key</td></tr>
+        <tr><td class="c">category</td><td class="t">text</td><td>display grouping</td></tr>
+        <tr><td class="c">base_uom</td><td class="t">text</td><td></td></tr>
+        <tr><td class="c">type</td><td class="t">text</td><td><code>fg</code> | <code>consumable</code></td></tr>
+        <tr><td class="c">cost_price<br>selling_price</td><td class="t">numeric</td><td></td></tr>
+        <tr><td class="c">source</td><td class="t">text</td><td><code>acccloud</code> | <code>manual</code></td></tr>
+        <tr><td class="c">last_synced_at</td><td class="t">timestamptz</td><td></td></tr>
+        <tr><td class="c">raw</td><td class="t">jsonb</td><td>unmapped AccCloud fields, preserved</td></tr>
+        <tr><td class="c">active</td><td class="t">boolean</td><td></td></tr>
+      </table></div>
+      <p class="why"><b>Three changes that matter.</b> <code>name</code> comes from <code>prodTName</code>, never <code>prodName</code> — the latter is a concatenated <code>code || name</code> display string. <code>group_code</code> is not decoration: it is how the sync pages around the 1000-row cap. And <code>raw</code> keeps everything we do not map (<code>weight</code>, <code>prodVat</code>, <code>prodUniqueCode</code>) so a later need does not require a re-import.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">product_uoms</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">product_id</td><td class="t">uuid → products</td><td></td></tr>
+        <tr><td class="c">from_uom / to_uom</td><td class="t">text</td><td>direction stated explicitly</td></tr>
+        <tr><td class="c">factor</td><td class="t">numeric</td><td>from <code>prodConvFactor</code></td></tr>
+        <tr><td class="c">confirmed_by</td><td class="t">uuid null</td><td>who checked the direction</td></tr>
+      </table></div>
+      <p class="why"><b>Why the direction is a column.</b> AccCloud supplies a bare conversion factor with no stated base — an open question in D-24. If the direction is inverted, an imported drum-to-kilo factor is wrong by a factor of 200 and first surfaces as an absurd stock figure weeks later. Storing it directed, with a human confirmation on first import, makes the ambiguity visible instead of latent.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">product_barcodes</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">product_id</td><td class="t">uuid → products</td><td></td></tr>
+        <tr><td class="c">barcode</td><td class="t">text unique</td><td></td></tr>
+        <tr><td class="c">kind</td><td class="t">text</td><td><code>internal</code> | <code>supplier</code></td></tr>
+      </table></div>
+      <p class="why"><b>Forced by the API.</b> AccCloud returns no barcode data from any endpoint, so barcode identity is ours. Many-to-one because one product carries both our printed label and whatever the supplier's carton already has. It also turns the unknown-barcode dead end into a capture opportunity: a scan that resolves to nothing offers "link this barcode".</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>B · Sync plumbing</h2>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">erp_sync_runs</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">endpoint</td><td class="t">text</td><td>which of the three</td></tr>
+        <tr><td class="c">status</td><td class="t">text</td><td><code>running</code> | <code>ok</code> | <code>failed</code> | <code>truncated</code> | <code>auth_failed</code></td></tr>
+        <tr><td class="c">rows_fetched<br>rows_applied</td><td class="t">integer</td><td>divergence is the signal</td></tr>
+        <tr><td class="c">page_count</td><td class="t">integer</td><td></td></tr>
+        <tr><td class="c">error_code<br>error_message</td><td class="t">text</td><td></td></tr>
+      </table></div>
+      <p class="why"><b>Two statuses earn their place.</b> <code>truncated</code> exists because a page returning exactly 1000 rows is indistinguishable from a complete one — the run must record it and fail rather than report success on partial data. <code>auth_failed</code> is separate because an AccCloud key reset invalidates keys immediately; a generic "sync failed" sends someone into the wrong logs for an afternoon.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">erp_import_rows</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">run_id</td><td class="t">uuid → erp_sync_runs</td><td></td></tr>
+        <tr><td class="c">prod_code / wh_code</td><td class="t">text</td><td></td></tr>
+        <tr><td class="c">raw</td><td class="t">jsonb</td><td>the response row, untouched</td></tr>
+        <tr><td class="c">applied</td><td class="t">boolean</td><td></td></tr>
+        <tr><td class="c">reject_reason</td><td class="t">text</td><td></td></tr>
+      </table></div>
+      <p class="why"><b>Makes a bad sync diagnosable without re-calling the API.</b> When a product arrives with a blank name or an impossible factor, the question is always "what did they actually send us". Keeping the raw row answers it months later, and survives the vendor changing a field name.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>C · Stock</h2>
+
+  <div class="spec is-redesign">
+    <div class="spec-head"><span class="spec-name">stock_levels</span><span class="tag redesign">redesign</span></div>
+    <div class="spec-body">
+      <p>Keeps <code>product_id</code>, <code>branch_id</code>, <code>quantity</code>. Adds <code>min_level</code> and <code>max_level</code> — there is no max anywhere in the schema today, and <code>minimum_override</code> is renamed into the pair so the two read as one concept.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">stock_counts</span> <span class="spec-name" style="color:var(--muted)">+ stock_count_lines</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">branch_id / count_date</td><td class="t"></td><td>header</td></tr>
+        <tr><td class="c">status</td><td class="t">text</td><td><code>draft</code> → <code>submitted</code> → <code>approved</code></td></tr>
+        <tr><td class="c">— line —</td><td class="t"></td><td></td></tr>
+        <tr><td class="c">system_qty / counted_qty</td><td class="t">integer</td><td></td></tr>
+        <tr><td class="c">variance</td><td class="t">generated</td><td><code>counted − system</code></td></tr>
+        <tr><td class="c">variance_reason</td><td class="t">text</td><td></td></tr>
+        <tr><td class="c">explained_by</td><td class="t">uuid</td><td></td></tr>
+      </table></div>
+      <p class="why"><b>Explaining and approving are deliberately different people.</b> <code>stock.variance.explain</code> belongs to <code>ka</code> alone; <code>stock.adjustment.approve</code> to admin and manager. The person who counted writes why it differs; someone else decides whether the ledger moves. Putting both on one row with one actor would collapse a control you have already specified.</p>
+    </div>
+  </div>
+
+  <div class="spec is-redesign">
+    <div class="spec-head"><span class="spec-name">stock_movements</span><span class="tag redesign">redesign</span></div>
+    <div class="spec-body">
+      <p>Same shape, plus a trigger refusing <code>UPDATE</code>, <code>DELETE</code> and <code>TRUNCATE</code>.</p>
+      <p class="why"><b>A ledger you can edit is not a ledger.</b> onest-wms enforces exactly this and it is the reason its demo database had to be retired rather than cleaned — worth knowing the cost, and worth paying it. The corollary: mistakes are corrected by a compensating movement, never by editing history, so the UI must offer that instead of a delete button.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">stock_adjustments</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <p>Links an approved variance to the movement it produced: <code>count_line_id</code>, <code>qty_delta</code>, <code>reason</code>, <code>requested_by</code>, <code>approved_by</code>, <code>approved_at</code>, <code>status</code>.</p>
+      <p class="why"><b>The approval needs somewhere to live.</b> Without it, "who authorised this write-off" is answerable only from an audit log, which is the wrong place for a business fact.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>D · Movement documents</h2>
+  <p>All three follow one header-and-lines shape, so the UI and the posting logic are written once.</p>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">receipts</span> <span class="spec-name" style="color:var(--muted)">+ receipt_lines</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <p>Inbound goods. Header carries <code>branch_id</code>, <code>supplier_id</code>, <code>received_at</code>, <code>status</code>, <code>reference</code>; lines carry product, expected and received quantity.</p>
+      <p class="why">Capability <code>receiving</code> — admin, manager, supervisor, ka, logistics. Recording expected alongside received is what makes a short delivery visible rather than merely a small number.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">transfers</span> <span class="spec-name" style="color:var(--muted)">+ transfer_lines</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <p><code>from_branch_id</code>, <code>to_branch_id</code>, <code>status</code> (<code>draft</code> → <code>sent</code> → <code>received</code>), <code>sent_at</code>, <code>received_at</code>.</p>
+      <p class="why"><b>Stock in transit belongs to neither shop.</b> A transfer that decrements the sender and increments the receiver in one step makes the goods teleport; anything lost between the two shops is then invisible. The three-state flow is what lets you ask how much is on a van right now.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">deliveries</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <p>Scheduled outbound runs: <code>branch_id</code>, <code>scheduled_for</code>, <code>window</code>, <code>status</code>, <code>notes</code>, optional link to a transfer.</p>
+      <p class="why">Capability <code>delivery.schedule</code> — admin, manager, logistics.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>E · Sales and daily numbers</h2>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">bills</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">branch_id / bill_date</td><td class="t"></td><td></td></tr>
+        <tr><td class="c">nationality</td><td class="t">text</td><td>one row per nationality</td></tr>
+        <tr><td class="c">bill_count</td><td class="t">integer</td><td></td></tr>
+      </table></div>
+      <p class="why"><b>Rows, not columns — and <code>shop_traffic</code> is the cautionary example.</b> That table hardcodes <code>thai_count</code> and <code>foreigner_count</code>, so adding a third nationality means a migration, a UI change and a rewrite of every query that named the columns. One row per nationality makes the same change an insert. This is separate from <code>pos_money_records</code>: bills count customers, POS money reconciles the till.</p>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="spec-head"><span class="spec-name">sales_records · daily_sales_summary · pos_money_records · shop_traffic</span><span class="tag keep">keep</span></div>
+    <div class="spec-body">
+      <p>All four stay as they are, now correctly scoped by 004. <code>shop_traffic</code>'s nationality columns are the one thing worth revisiting while it is still empty — see Q6.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>F · People, time and pay</h2>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">pay_rates</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">staff_id</td><td class="t">uuid → profiles</td><td></td></tr>
+        <tr><td class="c">effective_from</td><td class="t">date</td><td>history, not current value</td></tr>
+        <tr><td class="c">monthly_salary</td><td class="t">numeric</td><td></td></tr>
+        <tr><td class="c">hourly_rate</td><td class="t">numeric</td><td></td></tr>
+      </table></div>
+      <p class="why"><b>A separate table for three reasons.</b> It is personal data and must never be copied into UAT — easy to guarantee when it is one table, hard when it is four columns on <code>profiles</code>. It carries its own RLS, gated on <code>payout.view</code>. And it is dated, because recalculating last quarter's payroll needs the rate that applied then, not the rate now.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">overtime_records</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <p><code>staff_id</code>, <code>branch_id</code>, <code>work_date</code>, <code>hours</code>, <code>multiplier</code>, <code>status</code>, <code>approved_by</code>.</p>
+      <p class="why"><b><code>multiplier</code> is stored, not computed at read time.</b> Part-time staff get no OT multiplier, and that rule may change. Recording what was actually applied means a rule change does not silently rewrite last month's approved overtime.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">commission_rules · commission_runs · commission_lines</span><span class="tag new">new</span></div>
+    <div class="spec-body">
+      <p>Rules are dated. A run snapshots the period, the pool, and every participant. Lines hold each person's share.</p>
+      <p class="why"><b>The run must record its own denominator.</b> Part-timers are excluded from the commission pool denominator — so who was counted is the single most auditable fact in the calculation, and the most likely thing to be disputed. If the denominator is recomputed from today's roster, a person joining or leaving retroactively changes a payout that has already been made.</p>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="spec-head"><span class="spec-name">profiles · work_schedules · leave_requests · training_*</span><span class="tag keep">keep</span></div>
+    <div class="spec-body">
+      <p>All unchanged. <code>profiles.employment_type</code> stays the single source of part-time status, feeding both the OT multiplier and the commission denominator.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>G · Reference</h2>
+  <div class="spec is-redesign">
+    <div class="spec-head"><span class="spec-name">calendar_events</span><span class="tag redesign">redesign</span></div>
+    <div class="spec-body">
+      <p>Add <code>holiday</code> to the <code>event_type</code> check. The current list is <code>ma_visit</code>, <code>appointment</code>, <code>internal</code>, <code>training</code>, <code>other</code> — public holidays have nowhere to go, which is why they are unseeded in UAT.</p>
+    </div>
+  </div>
+  <div class="spec">
+    <div class="spec-head"><span class="spec-name">role_capabilities</span><span class="tag keep">keep</span></div>
+    <div class="spec-body">
+      <p>As established in 004. 78 grants, checked against <code>src/lib/permissions.ts</code> by <code>npm run check:permissions</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Open questions</h2>
+  <p>Six of these are cheap to answer now and expensive to guess. The first two are inherited from D-24 and are settled by one real API response each.</p>
+  <ol class="q">
+    <li><b>Is <code>getProductRemain.masterId</code> the same value as <code>productMaster1Id</code>?</b> Both are headed for <code>acccloud_master_id</code>. If they differ, matching on that column creates duplicate products. The sync should assert they agree on first run and refuse to commit if not.</li>
+    <li><b>What is <code>prodConvFactor</code> relative to?</b> A bare factor with no stated base. Inverted, a drum-to-kilo conversion is wrong by 200×.</li>
+    <li><b>Do read-only AccCloud credentials exist for UAT?</b> You asked for the sync to run against UAT so the integration gets tested. That needs a separate key pair — a reset invalidates the old one immediately, so it cannot be the production pair.</li>
+    <li><b>Which <code>whCode</code> maps to which branch?</b> I have no list. This is the one piece of master data that cannot be derived from anything already in the repo.</li>
+    <li><b>Which nationalities are counted on bills?</b> Determines the seed list, not the schema.</li>
+    <li><b>Should <code>shop_traffic</code> move to rows like <code>bills</code>?</b> It is empty, so this is free now and a migration later.</li>
+    <li><b>Can a branch have more than one warehouse?</b> The proposed table allows it. If the answer is always one, a unique constraint on <code>branch_id</code> makes that explicit.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Build order</h2>
+  <p>Numbered because the order genuinely constrains: each phase needs the one before it to have produced rows.</p>
+
+  <div class="phase">
+    <div class="phase-n">01</div>
+    <div>
+      <h3>AccCloud item master</h3>
+      <p>Both endpoints, joined on <code>prodCode</code>. Paging, the 1000-row guard, and the two assertions from Q1 and Q2 on first run.</p>
+      <p class="tbls">warehouses · products · product_uoms · erp_sync_runs · erp_import_rows</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">02</div>
+    <div>
+      <h3>Balances and reconciliation</h3>
+      <p><code>getProductRemain</code> — now that there are products to match against. Opening balances, then a recurring variance report.</p>
+      <p class="tbls">stock_levels · stock_movements</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">03</div>
+    <div>
+      <h3>Counting, variance, adjustment</h3>
+      <p>The first screen shop staff touch. Exercises the ka-explains / manager-approves split end to end.</p>
+      <p class="tbls">stock_counts · stock_count_lines · stock_adjustments · product_barcodes</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">04</div>
+    <div>
+      <h3>Receiving and transfers</h3>
+      <p>Needs barcodes from 03 to be scannable, and in-transit state to be meaningful.</p>
+      <p class="tbls">receipts · transfers · deliveries</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">05</div>
+    <div>
+      <h3>Daily numbers</h3>
+      <p>Sales, bills, POS money, traffic. Independent of stock, so it can run in parallel with 03–04 if there is capacity.</p>
+      <p class="tbls">bills · sales_records · pos_money_records · shop_traffic</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">06</div>
+    <div>
+      <h3>Time and pay</h3>
+      <p>Last because it is the only domain holding personal data, and the only one where a bug costs someone their wages.</p>
+      <p class="tbls">overtime_records · pay_rates · commission_rules · commission_runs · commission_lines</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Nothing in sections A–G has been built. 006 is applied to UAT only.<br>
+  Sources: onest-wms <span class="mono">DECISIONS.md</span> D-17 and D-24 · store-ops <span class="mono">supabase/</span> 001–006 · live UAT schema, 17 Sep 2026.
+</footer>
+
+</div>
