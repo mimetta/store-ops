@@ -314,7 +314,7 @@
   <div class="callout">
     <h3>An earlier reading of this was wrong</h3>
     <p>A previous version of this page argued <code>MMT2025</code> belonged to a different tenant, inferring separate legal entities from separate branding and separate Supabase projects. Brands are not entities. The document above settles it and the conclusion is withdrawn.</p>
-    <p>One thing that pointed the wrong way is worth fixing on its own account: store-ops' login page renders <b>&ldquo;&copy; Kind Collective Co., Ltd.&rdquo;</b>, inherited from kcp-portal. If Mimetta is the legal entity, that footer is wrong on both apps.</p>
+    <p>One thing that pointed the wrong way has since been corrected in both apps: the login footers read <b>&ldquo;&copy; 2026 Mimetta Co., Ltd.&rdquo;</b>, where they previously carried a brand name as though it were the registered entity.</p>
   </div>
 
   <p><b>D-24 is inheritable in full, tenant included.</b> The endpoints, the auth shape, the 1000-row cap, <code>prodTName</code> over <code>prodName</code>, the misspelled <code>differnce</code>, the absence of barcodes — and now the company code, the key pair and the product master itself. The <code>whCode</code> mapping can come from the same tenant's warehouse list; <span class="mono">คลังกลาง</span> on that delivery order is the first known one.</p>
@@ -681,7 +681,7 @@
   <ol class="q">
     <li><b>Is <code>getProductRemain.masterId</code> the same value as <code>productMaster1Id</code>?</b> Both are headed for <code>acccloud_master_id</code>. If they differ, matching on that column creates duplicate products. The sync should assert they agree on first run and refuse to commit if not.</li>
     <li><b>What is <code>prodConvFactor</code> relative to?</b> A bare factor with no stated base. Inverted, a drum-to-kilo conversion is wrong by 200×.</li>
-    <li><b>Do read-only AccCloud credentials exist for UAT — and does Kind Collective have a tenant at all?</b> In progress. A reset invalidates the old key pair immediately, so UAT cannot share production's. See the tenant section: <code>MMT2025</code> is Onest's.</li>
+    <li><b>Do read-only AccCloud credentials exist for UAT?</b> In progress. The tenant is settled — <code>MMT2025</code> is ours — but a key reset invalidates the existing pair immediately, so UAT still needs its own rather than sharing production's.</li>
     <li><b>Which <code>whCode</code> maps to which branch?</b> In progress. Cannot be derived from anything in the repo, and explicitly cannot be inherited from onest-wms — a different tenant has different warehouse codes.</li>
     <li><b>Which nationalities are counted on bills and traffic?</b> Still open. Determines the seed list, not the schema — <code>nationality</code> is free text against a reference list, so an unrecognised value surfaces in reporting rather than being rejected at the door.</li>
     <li><b style="color:var(--accent)">Answered — <code>shop_traffic</code> moves to rows.</b> Applied in 010 while the table was empty.</li>

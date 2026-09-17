@@ -4,7 +4,7 @@ import EnvBanner from "@/components/layout/EnvBanner"
 
 export const metadata: Metadata = {
   title: "Store Operations",
-  description: "Store operations system for Kind Collective",
+  description: "Store operations system for Mimetta",
 }
 
 export default function RootLayout({

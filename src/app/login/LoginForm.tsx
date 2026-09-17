@@ -55,7 +55,7 @@ export default function LoginForm() {
             <h1 className="mt-4 text-2xl font-semibold text-white tracking-tight">
               Store Operations
             </h1>
-            <p className="text-brand-400 text-sm mt-1">Kind Collective</p>
+            <p className="text-brand-400 text-sm mt-1">Mimetta</p>
           </div>
 
           {/* Form */}
@@ -70,7 +70,7 @@ export default function LoginForm() {
                 type="email"
                 autoComplete="email"
                 required
-                placeholder="you@kindcollective.co"
+                placeholder="you@mimetta.co"
                 className="input-field"
               />
             </div>
@@ -138,13 +138,13 @@ export default function LoginForm() {
           </button>
 
           <p className="mt-6 text-center text-brand-500 text-xs">
-            Access is restricted to Kind Collective staff only.<br />
+            Access is restricted to Mimetta staff only.<br />
             Contact your manager if you need access.
           </p>
         </div>
 
         <p className="text-center text-brand-600 text-xs mt-6">
-          © {new Date().getFullYear()} Kind Collective Co., Ltd.
+          © {new Date().getFullYear()} Mimetta Co., Ltd.
         </p>
       </div>
     </div>
