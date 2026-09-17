@@ -73,38 +73,36 @@ select key, value, updated_at from company_settings where key = 'company_name';
 
 
 -- ───────────────────────────────────────────────────────────────────────────
--- STEP 2 — 'KC-Task' — DO NOT run this without the code change
+-- STEP 2 — 'KC-Task' stays. DECIDED 2026-09-17 — do not rename it.
 -- ───────────────────────────────────────────────────────────────────────────
 --
--- The service name is a lookup key, not just a label. kcp-portal does:
+-- `KC-Task` carries the old company abbreviation, but it is not renamed, and
+-- this is a decision rather than an oversight. Three reasons, any one of which
+-- is sufficient:
 --
---     src/app/(app)/services/kc-task/page.tsx:8
---       .from("services").select("*").eq("name", "KC-Task").single()
+--   1. services.name is a LOOKUP KEY, not a label. Every service page matches
+--      the literal name and calls .single(), which throws on no match:
 --
--- `.single()` throws when it matches no row. Renaming the row without the
--- code change turns that page into an error rather than a service tile — and
--- it is reached from the Kindfolks group in the sidebar, so the breakage is
--- one click from the home page.
+--        src/app/(app)/services/kc-task/page.tsx:8
+--          .from("services").select("*").eq("name", "KC-Task").single()
 --
--- Four things change together, or none do:
+--      Renaming the row turns that page into an error, one click from the
+--      home page via the sidebar's Kindfolks group.
 --
---   1. services.name                                  (this database)
---   2. .eq("name", "KC-Task")                          page.tsx:8
---   3. title="KC-Task"                                 page.tsx:12
---   4. { label: "KC-Task", ... }                       Sidebar.tsx:227
+--   2. /services/kc-task is a saved bookmark. Renaming the route breaks it.
 --
--- The route path /services/kc-task and the external URL
--- https://kc-tasks-delta.vercel.app/ are a separate decision — renaming the
--- route breaks any bookmark, and the external app is not ours to rename.
+--   3. The external app at kc-tasks-delta.vercel.app is not ours to rename.
 --
--- When the code is ready:
+-- IF THE DISPLAYED LABEL EVER NEEDS TO CHANGE: add a `display_name` column and
+-- render that. Leave `name` alone.
 --
--- begin;
--- update services set name = '<new name>' where name = 'KC-Task';
--- commit;
+--   alter table services add column display_name text;
+--   update services set display_name = '<label>' where name = 'KC-Task';
+--   -- then render coalesce(display_name, name) in the sidebar and the page.
 --
--- Same shape applies if any other service is renamed: every services page
--- matches on its name with .single().
+-- This applies to every row in `services`, not just this one — Expense, HR
+-- System, Retail Ops, CEO Dashboard, KPI / OKR, Mfg & Ops and Inventory are
+-- all matched by name the same way.
 
 
 -- ───────────────────────────────────────────────────────────────────────────
@@ -116,7 +114,7 @@ where value ilike '%kind%collective%' or value ilike '%kcp%';
 -- Expect zero rows.
 
 select name from services where name ilike '%kc%' or name ilike '%kind%';
--- Expect only 'KC-Task' until step 2 is done deliberately.
+-- Expect exactly one row, 'KC-Task'. It stays — see STEP 2.
 
 
 -- ───────────────────────────────────────────────────────────────────────────
