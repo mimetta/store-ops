@@ -292,17 +292,49 @@
 <div class="wrap">
 
 <header class="masthead">
-  <p class="eyebrow">Proposal · for agreement before build</p>
+  <p class="eyebrow">Approved 17 Sep · three changes applied to UAT</p>
   <h1>Store Ops Schema</h1>
   <p class="standfirst">The retail tables are empty in both databases. That makes this the one moment the schema can be designed rather than worked around — and it changes which piece gets built first.</p>
   <div class="meta">
     <span><b>17 Sep 2026</b></span>
     <span>UAT <b>store-ops-uat</b></span>
     <span>Prod <b>KindOS</b></span>
-    <span>Existing tables <b>25</b></span>
-    <span>Proposed new <b>16</b></span>
+    <span>Migrations <b>001–010</b></span>
+    <span>Proposed new <b>20</b></span>
   </div>
 </header>
+
+<section>
+  <h2>Is <span class="mono">MMT2025</span> our tenant?</h2>
+
+  <div class="callout">
+    <h3>No — and the evidence says it is somebody else's</h3>
+    <p><code>MMT2025</code> appears in exactly one place across all seven repositories: <code>onest-wms/PLAN.md</code>, recorded as <b>confirmed</b> for Onest's warehouse system against <code>https://acccloud.me/api</code>. Nothing in store-ops, kcp-portal or the expense portal references a company code at all.</p>
+    <p>Store Operations serves <b>Kind Collective Co., Ltd.</b> — its own legal entity, its own Supabase project. An AccCloud <code>companyCode</code> identifies one tenant's books. Two different businesses do not share one.</p>
+    <p>Stronger than that: <b>there is no evidence Kind Collective has an AccCloud account.</b> Every AccCloud reference in the workspace belongs to an Onest or Mimetta system. The only mention inside store-ops is the <code>acccloud.sync</code> capability added last week.</p>
+  </div>
+
+  <p>That does not make D-24 useless — it makes it useful for one half and dangerous for the other.</p>
+
+  <h3>Safe to inherit — properties of the product, not the tenant</h3>
+  <ul>
+    <li>Endpoint paths, and that the item master needs two of them joined on <code>prodCode</code></li>
+    <li>Auth shape: <code>x-api-key</code> and <code>x-secret-key</code> headers, <code>companyCode</code> in the body, <code>status: "000"</code> for success</li>
+    <li>The 1000-row cap under <code>searchAll='N'</code></li>
+    <li><code>prodTName</code> is the name; <code>prodName</code> is a concatenated display string</li>
+    <li>The misspelled <code>differnce</code> field</li>
+    <li>No barcode data from any endpoint</li>
+  </ul>
+
+  <h3>Must not be inherited — tenant-specific</h3>
+  <ul>
+    <li>The <code>companyCode</code> value and the key pair</li>
+    <li><b>The entire product master.</b> A different tenant has different products, warehouse codes and product group codes — so Q4's <code>whCode</code> mapping cannot come from onest-wms under any circumstances</li>
+    <li>Q1 and Q2 must be re-answered against Kind Collective's own tenant. UOM configuration is per-tenant, so an answer that holds for Onest need not hold here</li>
+  </ul>
+
+  <p><b>Worth settling before Phase 1 is scheduled:</b> whether Kind Collective has an AccCloud tenant at all, and if so under what code. If it does not, Phase 1 is not blocked on credentials — it needs a different source for the product master entirely, and CSV import becomes the primary path rather than the fallback.</p>
+</section>
 
 <section>
   <h2>The build order needs one correction</h2>
@@ -341,10 +373,26 @@
 <section>
   <h2>A · Master data and AccCloud identity</h2>
 
-  <div class="spec">
-    <div class="spec-head"><span class="spec-name">branches</span><span class="tag keep">keep</span></div>
+  <div class="spec is-redesign">
+    <div class="spec-head"><span class="spec-name">branches</span><span class="tag redesign">redesign</span><span class="tag new" style="border-style:dashed">applied 008</span></div>
     <div class="spec-body">
-      <p>Unchanged beyond the unique constraint on <code>name</code> added in 006.</p>
+      <p>Adds <code>store_type</code> — <code>own_store</code> | <code>consignment</code> | <code>popup</code>, not null, constrained. Plus the unique <code>name</code> from 006.</p>
+      <p class="why"><b>Every existing branch was backfilled to <code>own_store</code>, which is a guess.</b> The column is not null so it cannot be silently skipped, but nothing yet distinguishes the consignment counters from the shops. Correct those seven values before store_type drives commission or reporting, or the first tier calculation will be confidently wrong.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">branch_monthly_goals</span><span class="tag new">new</span><span class="tag new" style="border-style:dashed">applied 008</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">branch_id</td><td class="t">uuid → branches</td><td>on delete restrict</td></tr>
+        <tr><td class="c">period_month</td><td class="t">date</td><td>constrained to the 1st</td></tr>
+        <tr><td class="c">goal_amount</td><td class="t">numeric(14,2)</td><td></td></tr>
+        <tr><td class="c">source</td><td class="t">text</td><td><code>expense_portal</code> | <code>manual</code></td></tr>
+        <tr><td class="c">source_ref / synced_at</td><td class="t"></td><td>provenance from the portal</td></tr>
+      </table></div>
+      <p class="why"><b>Dated, not current.</b> Commission tiers read the goal whose <code>period_month</code> matches the month being paid. A single column on <code>branches</code> would mean raising a target in January silently rewrites every commission already calculated for December. The first-of-month constraint stops a goal being filed mid-period, which would make "the goal for September" ambiguous — and it is enforced, not documented: a probe inserting the 15th is refused.</p>
     </div>
   </div>
 
@@ -361,6 +409,7 @@
         <tr><td class="c">active</td><td class="t">boolean</td><td></td></tr>
       </table></div>
       <p class="why"><b>Why a table, not a column on branches.</b> AccCloud speaks in warehouse codes; the app speaks in branches. Every balance, receipt and reconciliation arrives keyed by <code>whCode</code>. A branch may map to more than one warehouse, and some warehouses map to none — a column cannot express either. Without this table every sync guesses the mapping, and a wrong guess puts a shop's stock in the wrong shop.</p>
+      <p class="why"><b>Q7 answered:</b> multiple warehouses per branch are allowed, so <code>branch_id</code> carries no unique constraint. <code>is_default</code> then becomes load-bearing — it decides which warehouse a branch posts to when more than one is mapped.</p>
     </div>
   </div>
 
@@ -538,10 +587,18 @@
     </div>
   </div>
 
-  <div class="spec">
-    <div class="spec-head"><span class="spec-name">sales_records · daily_sales_summary · pos_money_records · shop_traffic</span><span class="tag keep">keep</span></div>
+  <div class="spec is-redesign">
+    <div class="spec-head"><span class="spec-name">shop_traffic</span><span class="tag redesign">redesign</span><span class="tag new" style="border-style:dashed">applied 010</span></div>
     <div class="spec-body">
-      <p>All four stay as they are, now correctly scoped by 004. <code>shop_traffic</code>'s nationality columns are the one thing worth revisiting while it is still empty — see Q6.</p>
+      <p>Q6 answered yes. <code>thai_count</code> and <code>foreigner_count</code> are gone; the table is now one row per branch per date per nationality, unique on that triple — the same shape as <code>bills</code>.</p>
+      <p class="why"><b>Safe only because it was empty</b>, verified at 0 rows in both databases, and the migration re-checks inside the transaction and aborts rather than discarding figures if anyone recorded traffic in between. A probe confirms three nationalities now fit on one branch-day, which the old shape could not express, and that a duplicate nationality is refused.</p>
+    </div>
+  </div>
+
+  <div class="spec">
+    <div class="spec-head"><span class="spec-name">sales_records · daily_sales_summary · pos_money_records</span><span class="tag keep">keep</span></div>
+    <div class="spec-body">
+      <p>Unchanged, now correctly scoped by 004.</p>
     </div>
   </div>
 </section>
@@ -579,6 +636,34 @@
     </div>
   </div>
 
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">shift_templates</span><span class="tag new">new</span><span class="tag new" style="border-style:dashed">applied 009</span></div>
+    <div class="spec-body">
+      <p><code>name</code>, <code>start_time</code>, <code>end_time</code>, optional <code>branch_id</code>, <code>crosses_midnight</code>, <code>active</code>. Editable under <code>shifts.manage</code>; readable by everyone.</p>
+      <p class="why"><b>Without real clock times the 48-hour rule cannot be computed.</b> <code>work_schedules.shift</code> holds <code>am | pm | full | off | leave</code> — that says nothing about when a shift begins, so "48 hours before the shift" has no referent. A nullable <code>branch_id</code> allows a mall store whose hours the landlord sets, and <code>crosses_midnight</code> is stored rather than inferred from <code>end_time &lt; start_time</code>, which breaks for a shift starting and ending at the same hour.</p>
+    </div>
+  </div>
+
+  <div class="spec is-new">
+    <div class="spec-head"><span class="spec-name">shift_swap_requests</span> <span class="spec-name" style="color:var(--muted)">+ shift_swap_days</span><span class="tag new">new</span><span class="tag new" style="border-style:dashed">applied 009</span></div>
+    <div class="spec-body">
+      <div class="cols"><table>
+        <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="c">request_id</td><td class="t">uuid → requests</td><td>header is a rollup only</td></tr>
+        <tr><td class="c">work_date</td><td class="t">date</td><td>unique per request</td></tr>
+        <tr><td class="c">counterparty_id</td><td class="t">uuid → profiles</td><td><b>per day</b></td></tr>
+        <tr><td class="c">state</td><td class="t">text</td><td><code>pending</code> · <code>accepted</code> · <code>declined</code> · <code>lapsed</code> · <code>withdrawn</code></td></tr>
+        <tr><td class="c">shift_start_at</td><td class="t">timestamptz</td><td>copied at creation</td></tr>
+        <tr><td class="c">lapses_at</td><td class="t">timestamptz</td><td>trigger-maintained, start − 48h</td></tr>
+        <tr><td class="c">manager_decision</td><td class="t">text</td><td><code>not_applicable</code> unless accepted</td></tr>
+      </table></div>
+      <p class="why"><b>Two tables because each day is its own negotiation.</b> One row per request would force a single counterparty and a single all-or-nothing answer. Two days of one request being covered by two different people is the ordinary case.</p>
+      <p class="why"><b>"Only accepted days reach the manager" is a database constraint, not UI etiquette.</b> A check refuses any manager decision on a day whose state is not <code>accepted</code> — because a manager approving a day nobody agreed to cover is a hole in the rota that surfaces at opening time. Probed: a pending day carrying an approval is rejected; the same day once accepted is allowed.</p>
+      <p class="why"><b><code>shift_start_at</code> is copied, not joined.</b> Editing a template later must not silently move the deadline of a swap already in flight. <code>lapses_at</code> is trigger-maintained rather than a generated column — Postgres marks <code>timestamptz − interval</code> STABLE, not IMMUTABLE — and the trigger overwrites whatever a caller supplies, so the 48-hour rule cannot be bypassed by writing the column. Probed both ways.</p>
+      <p class="why"><b>Lapsing does not depend on a job having run.</b> <code>shift_swap_day_is_lapsed()</code> answers from the row itself, so a missed sweep delays tidying rather than letting a stale request through to a manager.</p>
+    </div>
+  </div>
+
   <div class="spec">
     <div class="spec-head"><span class="spec-name">profiles · work_schedules · leave_requests · training_*</span><span class="tag keep">keep</span></div>
     <div class="spec-body">
@@ -609,11 +694,12 @@
   <ol class="q">
     <li><b>Is <code>getProductRemain.masterId</code> the same value as <code>productMaster1Id</code>?</b> Both are headed for <code>acccloud_master_id</code>. If they differ, matching on that column creates duplicate products. The sync should assert they agree on first run and refuse to commit if not.</li>
     <li><b>What is <code>prodConvFactor</code> relative to?</b> A bare factor with no stated base. Inverted, a drum-to-kilo conversion is wrong by 200×.</li>
-    <li><b>Do read-only AccCloud credentials exist for UAT?</b> You asked for the sync to run against UAT so the integration gets tested. That needs a separate key pair — a reset invalidates the old one immediately, so it cannot be the production pair.</li>
-    <li><b>Which <code>whCode</code> maps to which branch?</b> I have no list. This is the one piece of master data that cannot be derived from anything already in the repo.</li>
-    <li><b>Which nationalities are counted on bills?</b> Determines the seed list, not the schema.</li>
-    <li><b>Should <code>shop_traffic</code> move to rows like <code>bills</code>?</b> It is empty, so this is free now and a migration later.</li>
-    <li><b>Can a branch have more than one warehouse?</b> The proposed table allows it. If the answer is always one, a unique constraint on <code>branch_id</code> makes that explicit.</li>
+    <li><b>Do read-only AccCloud credentials exist for UAT — and does Kind Collective have a tenant at all?</b> In progress. A reset invalidates the old key pair immediately, so UAT cannot share production's. See the tenant section: <code>MMT2025</code> is Onest's.</li>
+    <li><b>Which <code>whCode</code> maps to which branch?</b> In progress. Cannot be derived from anything in the repo, and explicitly cannot be inherited from onest-wms — a different tenant has different warehouse codes.</li>
+    <li><b>Which nationalities are counted on bills and traffic?</b> Still open. Determines the seed list, not the schema — <code>nationality</code> is free text against a reference list, so an unrecognised value surfaces in reporting rather than being rejected at the door.</li>
+    <li><b style="color:var(--accent)">Answered — <code>shop_traffic</code> moves to rows.</b> Applied in 010 while the table was empty.</li>
+    <li><b style="color:var(--accent)">Answered — multiple warehouses per branch.</b> No unique constraint on <code>branch_id</code>; <code>is_default</code> decides which one a branch posts to.</li>
+    <li><b>Which branches are consignment or popup?</b> New, and created by 008. All seven were backfilled to <code>own_store</code> because the column is not null — that is a placeholder, not a fact, and commission tiers will read it.</li>
   </ol>
 </section>
 
