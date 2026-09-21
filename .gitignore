@@ -41,3 +41,4 @@ supabase/.temp/
 # UAT test-account credentials — never commit
 .uat-accounts.local.md
 *.local.md
+.env.local
