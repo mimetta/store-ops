@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic"
 export default async function CountPage({
   searchParams,
 }: {
-  searchParams: { branch?: string }
+  searchParams: { branch?: string; cycle?: string }
 }) {
   const supabase = createClient()
 
@@ -99,6 +99,15 @@ export default async function CountPage({
   const selected =
     options.find((o) => o.branchId === searchParams.branch) ?? options[0]
 
+  // Which groups this cycle covers. Read from product_groups, so changing a
+  // cycle is an UPDATE rather than a deploy.
+  const cycle: "daily" | "weekly" = searchParams.cycle === "weekly" ? "weekly" : "daily"
+  const { data: groupRows } = await supabase
+    .from("product_groups")
+    .select("group_code, count_frequency")
+    .eq("count_frequency", cycle)
+  const cycleGroups = (groupRows ?? []).map((g) => g.group_code)
+
   // Products actually held in this warehouse, with what the system believes.
   // A left join, not an inner one: a product with no stock_levels row yet is
   // still on the shelf to be counted, and showing it is how a count discovers
@@ -107,6 +116,7 @@ export default async function CountPage({
     .from("stock_levels")
     .select("product_id, quantity, products!inner(id, sku, name, unit, group_code, active)")
     .eq("warehouse_id", selected.warehouseId)
+    .in("products.group_code", cycleGroups.length ? cycleGroups : ["__none__"])
 
   type LevelRow = {
     product_id: string
@@ -141,8 +151,10 @@ export default async function CountPage({
       seesSystemQty={seesSystemQty}
       branchOptions={seesAllBranches ? options : []}
       selectedBranchId={selected.branchId}
+      warehouseId={selected.warehouseId}
       branchName={selected.branchName}
       whCode={selected.whCode}
+      cycle={cycle}
     />
   )
 }

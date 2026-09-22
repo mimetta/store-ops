@@ -1,6 +1,23 @@
 // For each seeded account, impersonate it in the database and ask
 // has_capability() for all 24 capabilities. Compare against the TS matrix.
 // This tests the real RLS helper functions, not the TypeScript.
+//
+// ─────────────────────────────────────────────────────────────────────────
+// A SCOPE TEST NEEDS AN ACCOUNT WITH DATA IN SCOPE
+// ─────────────────────────────────────────────────────────────────────────
+// This script is safe from that trap because it asserts capabilities rather
+// than rows. Anything that checks VISIBILITY is not: an account with nothing
+// in scope returns an empty result that looks exactly like the rule working.
+//
+// It caught us on 2026-09-22. Blind stock-count entry appeared to pass when
+// tested with the KA account, which returned no rows and no quantities — but
+// that KA is at Talat Noi and the stock was at Song Wat, so branch scoping
+// emptied the list and the blind path never ran. The Song Wat supervisor,
+// who has data in scope, was the account that actually proved it.
+//
+// So: pick the account by where the data is, pair every negative with a
+// positive through the same code path, and check counts against the database
+// rather than against rendered markup.
 import { readFileSync } from "node:fs";
 import pg from "pg";
 

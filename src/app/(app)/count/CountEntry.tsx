@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import PageHeader from "@/components/retail/PageHeader"
+import { submitCount } from "./actions"
 
 /**
  * `systemQty` is OPTIONAL on purpose. For a counter the key is absent from the
@@ -30,20 +31,45 @@ export default function CountEntry({
   seesSystemQty,
   branchOptions,
   selectedBranchId,
+  warehouseId,
   branchName,
   whCode,
+  cycle,
 }: {
   lines: CountLine[]
   seesSystemQty: boolean
   branchOptions: BranchOption[]
   selectedBranchId: string
+  warehouseId: string
   branchName: string
   whCode: string
+  cycle: "daily" | "weekly"
 }) {
   const router = useRouter()
   const [counts, setCounts] = useState<Record<string, string>>({})
   const [filter, setFilter] = useState("")
   const [group, setGroup] = useState("")
+  const [saving, startSaving] = useTransition()
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
+  function save() {
+    const entries: Record<string, number> = {}
+    for (const [id, v] of Object.entries(counts)) if (v !== "") entries[id] = Number(v)
+    if (Object.keys(entries).length === 0) {
+      setMessage({ ok: false, text: "Enter at least one count before saving." })
+      return
+    }
+    setMessage(null)
+    startSaving(async () => {
+      const r = await submitCount({ branchId: selectedBranchId, warehouseId, cycle, counts: entries })
+      if (r.ok) {
+        setMessage({ ok: true, text: `Count saved — ${r.linesSaved} line(s) submitted for review.` })
+        setCounts({})
+      } else {
+        setMessage({ ok: false, text: r.error ?? "Could not save the count." })
+      }
+    })
+  }
 
   const groups = useMemo(() => {
     const g = new Set<string>()
@@ -75,7 +101,21 @@ export default function CountEntry({
           title="Stock Count"
           subtitle={`${branchName} · warehouse ${whCode}`}
           actions={
-            branchOptions.length > 1 ? (
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg overflow-hidden border border-brand-700">
+                {(["daily", "weekly"] as const).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => router.push(`/count?branch=${selectedBranchId}&cycle=${c}`)}
+                    className={`px-3 py-1.5 text-xs capitalize transition-colors ${
+                      cycle === c ? "bg-brand-700 text-white" : "text-brand-400 hover:text-white"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            {branchOptions.length > 1 ? (
               <select
                 value={selectedBranchId}
                 onChange={(e) => router.push(`/count?branch=${e.target.value}`)}
@@ -88,7 +128,8 @@ export default function CountEntry({
                   </option>
                 ))}
               </select>
-            ) : null
+            ) : null}
+            </div>
           }
         />
 
@@ -216,9 +257,30 @@ export default function CountEntry({
           </div>
         )}
 
-        <p className="text-brand-600 text-xs">
-          Entries are not saved yet — submitting a count is the next step.
-        </p>
+        {message && (
+          <div
+            role="status"
+            className={`text-sm px-4 py-3 rounded-lg border ${
+              message.ok
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                : "bg-red-500/10 border-red-500/30 text-red-400"
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
+
+        {lines.length > 0 && (
+          <div className="flex items-center justify-between gap-4 pb-2">
+            <p className="text-brand-500 text-xs">
+              Only the lines you have entered are saved. Leave a product blank
+              if you have not counted it.
+            </p>
+            <button onClick={save} disabled={saving || entered === 0} className="btn-primary px-5 py-2.5">
+              {saving ? "Saving…" : `Submit ${entered} line${entered === 1 ? "" : "s"}`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
