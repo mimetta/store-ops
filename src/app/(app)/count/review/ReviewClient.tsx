@@ -27,8 +27,9 @@ export interface ChainLine {
   name: string
   unit: string | null
   yesterday_qty: number | null
-  received_qty: number
-  out_qty: number
+  /** NULL while no movements of that direction exist — untracked, not zero. */
+  received_qty: number | null
+  out_qty: number | null
   should_be_qty: number
   first_count: number | null
   second_count: number | null
@@ -133,6 +134,13 @@ export default function ReviewClient({
                   </div>
                 ))}
               </dl>
+
+              {l.out_qty === null && l.received_qty === null && (
+                <p className="mt-1.5 text-[11px] leading-snug text-brand-500">
+                  Sales and deliveries are not recorded yet, so only
+                  yesterday&rsquo;s count is compared.
+                </p>
+              )}
 
               {l.second_count !== null && (
                 <p className="mt-2 text-xs text-brand-400">
