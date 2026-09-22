@@ -1,117 +1,144 @@
-# AccCloud — first real responses, 2026-09-22
+# AccCloud API — observed spec for tenant MMT2025
 
-Read-only probe against `https://acccloud.me/api`, company `MMT2025`, using the
-server-only key pair. Nothing was written to AccCloud and nothing was committed
-to the database.
+**This file, not onest-wms D-24, is the spec for this tenant.** Every statement
+below was observed against `https://acccloud.me/api` on 2026-09-22. D-24 was
+written for a different system's integration and is wrong in several specifics
+here; where the two disagree, this file wins.
 
-**Phase 1 is blocked.** Q1 and Q2 are both unanswerable with the endpoints
-that currently respond, and the recorded spec (onest-wms D-24) is wrong in
-several specifics. Details below, worst first.
+Direction is inbound only. Nothing is ever written back to AccCloud.
 
 ---
 
-## 1. The item-master endpoint does not exist
+## Authentication
 
-```
-404  POST /api/ProductMaster1/getByProd          "Cannot POST ..."
-404  POST /api/support/ProductMaster1/getByProd
-```
+| | |
+|---|---|
+| Base | `https://acccloud.me/api` |
+| Headers | `x-api-key` (`gw_…`), `x-secret-key` (`sk_…`) |
+| Body | `companyCode: "MMT2025"` on every request |
 
-D-24 records `ProductMaster1/getByProd` as confirmed. It is not there now. I
-tried the documented path and the one variant that matches how
-`getProductRemain` is namespaced, then stopped rather than guessing further —
-probing a vendor API for unpublished paths is not diligence, it is scanning.
+Confirmed working. All three are server-only environment variables and must
+never carry a `NEXT_PUBLIC_` prefix — they travel as request headers, so a
+client-side call ships them to every visitor.
 
-**Consequence:** the item master cannot be synced. `getProductRemain` returns
-balances only, which was the whole reason the build order put the two-endpoint
-join first.
+A Reset Key in AccCloud invalidates the existing pair immediately, which is why
+the client raises `AccCloudAuthError` separately: a generic "sync failed" sends
+someone into the wrong logs for an afternoon.
 
-## 2. Q1 — unanswerable
+---
 
-`masterId` exists in `getProductRemain`. `productMaster1Id` comes from
-`getByProd`, which 404s. There is nothing to compare, so whether they agree is
-still unknown. Not guessed.
+## Where D-24 is wrong
 
-## 3. Q2 — unanswerable
+| D-24 says | Actually, for MMT2025 |
+|---|---|
+| Envelope is `{ status: "000", message, data }`, and the adapter must check for `"000"` | **A bare JSON array.** No envelope, no `status`. An adapter checking `status === "000"` treats every successful call as a failure. |
+| `prodTName` is the name to import; `prodName` is a concatenated display string | **`productName`.** Neither `prodTName` nor `prodName` exists on this endpoint. This settles D-17's recorded ambiguity in favour of the example over the spec table. |
+| `differnce` is misspelled and must be matched verbatim | No `differnce` field on this endpoint. It may belong to one we cannot reach. |
+| Item master comes from `ProductMaster1/getByProd` joined with Get Product By Warehouse on `prodCode` | **`ProductMaster1/getByProd` returns HTTP 404.** Get Product By Warehouse has no recorded path anywhere. Neither is reachable. |
 
-No unit, UOM or conversion field appears anywhere in `getProductRemain`:
+The client keeps a defensive unwrap: if this tenant is ever migrated to the
+enveloped shape, it unwraps `data` and honours `status` rather than silently
+returning an object where an array is expected.
+
+---
+
+## `POST /support/Product/getProductRemain`
+
+The only endpoint that responds. Quantity on hand per product per warehouse.
+
+**Request:** `companyCode`, `searchAll` (`"Y"` | `"N"`), optional `productGroupCode`.
+
+**Response:** a bare array of
 
 ```
 masterId  prodCode  productName  balance
 warehouse  whCode  productGroup  productGroupCode
 ```
 
-`prodConvFactor` was documented as coming from "Get Product By Warehouse",
-whose path is recorded nowhere in the workspace. Not guessed.
+No unit, no conversion factor, no barcode. It cannot build an item master on
+its own, but these columns are enough to populate one — which is what the
+Phase 1 sync does.
 
-## 4. The response envelope is not what the spec says
-
-D-24: `{ status: "000", message, data: {...} }`, and "the adapter must check
-for `"000"` explicitly".
-
-Actual: a **bare JSON array** at the top level. No envelope, no `status`, no
-`message`. An adapter checking `json.status === "000"` would treat every
-successful call as a failure.
-
-## 5. Field names — one ambiguity resolved, one absent
-
-| D-24 said | Actually |
-|---|---|
-| `prodTName` vs `productName` ambiguous; accept either | **`productName`**. No `prodTName` field at all. |
-| `differnce` misspelling must be matched verbatim | No `differnce` field in this endpoint. May belong to the missing one. |
-| — | `productGroupCode` is present, and filtering on it works — this is the paging key. |
-
-## 6. The 1000-row cap is real, and `searchAll` controls it
+### The row cap is real
 
 | Call | Rows |
 |---|---|
-| `searchAll: "N"` | **exactly 1000** — truncated |
+| `searchAll: "N"` | **exactly 1000** — silently truncated |
 | `searchAll: "Y"` | 1754 (772 products × 20 warehouses) |
-| `searchAll: "N"`, `productGroupCode: "PK"` | 684 |
+| `searchAll: "N"` + `productGroupCode: "PK"` | 684 |
 
-Exactly 1000 on the default call confirms the guard is needed, not theoretical.
-Paging by `productGroupCode` works and is the way around it.
+A page of exactly 1000 is indistinguishable from a complete one, so the client
+raises `AccCloudTruncatedError` rather than returning it. Treating a capped page
+as a full result would under-report the catalogue with no error anywhere.
 
-`productGroupCode: "FG2"` returned **0 rows**, although the delivery order that
-confirmed our tenant carried `FG2-HW300-*` lines. So `FG2` is part of the
-product code, not a group code. The real group codes need reading off a full
-`searchAll: "Y"` pull.
+Paging is by `productGroupCode`. There is no endpoint that lists the group
+codes, so they are read off a `searchAll: "Y"` pull first. Twelve groups exist.
 
-## 7. The warehouse mapping has six unknown codes and one that cannot match
-
-Twenty whCodes come back. Against the mapping confirmed on 2026-09-21:
-
-**In AccCloud, absent from our mapping — six:**
-`WT-00` `WT-01` `WT-02` `WT-03` `WT-04` `WT-05`
-(`WT-02` is `คลังขนส่ง`, a transport warehouse.)
-
-**In our mapping, never seen in AccCloud — two:**
-`KOL-SW` `KOL-DS`
-`KOL-SW` is the one that matters: it was mapped to Song Wat. Rows with
-`balance: 0` do appear, so an empty warehouse is not automatically absent —
-the code may simply not exist under that spelling.
-
-**Spelling mismatch — one, and it is load-bearing:**
-
-| Our seed | AccCloud |
-|---|---|
-| `RD Warehouse` | `RDWAREHOUSE` |
-
-`wh_code` is the join key. Our row would never match, and the sync would file
-`RDWAREHOUSE` as an unknown warehouse forever. Not corrected unilaterally —
-it is a mapping decision, not a typo fix, and 014 deliberately records
-out-of-scope codes rather than inventing them.
+`productGroupCode: "FG2"` returns nothing — `FG2` is part of the product code
+(`FG2-HW300-CLR`), not a group code.
 
 ---
 
-## What is needed to unblock
+## Still unknown
 
-1. The real path for the item-master endpoint, or confirmation that CSV import
-   is now the Phase 1 path instead.
-2. The path for "Get Product By Warehouse", or confirmation that unit and
-   conversion factor come from somewhere else.
-3. A decision on the six `WT-0x` codes: out of scope like `MKT`, or mapped.
-4. Whether `KOL-SW` exists under another spelling.
-5. Confirmation to correct `RD Warehouse` → `RDWAREHOUSE`.
+1. **The item-master endpoint.** `ProductMaster1/getByProd` 404s. Asked of
+   AccCloud.
+2. **Whether any endpoint returns a unit of measure.** Asked of AccCloud. If
+   none does, units become ours to own, like barcodes — and `products.unit`
+   stays NULL rather than being defaulted to `piece`, because an invented unit
+   is worse than a missing one: it looks answered.
+3. **Q1 — is `masterId` the same as `productMaster1Id`?** Unanswerable while
+   the endpoint supplying the second field 404s. Not guessed.
+4. **Q2 — what is `prodConvFactor` relative to?** The field does not appear on
+   any reachable endpoint. Not guessed.
 
-Nothing above was guessed, and no product data has been written.
+---
+
+## Warehouse scope
+
+Twenty whCodes come back. Three are in scope:
+
+| whCode | Branch | |
+|---|---|---|
+| `SONG` | Song Wat | default |
+| `TALADNOI` | Talat Noi | default |
+| `00` | — | central, no branch |
+
+Everything else is out of scope and recorded with `in_scope = false` so the
+sync recognises the code and skips it, rather than treating it as an unmapped
+warehouse and failing.
+
+Two corrections came out of comparing the API against the CSV-derived mapping:
+
+- **`RDWAREHOUSE`, not `RD Warehouse`.** The spaced form was a CSV export
+  artefact of `whCode` and `whTName` running together. `wh_code` is the join
+  key, so the CSV spelling would have orphaned that warehouse permanently. The
+  API is the source of truth.
+- **Six `WT-0x` transport warehouses** the CSV did not contain, including
+  `WT-02` (`คลังขนส่ง`).
+
+`KOL-SW` and `KOL-DS` never appear in any response. Since zero-balance rows do
+appear for other warehouses, an empty warehouse is not automatically absent —
+those codes may simply not exist. It no longer matters: KOL is PR's and is out
+of store-ops scope entirely.
+
+---
+
+## First real sync — 2026-09-22, UAT
+
+```
+groups queried     12
+rows fetched     1754
+rows in scope     899
+rows skipped      855
+products          735
+status             ok
+```
+
+`erp_import_rows` afterwards contained rows for `00`, `SONG` and `TALADNOI`
+only — no KOL, no transport, no RD. Out-of-scope rows are dropped before
+storage of any kind, which is what closes GO-LIVE A1: there is no KOL balance
+in store-ops to be visible to anyone.
+
+735 of 772 products are held in an in-scope warehouse; the other 37 exist only
+in warehouses we do not touch. All 735 carry `unit IS NULL`.
