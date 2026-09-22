@@ -99,14 +99,15 @@ export default async function CountPage({
   const selected =
     options.find((o) => o.branchId === searchParams.branch) ?? options[0]
 
-  // Which groups this cycle covers. Read from product_groups, so changing a
-  // cycle is an UPDATE rather than a deploy.
+  // Which products this cycle covers. product_count_policy resolves the
+  // per-product override against the group policy, so the screen cannot
+  // disagree with the database about what is countable.
   const cycle: "daily" | "weekly" = searchParams.cycle === "weekly" ? "weekly" : "daily"
-  const { data: groupRows } = await supabase
-    .from("product_groups")
-    .select("group_code, count_frequency")
+  const { data: policyRows } = await supabase
+    .from("product_count_policy")
+    .select("product_id")
     .eq("count_frequency", cycle)
-  const cycleGroups = (groupRows ?? []).map((g) => g.group_code)
+  const cycleProductIds = (policyRows ?? []).map((r) => r.product_id)
 
   // Products actually held in this warehouse, with what the system believes.
   // A left join, not an inner one: a product with no stock_levels row yet is
@@ -116,7 +117,9 @@ export default async function CountPage({
     .from("stock_levels")
     .select("product_id, quantity, products!inner(id, sku, name, unit, group_code, active)")
     .eq("warehouse_id", selected.warehouseId)
-    .in("products.group_code", cycleGroups.length ? cycleGroups : ["__none__"])
+    .in("product_id", cycleProductIds.length ? cycleProductIds : [
+      "00000000-0000-0000-0000-000000000000",
+    ])
 
   type LevelRow = {
     product_id: string
