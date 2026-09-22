@@ -32,6 +32,7 @@ function Icon({ d }: { d: string }) {
 }
 
 const HOME_ICON       = "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10"
+const ADJUST_ICON     = "M12 20h9 M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"
 const COUNT_ICON      = "M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"
 const STOCK_ICON      = "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"
 const SALES_ICON      = "M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3 M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2 M9 7h6 M9 12h6 M9 16h4"
@@ -50,6 +51,7 @@ const HISTORY_ICON    = "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m2
 
 const DAILY_ITEMS: NavItem[] = [
   { label: "Stock Count",   href: "/count",       icon: <Icon d={COUNT_ICON} />,       needs: ["stock.count"] },
+  { label: "Adjustments",   href: "/adjustments", icon: <Icon d={ADJUST_ICON} />,      needs: ["stock.adjustment.approve"] },
   { label: "FG Stock",      href: "/stock",       icon: <Icon d={STOCK_ICON} />,       needs: ["stock.count"] },
   { label: "Sales Record",  href: "/sales",       icon: <Icon d={SALES_ICON} />,       needs: ["sales.manual", "sales.import"] },
   { label: "POS Money",     href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["pos.money"] },
