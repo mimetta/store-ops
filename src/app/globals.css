@@ -1,8 +1,11 @@
-/* Fonts are linked from the document head, not imported here.
-   CSS requires @import to precede every other rule, so an @import placed after
-   the @tailwind directives is dropped silently — which is what kcp-portal has
-   been doing with Inter, and why this app has always rendered in the system
-   fallback. See src/app/layout.tsx. */
+/* Fonts are linked from the document head — see src/app/layout.tsx.
+   NOT because @import here would break: PostCSS hoists an @import above the
+   @tailwind directives during the build, so the previous arrangement worked
+   and Inter was loading in kcp-portal all along. Verified by clean-building
+   both orderings and diffing the emitted CSS.
+   The <link> is kept for a smaller reason: an @import inside a stylesheet is
+   only discovered after that stylesheet downloads, costing a round trip,
+   while a <link> with preconnect starts the fetch with the document. */
 
 @tailwind base;
 @tailwind components;

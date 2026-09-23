@@ -14,6 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      {/* Linked here rather than @import-ed in globals.css so the fetch starts
+          with the document instead of waiting for the stylesheet to download.
+          The @import form also works — PostCSS hoists it — it is just a round
+          trip slower. */}
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

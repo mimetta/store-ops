@@ -46,5 +46,6 @@ UAT is **store-ops-uat** (`jgijsurgbciuopicqceo`).
 | # | Item | Why | Status |
 |---|---|---|---|
 | I1 | **store-ops has never been deployed** | No Vercel project exists yet. | ☐ |
+| I1b | **Thirteen screens still use the legacy dark `brand` scale** | The Mimetta restyle covers login, `/count`, `/count/review`, `/adjustments` and the shell. The dashboard plus stock, sales, settings, schedule, leave, calendar, training, traffic, reports, consumables, POS money and activity still render as dark panels inside the light shell. **This is deliberate and visible, not a regression.** The `brand` scale is retained in `tailwind.config.ts` specifically so they keep working: those pages pair `bg-brand-900` with `text-white`, so deleting the scale would leave white text on cream rather than merely dated styling. Looking unfinished is the point — it marks exactly which screens are left. Remove `brand` once nothing references it. | ☐ |
 | I2 | **Address the dependency alerts** | GitHub reports 28 on store-ops and 54 on KindOS, inherited from pinning Next.js 14.2.35 to match kcp-portal. Worth triaging what is genuinely exploitable. | ☐ |
 | I3 | **kcp-portal changes go through a pull request** | Its `main` is protected. A direct push succeeds for accounts that can bypass, printing only "Bypassed rule violations" in the remote output. | ☐ |
