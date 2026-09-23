@@ -90,7 +90,10 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
                     return (
                       <tr key={r.id} className="border-b border-brand-800 last:border-0 align-top">
                         <td className="px-4 py-3">
-                          <p className="font-mono text-[11px] text-brand-400">{r.sku}</p>
+                          <p className="font-mono text-[11px] text-brand-400">
+                            {r.sku}
+                            {r.unit && <span className="ml-2 text-brand-500">· {r.unit}</span>}
+                          </p>
                           <p className="text-white leading-snug">{r.name}</p>
                           <p className="text-brand-600 text-xs mt-0.5">
                             {r.requestedBy} · {new Date(r.requestedAt).toLocaleDateString("en-GB")}
@@ -114,11 +117,20 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
                           {r.secondCount ?? <span className="text-brand-600">—</span>}
                         </td>
                         <td
-                          className={`px-4 py-3 text-right tabular-nums font-semibold ${
+                          className={`px-4 py-3 text-right font-semibold ${
                             r.qtyDelta > 0 ? "text-emerald-400" : "text-red-400"
                           }`}
                         >
-                          {r.qtyDelta > 0 ? `+${r.qtyDelta}` : r.qtyDelta}
+                          <span className="tabular-nums">
+                            {r.qtyDelta > 0 ? `+${r.qtyDelta}` : r.qtyDelta}
+                          </span>
+                          {/* A manager approving "-5" needs to know -5 of what:
+                              five boxes and five pieces are different write-offs. */}
+                          {r.unit && (
+                            <span className="ml-1 text-[10px] uppercase tracking-wide opacity-80">
+                              {r.unit}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 max-w-[22rem]">
                           {cannot ? (

@@ -108,12 +108,21 @@ export default function ReviewClient({
                   <p className="font-mono text-[11px] text-brand-400">{l.sku}</p>
                   <p className="text-white text-sm leading-snug mt-0.5">{l.name}</p>
                 </div>
+                {/* The unit belongs next to the number. "-5" and "-5 SET"
+                    are different facts, and a set is not a bottle. */}
                 <span
-                  className={`shrink-0 tabular-nums text-lg font-semibold ${
+                  className={`shrink-0 text-right ${
                     l.variance > 0 ? "text-emerald-400" : "text-red-400"
                   }`}
                 >
-                  {l.variance > 0 ? `+${l.variance}` : l.variance}
+                  <span className="tabular-nums text-lg font-semibold">
+                    {l.variance > 0 ? `+${l.variance}` : l.variance}
+                  </span>
+                  {l.unit && (
+                    <span className="block text-[10px] uppercase tracking-wide opacity-80">
+                      {l.unit}
+                    </span>
+                  )}
                 </span>
               </div>
 
@@ -130,6 +139,11 @@ export default function ReviewClient({
                     <dt className="text-[10px] uppercase tracking-wide text-brand-500">{label}</dt>
                     <dd className="text-sm text-white tabular-nums mt-0.5">
                       {value === null || value === undefined ? "—" : String(value)}
+                      {label === "Counted" && l.unit && (
+                        <span className="block text-[9px] text-brand-500 uppercase tracking-wide">
+                          {l.unit}
+                        </span>
+                      )}
                     </dd>
                   </div>
                 ))}

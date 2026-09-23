@@ -11,6 +11,50 @@ Last verified: 2026-09-23.
 
 ---
 
+## ⚠ Read this before writing any AccCloud client
+
+### Failure arrives as valid JSON, in band
+
+AccCloud signals an error by returning a **JSON object carrying a numeric
+`status`** where an array belongs:
+
+```json
+{ "status": 500, "message": "" }
+```
+
+That is valid JSON and a 200-level HTTP response. A client that does
+`const rows = await res.json()` and carries on will treat it as success and
+find zero rows — no exception, no log line, no clue. A sync built that way
+reports "0 products, ok" and looks like an empty catalogue rather than a
+failed call.
+
+**Every AccCloud client must check the shape before trusting it**, not just the
+HTTP status:
+
+```ts
+if (!Array.isArray(json)) {
+  // an object here is an error, or the enveloped shape — never data
+}
+```
+
+This applies to every endpoint we write from now on, not only the sweep that
+found it.
+
+### Failures that only appear at scale
+
+Both defects in the item-master sync survived every small test and appeared on
+the first real ~300-call run:
+
+| Failure | Why ten calls could not find it |
+|---|---|
+| Transient `status: 500` partway through | Rate limiting needs volume to trigger. The same request succeeded first time a moment later. |
+| `upsert` used where `update` was meant | Postgres only attempts the INSERT branch — and only then rejects the NOT NULL `name` — when a row is actually written, which the dry run never did. |
+
+**A sync that works on ten calls tells you nothing about one that makes three
+hundred.** Test the real volume, with writes enabled, before believing it.
+
+---
+
 ## Authentication
 
 | | |
