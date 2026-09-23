@@ -102,13 +102,13 @@ export default function CountEntry({
           subtitle={`${branchName} · warehouse ${whCode}`}
           actions={
             <div className="flex items-center gap-2">
-              <div className="flex rounded-lg overflow-hidden border border-brand-700">
+              <div className="flex rounded-lg overflow-hidden border border-sand bg-white">
                 {(["daily", "weekly"] as const).map((c) => (
                   <button
                     key={c}
                     onClick={() => router.push(`/count?branch=${selectedBranchId}&cycle=${c}`)}
-                    className={`px-3 py-1.5 text-xs capitalize transition-colors ${
-                      cycle === c ? "bg-brand-700 text-white" : "text-brand-400 hover:text-white"
+                    className={`px-3.5 min-h-[40px] text-xs capitalize transition-colors ${
+                      cycle === c ? "bg-brown text-white" : "text-muted hover:bg-panel"
                     }`}
                   >
                     {c}
@@ -157,13 +157,13 @@ export default function CountEntry({
               ))}
             </select>
           )}
-          <span className="text-brand-400 text-sm tabular-nums">
+          <span className="text-muted text-sm tabular-nums">
             {entered} counted · {remaining} left
           </span>
         </div>
 
         {!seesSystemQty && (
-          <p className="text-brand-500 text-xs">
+          <p className="text-subtle text-xs">
             Count what is on the shelf. The expected quantity is not shown —
             that is deliberate, so the count reflects the shelf rather than the
             system.
@@ -171,7 +171,7 @@ export default function CountEntry({
         )}
 
         {lines.length === 0 ? (
-          <div className="card p-10 text-center text-brand-400 text-sm">
+          <div className="card card-pad py-10 text-center text-muted text-sm">
             No stock records exist for this warehouse yet. Products appear here
             once stock levels are populated.
           </div>
@@ -180,16 +180,16 @@ export default function CountEntry({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-brand-700">
-                    <th className="text-left px-4 py-3 text-brand-400 font-medium">Code</th>
-                    <th className="text-left px-4 py-3 text-brand-400 font-medium">Product</th>
-                    <th className="text-left px-4 py-3 text-brand-400 font-medium">Unit</th>
+                  <tr className="border-b border-sand">
+                    <th className="text-left px-4 py-3 text-muted font-medium">Code</th>
+                    <th className="text-left px-4 py-3 text-muted font-medium">Product</th>
+                    <th className="text-left px-4 py-3 text-muted font-medium">Unit</th>
                     {seesSystemQty && (
-                      <th className="text-right px-4 py-3 text-brand-400 font-medium">System</th>
+                      <th className="text-right px-4 py-3 text-muted font-medium">System</th>
                     )}
-                    <th className="text-right px-4 py-3 text-brand-400 font-medium">Counted</th>
+                    <th className="text-right px-4 py-3 text-muted font-medium">Counted</th>
                     {seesSystemQty && (
-                      <th className="text-right px-4 py-3 text-brand-400 font-medium">Variance</th>
+                      <th className="text-right px-4 py-3 text-muted font-medium">Variance</th>
                     )}
                   </tr>
                 </thead>
@@ -203,17 +203,17 @@ export default function CountEntry({
                         : null
 
                     return (
-                      <tr key={l.productId} className="border-b border-brand-800 last:border-0">
-                        <td className="px-4 py-2.5 font-mono text-xs text-brand-300 whitespace-nowrap">
+                      <tr key={l.productId} className="border-b border-sand last:border-0">
+                        <td className="px-4 py-2.5 font-mono text-xs text-muted whitespace-nowrap">
                           {l.sku}
                         </td>
-                        <td className="px-4 py-2.5 text-white">{l.name}</td>
-                        <td className="px-4 py-2.5 text-brand-500 text-xs">
+                        <td className="px-4 py-2.5 text-ink">{l.name}</td>
+                        <td className="px-4 py-2.5 text-subtle text-xs">
                           {/* No endpoint returns a unit. Blank, never invented. */}
                           {l.unit ?? "—"}
                         </td>
                         {seesSystemQty && (
-                          <td className="px-4 py-2.5 text-right text-brand-300 tabular-nums">
+                          <td className="px-4 py-2.5 text-right text-muted tabular-nums">
                             {l.systemQty}
                           </td>
                         )}
@@ -224,19 +224,19 @@ export default function CountEntry({
                             onChange={(e) => setCount(l.productId, e.target.value)}
                             placeholder="—"
                             aria-label={`Counted quantity for ${l.sku}`}
-                            className="input-field w-24 text-right py-1.5 tabular-nums"
+                            className="input-num"
                           />
                         </td>
                         {seesSystemQty && (
                           <td
                             className={`px-4 py-2.5 text-right tabular-nums ${
                               variance === null
-                                ? "text-brand-600"
+                                ? "text-subtle"
                                 : variance === 0
-                                  ? "text-brand-400"
+                                  ? "text-muted"
                                   : variance > 0
-                                    ? "text-emerald-400"
-                                    : "text-red-400"
+                                    ? "text-good-70"
+                                    : "text-danger-70"
                             }`}
                           >
                             {variance === null ? "—" : variance > 0 ? `+${variance}` : variance}
@@ -250,7 +250,7 @@ export default function CountEntry({
             </div>
 
             {visible.length === 0 && (
-              <p className="px-4 py-10 text-center text-brand-500 text-sm">
+              <p className="px-4 py-10 text-center text-subtle text-sm">
                 Nothing matches that filter.
               </p>
             )}
@@ -262,8 +262,8 @@ export default function CountEntry({
             role="status"
             className={`text-sm px-4 py-3 rounded-lg border ${
               message.ok
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                : "bg-red-500/10 border-red-500/30 text-red-400"
+                ? "bg-emerald-500/10 border-emerald-500/30 text-good-70"
+                : "bg-red-500/10 border-red-500/30 text-danger-70"
             }`}
           >
             {message.text}
@@ -271,8 +271,8 @@ export default function CountEntry({
         )}
 
         {lines.length > 0 && (
-          <div className="flex items-center justify-between gap-4 pb-2">
-            <p className="text-brand-500 text-xs">
+          <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom))] lg:bottom-0 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-cream/95 backdrop-blur border-t border-sand flex items-center justify-between gap-4">
+            <p className="text-subtle text-xs">
               Only the lines you have entered are saved. Leave a product blank
               if you have not counted it.
             </p>

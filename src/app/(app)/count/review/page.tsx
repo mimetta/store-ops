@@ -98,8 +98,8 @@ function Empty({ title, body }: { title: string; body: string }) {
   return (
     <div className="flex items-center justify-center min-h-[60vh] px-6">
       <div className="text-center max-w-sm">
-        <p className="text-white font-semibold">{title}</p>
-        <p className="text-brand-400 text-sm mt-2 leading-relaxed">{body}</p>
+        <p className="text-ink font-semibold">{title}</p>
+        <p className="text-muted text-sm mt-2 leading-relaxed">{body}</p>
       </div>
     </div>
   )

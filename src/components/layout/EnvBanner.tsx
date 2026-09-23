@@ -24,12 +24,12 @@ type EnvKey = "uat" | "local"
 
 const STYLES: Record<EnvKey, { bg: string; label: string; detail: string }> = {
   uat: {
-    bg: "bg-amber-500 text-amber-950",
+    bg: "bg-amber-50 text-amber-70 border-b border-amber-60",
     label: "UAT",
     detail: "Test environment — data here is not real and may be wiped",
   },
   local: {
-    bg: "bg-slate-500 text-slate-50",
+    bg: "bg-panel text-muted border-b border-sand",
     label: "LOCAL",
     detail: "Development machine",
   },

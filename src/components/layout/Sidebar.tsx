@@ -88,7 +88,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-3 pt-4 pb-1 text-[10px] uppercase tracking-widest text-brand-600 font-semibold">
+    <p className="px-3 pt-4 pb-1 text-[11px] text-subtle">
       {children}
     </p>
   )
@@ -119,7 +119,7 @@ export default function Sidebar({ profile }: SidebarProps) {
   }
 
   return (
-    <aside className="w-56 shrink-0 bg-brand-950 border-r border-brand-800 flex flex-col h-full overflow-y-auto">
+    <aside className="hidden lg:flex w-[218px] shrink-0 bg-white border-r border-sand flex-col h-full overflow-y-auto">
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         <Link href="/" className={checkActive("/") ? "sidebar-link-active" : "sidebar-link"}>
           <Icon d={HOME_ICON} />
@@ -142,9 +142,9 @@ export default function Sidebar({ profile }: SidebarProps) {
       </nav>
 
       {profile?.chapter && (
-        <div className="px-4 py-3 border-t border-brand-800">
-          <p className="text-[10px] uppercase tracking-widest text-brand-600 font-semibold mb-1">Chapter</p>
-          <p className="text-sm text-brand-300 font-medium">{profile.chapter}</p>
+        <div className="px-4 py-3 border-t border-sand">
+          <p className="text-[11px] text-subtle mb-1">Chapter</p>
+          <p className="text-sm text-ink font-medium">{profile.chapter}</p>
         </div>
       )}
     </aside>

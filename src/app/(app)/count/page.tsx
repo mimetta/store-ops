@@ -164,7 +164,7 @@ export default async function CountPage({
 
 function Denied({ message }: { message: string }) {
   return (
-    <div className="flex items-center justify-center h-64 text-brand-400 flex-col gap-2">
+    <div className="flex items-center justify-center h-64 text-muted flex-col gap-2">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
         <rect x="3" y="11" width="18" height="11" rx="2" />
         <path d="M7 11V7a5 5 0 0110 0v4" />

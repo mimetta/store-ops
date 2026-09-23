@@ -1,80 +1,132 @@
+/* Fonts are linked from the document head, not imported here.
+   CSS requires @import to precede every other rule, so an @import placed after
+   the @tailwind directives is dropped silently — which is what kcp-portal has
+   been doing with Inter, and why this app has always rendered in the system
+   fallback. See src/app/layout.tsx. */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @layer base {
-  :root {
-    --brand: #1E1C1A;
-    --brand-lighter: #2A2826;
-    --brand-surface: #252321;
-  }
-
   body {
-    @apply bg-brand-900 text-white antialiased;
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    @apply bg-cream text-ink antialiased;
+    font-family: 'DM Sans', 'Noto Sans Thai', ui-sans-serif, system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
   }
 
-  * {
-    @apply box-border;
-  }
+  * { @apply box-border; }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: #110F0E;
-  }
-
+  /* Light scrollbars — the dark ones were invisible against cream. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: theme('colors.cream'); }
   ::-webkit-scrollbar-thumb {
-    background: #383532;
+    background: theme('colors.sand');
     border-radius: 9999px;
+    border: 2px solid theme('colors.cream');
   }
+  ::-webkit-scrollbar-thumb:hover { background: #C6B694; }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: #504C48;
+  :focus-visible {
+    outline: 2px solid theme('colors.accent');
+    outline-offset: 2px;
   }
 }
 
 @layer components {
+  /* ── surfaces ─────────────────────────────────────────────────────────
+     One border colour throughout, one weight, no shadows. The demo gets its
+     structure from the sand hairline against cream, so a drop shadow here
+     reads as a different design system. */
   .card {
-    @apply bg-brand-800 border border-brand-700 rounded-xl;
+    @apply bg-white border border-sand rounded-card;
   }
-
+  .card-pad   { @apply p-4 md:px-[18px] md:py-4; }
   .card-hover {
-    @apply bg-brand-800 border border-brand-700 rounded-xl transition-all duration-200
-           hover:bg-brand-700 hover:border-brand-600 cursor-pointer;
+    @apply bg-white border border-sand rounded-card transition-colors duration-150
+           hover:border-accent/50 cursor-pointer;
   }
+  .panel { @apply bg-panel rounded-lg; }
 
+  /* ── buttons ──────────────────────────────────────────────────────────
+     44px on touch, 36px from md up. The demo sets 36 at desktop and 42 on
+     mobile; 44 is the accessible minimum and the difference is invisible. */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap
+           min-h-[44px] md:min-h-[36px] px-3.5 rounded-lg
+           border border-sand bg-white text-brown text-xs font-medium
+           transition-colors duration-150
+           hover:border-accent/60 disabled:opacity-40 disabled:pointer-events-none;
+  }
   .btn-primary {
-    @apply bg-white text-brand-900 font-semibold px-4 py-2 rounded-lg
-           transition-all duration-200 hover:bg-brand-100 active:scale-95
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap
+           min-h-[44px] md:min-h-[36px] px-4 rounded-lg
+           border border-brown bg-brown text-white text-xs font-medium
+           transition-colors duration-150
+           hover:bg-accent hover:border-accent
+           disabled:opacity-40 disabled:pointer-events-none;
   }
-
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap
+           min-h-[44px] md:min-h-[36px] px-3.5 rounded-lg
+           border border-danger-60 bg-white text-danger-70 text-xs font-medium
+           transition-colors duration-150
+           hover:bg-danger-50 disabled:opacity-40 disabled:pointer-events-none;
+  }
   .btn-ghost {
-    @apply text-brand-300 px-3 py-1.5 rounded-lg transition-all duration-150
-           hover:bg-brand-700 hover:text-white;
+    @apply inline-flex items-center justify-center min-h-[44px] md:min-h-[36px]
+           px-3 rounded-lg text-muted text-xs transition-colors duration-150
+           hover:bg-panel hover:text-ink;
   }
 
+  /* ── form controls ────────────────────────────────────────────────────── */
   .input-field {
-    @apply w-full bg-brand-800 border border-brand-600 text-white placeholder-brand-400
-           rounded-lg px-4 py-2.5 text-sm outline-none transition-all duration-150
-           focus:border-white focus:ring-1 focus:ring-white/20;
+    @apply w-full bg-white border border-sand text-ink placeholder-subtle
+           rounded-lg px-3 min-h-[44px] text-sm outline-none
+           transition-colors duration-150
+           focus:border-accent focus:ring-1 focus:ring-accent/25;
+  }
+  /* Quantity entry. Large and tabular because it is keyed on a phone at
+     arm's length, and a mis-keyed digit is a stock variance. */
+  .input-num {
+    @apply bg-white border border-sand text-ink rounded-lg text-center
+           min-h-[46px] w-[82px] md:w-[74px] text-lg md:text-base font-medium
+           outline-none transition-colors duration-150
+           focus:border-accent focus:ring-1 focus:ring-accent/25;
+    font-variant-numeric: tabular-nums;
   }
 
+  .pill {
+    @apply inline-flex items-center gap-1.5 min-h-[42px] md:min-h-[34px]
+           px-3 rounded-lg border border-sand bg-white text-xs whitespace-nowrap;
+  }
+
+  /* ── notes ────────────────────────────────────────────────────────────── */
+  .note   { @apply rounded-lg px-3 py-2.5 text-xs flex gap-2 items-start; }
+  .note-a { @apply bg-amber-50 border border-amber-60 text-amber-70; }
+  .note-r { @apply bg-danger-50 border border-danger-60 text-danger-80; }
+  .note-g { @apply bg-good-50 border border-sage text-good-70; }
+  .note-i { @apply bg-info-50 border border-info-60 text-info-70; }
+
+  /* ── navigation ───────────────────────────────────────────────────────── */
   .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-brand-300
-           transition-all duration-150 hover:bg-brand-700 hover:text-white;
+    @apply flex items-center gap-2.5 px-3 min-h-[40px] rounded-lg text-[13px]
+           text-muted transition-colors duration-150
+           hover:bg-panel hover:text-ink;
   }
-
   .sidebar-link-active {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm bg-brand-700 text-white;
+    @apply flex items-center gap-2.5 px-3 min-h-[40px] rounded-lg text-[13px]
+           bg-panel text-brown font-medium;
   }
 
-  .badge {
-    @apply text-xs font-medium px-2 py-0.5 rounded-full;
+  .badge { @apply text-[11px] font-medium px-2 py-0.5 rounded-full; }
+
+  .stat {
+    @apply bg-panel rounded-lg px-3 py-2.5 text-left;
   }
+  .stat-label { @apply text-[11px] text-muted; }
+  .stat-value { @apply text-ink font-medium; font-variant-numeric: tabular-nums; }
+
+  .num-c { font-variant-numeric: tabular-nums; }
 }

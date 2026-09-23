@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Store Operations — demo</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Noto+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+--brown:#1F3A2B;--accent:#BD5A2E;--cream:#FAF8F4;--bd:#D8CBB0;--sage:#9CAE8C;
+--dark:#1A1A1A;--muted:#6B7280;--subtle:#9CA3AF;--panel:#F9F8F6;--white:#fff;
+--g50:#EAF3DE;--g70:#3B6D11;--a50:#FAEEDA;--a60:#EF9F27;--a70:#854F0B;
+--r50:#FCEBEB;--r60:#F09595;--r70:#A32D2D;--r80:#791F1F;
+--p50:#EEEDFE;--p60:#AFA9EC;--p65:#534AB7;--p70:#3C3489;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--dark);font:400 14px/1.5 'DM Sans','Noto Sans Thai',sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select{font-family:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brown);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.top{position:sticky;top:0;z-index:30;height:56px;background:var(--white);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;padding:0 14px}
+.brandmk{display:flex;align-items:center;gap:8px;font-weight:500;font-size:15px;white-space:nowrap}
+.demo{background:var(--a50);color:var(--a70);font-size:11px;padding:3px 9px;border-radius:10px;white-space:nowrap}
+.wrap{display:flex;min-height:calc(100vh - 56px)}
+.side{width:218px;flex-shrink:0;background:var(--white);border-right:1px solid var(--bd);padding:12px 10px}
+.main{flex:1;min-width:0;padding:20px 24px 70px;max-width:1300px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.navlbl{font-size:11px;color:var(--subtle);padding:13px 10px 5px}
+.nav button{display:flex;align-items:center;gap:9px;width:100%;border:0;background:none;border-radius:8px;padding:9px 10px;text-align:left;font-size:13px;color:var(--dark)}
+.nav button:hover{background:var(--panel)}
+.nav button[aria-current="page"]{background:var(--panel);font-weight:500}
+.nav button[aria-current="page"] .ic{color:var(--brown)}
+.ic{width:17px;text-align:center;color:var(--muted);flex-shrink:0}
+.nav .cnt{margin-left:auto;background:var(--a50);color:var(--a70);font-size:10px;padding:1px 7px;border-radius:9px}
+h1{font-size:22px;font-weight:500;margin:0}
+h2{font-size:15px;font-weight:500;margin:0}
+.sub{font-size:12px;color:var(--muted)}
+.eyebrow{font-size:11px;color:var(--subtle);letter-spacing:.06em;text-transform:uppercase;margin:18px 0 7px}
+.card{background:var(--white);border:1px solid var(--bd);border-radius:10px;padding:16px 18px}
+.card+.card{margin-top:12px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin:12px 0}
+.two .card+.card{margin-top:0}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:13px;flex-wrap:wrap}
+.hd h2{flex:1;min-width:0}
+.pagebar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.pagebar h1{margin-right:auto}
+.stats{display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap}
+.stat{flex:1;min-width:132px;background:var(--panel);border:0;border-radius:8px;padding:11px 13px;text-align:left}
+.stat .l{font-size:11px;color:var(--subtle);margin-bottom:4px}
+.stat .v{font-size:20px;font-weight:500;line-height:1.1}
+.stat .s{font-size:11px;color:var(--muted);margin-top:3px}
+.stat.kpi{background:var(--white)}
+.btn{height:36px;padding:0 14px;border:1px solid var(--bd);background:var(--white);border-radius:8px;font-size:12px;color:var(--brown);display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--panel)}
+.btn.pri{background:var(--brown);border-color:var(--brown);color:#fff}
+.btn.pri:hover{background:var(--accent);border-color:var(--accent)}
+.btn.sm{height:30px;padding:0 11px}
+.btn.wide{width:100%}
+.btn[disabled]{background:#D3D1C7;border-color:#D3D1C7;color:#fff;cursor:not-allowed}
+.acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.acts .btn{flex:1;min-width:140px}
+.seg{display:flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:var(--white)}
+.seg button{border:0;border-radius:0;height:34px;padding:0 12px;font-size:12px;background:var(--white);color:var(--muted)}
+.seg button+button{border-left:1px solid var(--bd)}
+.seg button[aria-pressed="true"]{background:var(--brown);color:#fff}
+.seg.sec button[aria-pressed="true"]{background:#F1EFE8;color:var(--dark)}
+.pill{display:inline-flex;align-items:center;height:34px;border:1px solid var(--bd);border-radius:8px;background:var(--white);padding:0 11px;gap:7px;font-size:12px;white-space:nowrap}
+.pill select,.pill input{border:0;background:none;font-size:12px;color:var(--dark);padding:0;height:30px;width:auto}
+.nav2{padding:0 2px}
+.navlab{min-width:156px;text-align:center;font-size:12px}
+.ghost{border:0;background:none;width:26px;height:30px;color:var(--muted);font-size:16px;line-height:1}
+input,select{height:36px;border:1px solid var(--bd);border-radius:8px;background:var(--white);padding:0 10px;font-size:13px;color:var(--dark);width:100%}
+.num{width:74px;flex-shrink:0;text-align:center;font-size:16px;font-weight:500}
+.srch{position:relative;margin-bottom:8px}
+.srch input{padding-left:31px}
+.srch .ic{position:absolute;left:9px;top:10px}
+.srch.narrow{max-width:280px}
+.tag{font-size:11px;padding:3px 9px;border-radius:9px;white-space:nowrap;display:inline-block}
+.t-g{background:var(--g50);color:var(--g70)}.t-a{background:var(--a50);color:var(--a70)}
+.t-r{background:var(--r50);color:var(--r70)}.t-p{background:var(--p50);color:var(--p70)}
+.t-n{background:#F1EFE8;color:#888780}
+.av{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.av.sm{width:22px;height:22px;font-size:9px}.av.xs{width:17px;height:17px;font-size:8px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:var(--muted);font-weight:400;text-align:left;padding:8px 10px;background:var(--panel);white-space:nowrap}
+th.r,td.r{text-align:right}
+td{padding:9px 10px;border-top:1px solid var(--bd);font-size:13px;vertical-align:middle}
+tr.mine td{background:#FBFBF9}
+.row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--bd)}
+.rowbtn{width:100%;border:0;border-left:0;border-right:0;border-bottom:0;background:none;font:inherit;text-align:left}
+.rowbtn:hover{background:var(--panel)}
+.grow{flex:1;min-width:0}
+.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--subtle)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.acc{border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:8px}
+.acc>button{width:100%;border:0;border-radius:0;background:var(--panel);padding:10px 12px;display:flex;align-items:center;gap:9px;text-align:left}
+.acc>div{padding:10px 12px}
+.acc.npd{border-color:var(--p60);background:#FBFBFE}
+.acc.npd>button{background:var(--p50)}
+.col{width:88px;text-align:right;flex-shrink:0}
+.col .sub{display:block;font-size:10px}
+.note{border-radius:8px;padding:10px 12px;font-size:12px;display:flex;gap:9px;align-items:flex-start}
+.note.a{background:var(--a50);border:1px solid var(--a60);color:var(--a70)}
+.note.r{background:var(--r50);border:1px solid var(--r60);color:var(--r80)}
+.note.p{background:var(--p50);border:1px solid var(--p60);color:var(--p70)}
+.note.g{background:var(--g50);border:1px solid var(--sage);color:#173404}
+.empty{text-align:center;padding:26px 16px;color:var(--muted);font-size:13px}
+.bar{height:5px;border-radius:3px;background:#F1EFE8;overflow:hidden;display:flex}
+.bar i{display:block;height:5px}
+.locked{border:1px dashed var(--bd);border-radius:10px;padding:34px 20px;text-align:center;background:var(--white)}
+.chain{display:flex;align-items:center;background:var(--panel);border-radius:8px;padding:10px 6px;overflow-x:auto}
+.cell{display:block;width:100%;border-radius:6px;font-size:10px;padding:6px 0;line-height:1.3;text-align:center}
+.mcell{flex:1;height:22px;border:0;border-radius:3px;padding:0;min-width:6px}
+.calwrap{border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+.calhead{display:flex;background:var(--panel)}
+.calhead>div{flex:1;padding:8px 0;text-align:center;font-size:11px;color:var(--muted)}
+.calhead>div+div{border-left:1px solid var(--bd)}
+.calhead.sm>div{padding:3px 0;font-size:10px}
+.calrow{display:flex;border-top:1px solid var(--bd)}
+.calrow.sm{border:0;gap:2px;margin-bottom:2px}
+.calcell{flex:1;min-height:74px;border:0;border-radius:0;padding:6px 5px;text-align:left;display:flex;flex-direction:column;gap:4px;background:var(--white)}
+.calcell+.calcell{border-left:1px solid var(--bd)}
+.calcell.blank{background:#FBFAF7}
+.cdate{font-size:11px}
+.crow{display:flex;align-items:center;gap:2px}
+.cdot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.who{display:flex;align-items:center;gap:5px;background:var(--panel);border-radius:12px;padding:3px 10px 3px 3px;font-size:12px}
+.inb{border:1px solid var(--p60);background:#FBFBFE;border-radius:8px;padding:12px;margin-bottom:9px}
+.inbday{background:var(--white);border:1px solid #CECBF6;border-radius:6px;padding:10px 11px;margin-bottom:7px}
+.minical{border:1px solid #CECBF6;border-radius:8px;margin-top:6px;padding:9px;background:var(--white)}
+.mini{flex:1;height:30px;border:0;border-radius:5px;font-size:11px;padding:0}
+.daysbox{background:var(--white);border:1px solid #CECBF6;border-radius:8px;padding:11px;margin-top:12px}
+.typebtn{flex:1;height:38px;border-radius:8px;font-size:12px}
+.shbtn{flex:1;min-width:104px;height:46px;border-radius:8px;font-size:12px;line-height:1.3}
+.tick{width:22px;height:22px;border-radius:5px;color:#fff;font-size:12px;padding:0}
+.sumline{display:flex;padding:8px 0 0;border-top:1px solid var(--bd);margin-top:4px;font-size:13px}
+.sumline.sm{font-size:12px;padding-top:7px;margin-top:3px}
+.commbox{background:var(--panel);border-radius:8px;padding:9px 12px;margin-bottom:7px}
+.drop{border:1px dashed var(--bd);border-radius:10px;padding:26px;text-align:center;background:#FBFAF7}
+@media(max-width:900px){
+.side{position:fixed;left:0;top:56px;bottom:0;z-index:25;transform:translateX(-100%);transition:transform .18s;overflow-y:auto}
+body.open .side{transform:none;box-shadow:0 0 0 100vw rgba(26,26,26,.3)}
+.main{padding:16px 13px 70px}
+.mtoggle{display:inline-flex!important}
+.hidesm{display:none}
+.navlab{min-width:120px}
+}
+.mtoggle{display:none;border:1px solid var(--bd);background:#fff;border-radius:8px;width:34px;height:34px;align-items:center;justify-content:center;flex-shrink:0}
+
+/* --- data-group hues --- */
+.h-gr{--hue:#3B6D11;--hue-bg:#EAF3DE}
+.h-pu{--hue:#3C3489;--hue-bg:#EEEDFE}
+.h-te{--hue:#993C1D;--hue-bg:#FAECE7}
+.h-bl{--hue:#0F5F5C;--hue-bg:#DCF0EE}
+.h-am{--hue:#854F0B;--hue-bg:#FAEEDA}
+.stat.kpi{border:1px solid var(--bd);border-top:3px solid var(--hue,var(--bd));position:relative}
+.stat.kpi .l{color:var(--hue,var(--subtle))}
+.stat.kpi.on{border:2px solid var(--hue);border-top:3px solid var(--hue);background:var(--hue-bg)}
+.card.k-gr{border-left:3px solid #3B6D11}
+.card.k-pu{border-left:3px solid #3C3489}
+.card.k-te{border-left:3px solid #993C1D}
+.card.k-bl{border-left:3px solid #0F5F5C}
+.card.k-am{border-left:3px solid #854F0B}
+.tint{display:none}
+.card.k-gr th{background:#EAF3DE;color:#2C5209}
+.card.k-pu th{background:#EEEDFE;color:#3C3489}
+.card.k-te th{background:#FAECE7;color:#7C3017}
+.card.k-bl th{background:#DCF0EE;color:#0F5F5C}
+.ey-gr{color:#3B6D11}
+.ey-te{color:#993C1D}
+/* --- one date control --- */
+.dctl{display:inline-flex;align-items:center;height:34px;border:1px solid var(--bd);border-radius:8px;background:var(--white);overflow:hidden}
+.dctl>button{border:0;background:none;height:32px;padding:0 12px;font-size:12px;color:var(--muted)}
+.dctl>button[aria-pressed="true"]{background:var(--brown);color:#fff}
+.dctl .dsep{width:1px;height:32px;background:var(--bd);flex-shrink:0}
+.dctl .ghost{width:26px;height:32px;font-size:16px;line-height:1}
+.dctl .navlab{min-width:150px;text-align:center;font-size:12px;color:var(--dark)}
+.dctl .dpick{display:flex;align-items:center;gap:5px;padding:0 9px 0 8px;position:relative}
+.dctl .dpick input{border:0;height:32px;width:20px;padding:0;opacity:0;position:absolute;left:0;top:0;cursor:pointer}
+.dctl .dpick .ic{color:var(--muted);pointer-events:none}
+/* --- inventory tables --- */
+table.inv td{vertical-align:top}
+table.inv td.nowrap{white-space:nowrap}
+.num-c{font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap}
+table.inv tr.lo td{background:#FEF7F7}
+table.inv tr.lo td:first-child{box-shadow:inset 3px 0 0 var(--r70)}
+table.inv tr.ov td{background:#FAFAFE}
+table.inv tr.ov td:first-child{box-shadow:inset 3px 0 0 var(--p65)}
+.num-c.bad{color:var(--r70)}
+.num-c.over{color:var(--p65)}
+.keys{display:flex;gap:16px;flex-wrap:wrap;margin-top:11px;font-size:11px;color:var(--muted)}
+.keys span{display:flex;align-items:center;gap:6px}
+.sw{width:11px;height:11px;border-radius:2px;display:inline-block}
+.sw.lo{background:#FEF7F7;box-shadow:inset 3px 0 0 var(--r70)}
+.sw.ov{background:#FAFAFE;box-shadow:inset 3px 0 0 var(--p65)}
+@media(max-width:900px){.dctl .navlab{min-width:110px}}
+
+/* ===== dashboard KPI cards ===== */
+.kgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.kcard{border:1px solid var(--bd);border-radius:12px;background:var(--white);padding:13px 14px 0;text-align:left;display:flex;flex-direction:column;gap:2px;overflow:hidden;position:relative;min-height:124px}
+.kcard:after{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--hue)}
+.kcard.on{border:2px solid var(--hue);padding:12px 13px 0;background:linear-gradient(180deg,var(--hue-bg) 0%,#fff 62%)}
+.krow{display:flex;align-items:center;gap:8px}
+.klabel{flex:1;font-size:12px;color:var(--muted)}
+.kval{font-size:22px;font-weight:500;line-height:1.15;letter-spacing:-.01em}
+.delta{font-size:11px;font-weight:500;padding:2px 7px;border-radius:9px;white-space:nowrap}
+.delta.up{background:var(--g50);color:var(--g70)}
+.delta.down{background:var(--r50);color:var(--r70)}
+.spk{display:block;width:calc(100% + 28px);margin:6px -14px 0;height:30px}
+.kcard.on .spk{width:calc(100% + 26px);margin-left:-13px;margin-right:-13px}
+.ksub{position:absolute;left:14px;bottom:8px;font-size:10px;color:var(--subtle)}
+/* ===== goal progress ===== */
+.ggrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.gitem{min-width:0}
+.gtop{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;font-size:13px}
+.gpct{font-weight:500;font-variant-numeric:tabular-nums}
+.gbar{height:7px;border-radius:4px;background:#F1EFE8;overflow:hidden}
+.gbar i{display:block;height:7px;border-radius:4px}
+.g1{color:#A32D2D}.gbar i.g1{background:#D8654A}
+.g2{color:#854F0B}.gbar i.g2{background:#EF9F27}
+.g3{color:#3B6D11}.gbar i.g3{background:#9CAE8C}
+.g4{color:#1F3A2B}.gbar i.g4{background:#1F3A2B}
+.gfoot{display:flex;justify-content:space-between;gap:8px;margin-top:5px;font-size:11px}
+/* ===== custom range ===== */
+.dwrap{position:relative;display:inline-block}
+.dctl .wide2{width:32px}
+.rangebox{position:absolute;z-index:20;top:40px;left:0;min-width:290px;background:var(--white);border:1px solid var(--bd);border-radius:10px;padding:13px;box-shadow:0 8px 24px rgba(31,58,43,.12)}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.rgrid label{display:block}
+.rgrid .sub{display:block;margin-bottom:4px}
+.quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+/* ===== mobile tab bar ===== */
+.tabs{display:none;position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--white);border-top:1px solid var(--bd);padding:4px 2px calc(4px + env(safe-area-inset-bottom));}
+.tabs button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;font-size:10px;color:var(--muted);position:relative;min-height:52px;justify-content:center}
+.tabs button[aria-current="page"]{color:var(--brown);font-weight:500}
+.tico{font-size:17px;line-height:1}
+.tdot{position:absolute;top:5px;right:calc(50% - 16px);width:7px;height:7px;border-radius:50%;background:var(--accent)}
+#scrim{display:none}
+@media(max-width:900px){
+.tabs{display:flex}
+#scrim{display:none;position:fixed;inset:56px 0 0;background:rgba(26,26,26,.34);z-index:24}
+body.open #scrim{display:block}
+body.open .side{box-shadow:none}
+.main{padding-bottom:86px}
+.kgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.kcard{min-height:112px;padding:11px 12px 0}
+.kval{font-size:19px}
+.rangebox{left:auto;right:0;min-width:270px}
+/* touch targets */
+.btn{height:42px;padding:0 16px;font-size:13px}
+.btn.sm{height:34px}
+input,select{height:42px;font-size:15px}
+.num{height:46px!important;font-size:18px;width:82px}
+.row{padding:12px 0}
+.seg button,.dctl>button{height:40px;padding:0 13px}
+.dctl{height:42px}.dctl .ghost{height:40px;width:32px}
+.dctl .dsep{height:40px}
+.pill{height:42px}.pill select,.pill input{height:38px}
+.acc>button{padding:13px 12px}
+.nav button{padding:12px 10px;font-size:14px}
+.stats{gap:8px}
+.stat{min-width:calc(50% - 4px)}
+.two{gap:10px}
+.card{padding:14px}
+.acts .btn{min-width:calc(50% - 4px)}
+h1{font-size:19px}
+.pagebar{gap:7px}
+/* sticky submit on key-in screens */
+.card:last-child .btn.pri.wide{position:sticky;bottom:calc(60px + env(safe-area-inset-bottom))}
+}
+@media(max-width:560px){
+.kgrid{grid-template-columns:1fr 1fr}
+.dwrap{width:100%}
+.dctl{width:100%;justify-content:space-between}
+.dctl .navlab{flex:1;min-width:0}
+.rangebox{left:0;right:0;min-width:0}
+.rgrid{grid-template-columns:1fr}
+.stat{min-width:100%}
+.acts .btn{min-width:100%}
+.ggrid{grid-template-columns:1fr}
+}
+
+/* coverage grid */
+table.cover th.cday{min-width:26px;text-align:center;padding:7px 2px;font-size:10px}
+table.cover th.cday.we{background:#F1EFE8}
+table.cover th.cday.hol{background:var(--r50);color:var(--r70)}
+td.cvcell{padding:3px 2px;text-align:center}
+.cv{width:24px;height:24px;border:0;border-radius:5px;font-size:11px;font-weight:500;padding:0;line-height:1}
+.cv.cv0{background:var(--r50);color:var(--r70);box-shadow:inset 0 0 0 1px var(--r60)}
+.cv.cv1{background:#FAEEDA;color:#854F0B}
+.cv.cv2{background:#EAF3DE;color:#3B6D11}
+.cv.cv3{background:#1F3A2B;color:#fff}
+.sw.cv0{background:var(--r50);box-shadow:inset 0 0 0 1px var(--r60)}
+.sw.cv1{background:#FAEEDA}.sw.cv2{background:#EAF3DE}.sw.cv3{background:#1F3A2B}
+/* date chip used by calendar, OT and deliveries */
+.datechip{width:42px;flex-shrink:0;text-align:center;background:var(--panel);border-radius:8px;padding:5px 0;line-height:1.15}
+.datechip b{display:block;font-size:15px}
+.datechip span{display:block;font-size:10px;color:var(--muted)}
+/* OT calc block */
+.otcalc{background:var(--panel);border-radius:8px;padding:9px 12px;margin-top:12px}
+.otcalc .row{border-color:#E6E3DA}
+/* numbered steps */
+ol.steps{margin:0;padding-left:20px}
+ol.steps li{margin-bottom:11px;font-size:13px}
+ol.steps li::marker{color:var(--accent);font-weight:500}
+ol.steps .sub{display:block;margin-top:2px}
+@media(max-width:900px){
+.cv{width:26px;height:26px}
+.datechip{width:46px}
+}
+.expq{display:flex;flex-direction:column;align-items:center;background:var(--panel);border-radius:8px;padding:5px 12px;line-height:1.2;flex-shrink:0}
+.expq .sub{font-size:10px}
+.expq b{font-size:16px}
+.kv{display:flex;gap:12px;padding:7px 0;border-top:1px solid var(--bd);font-size:13px;flex-wrap:wrap}
+.kv .sub{width:112px;flex-shrink:0}
+.kv .mono{font-size:12px;word-break:break-all}
+</style>
+</head>
+<body>
+<a class="sr" href="#main">Skip to content</a>
+<header class="top">
+  <button class="mtoggle" id="mt" aria-label="Menu">☰</button>
+  <span class="brandmk"><span aria-hidden="true">▣</span> <span class="hidesm">Store Operations</span></span>
+  <span class="demo">Demo</span>
+  <span style="flex:1"></span>
+  <label class="pill"><span class="sub hidesm">Viewing as</span>
+    <select id="roleSel" aria-label="Role">
+      <option value="admin">Admin</option>
+      <option value="manager" selected>Manager</option>
+      <option value="supervisor">Supervisor</option>
+      <option value="ka">KA</option>
+      <option value="parttime">KA (part-time)</option>
+      <option value="logistic">Head of logistics</option>
+      <option value="people">People</option>
+      <option value="marketing">Marketing</option>
+    </select>
+  </label>
+  <span class="sub hidesm" id="meName">Nira P.</span>
+  <span class="av" id="meAv" style="background:#C7C3F2;color:#26215C">NP</span>
+</header>
+<div id="scrim"></div>
+<div class="wrap">
+  <aside class="side"><nav class="nav" id="nav"></nav></aside>
+  <main class="main" id="main"></main>
+</div>
+<nav class="tabs" id="tabs" aria-label="Main"></nav>
+<script>
+/* ---------------- data ---------------- */
+var BR=[
+{n:"Gaysorn",t:"Own store",pos:1,rev:1980400,vip:210000,goal:2200000,u:744,bt:512,bf:232,tt:2140,tf:980,
+ c:[["Thailand",512],["China",96],["Japan",44],["Singapore",31],["South Korea",24],["Other",37]]},
+{n:"Song Wat",t:"Own store",pos:1,rev:1200000,vip:145000,goal:2000000,u:612,bt:441,bf:171,tt:1820,tf:610,
+ c:[["Thailand",441],["China",68],["Japan",31],["United States",22],["Singapore",19],["Other",31]]},
+{n:"Siam Discovery",t:"Consignment",pos:0,rev:890300,vip:62000,goal:1400000,u:402,bt:250,bf:152,tt:1310,tf:720,
+ c:[["Thailand",250],["China",54],["Japan",26],["Malaysia",22],["South Korea",21],["Other",29]]},
+{n:"Ecotopia",t:"Own store",pos:1,rev:224721,vip:0,goal:400000,u:294,bt:118,bf:35,tt:470,tf:142,
+ c:[["Thailand",118],["China",12],["Japan",8],["Singapore",6],["Other",9]]},
+{n:"Lofteyes",t:"Consignment",pos:0,rev:180500,vip:12000,goal:600000,u:160,bt:120,bf:40,tt:390,tf:130,
+ c:[["Thailand",120],["China",14],["Japan",9],["Malaysia",8],["Other",9]]},
+{n:"Talat Noi",t:"Pop-up",pos:0,rev:96200,vip:0,goal:250000,u:88,bt:70,bf:18,tt:210,tf:62,
+ c:[["Thailand",70],["China",6],["Japan",5],["Other",7]]}];
+var FLAG={"Thailand":"🇹🇭","China":"🇨🇳","Japan":"🇯🇵","Singapore":"🇸🇬","South Korea":"🇰🇷","Malaysia":"🇲🇾","United States":"🇺🇸","Taiwan":"🇹🇼","Hong Kong":"🇭🇰","United Kingdom":"🇬🇧","Australia":"🇦🇺","France":"🇫🇷","Other":"🏳"};
+function flag(c){return'<span aria-hidden="true" style="margin-right:7px">'+(FLAG[c]||"🏳")+'</span>'}
+
+var PEOPLE=[
+{n:"Ann K.",i:"AK",role:"admin",bg:"#F4C0D1",fg:"#4B1528",br:["Gaysorn","Song Wat","Siam Discovery","Ecotopia","Lofteyes","Talat Noi"],type:"full",sal:58000},
+{n:"Som P.",i:"SP",role:"people",bg:"#C0DD97",fg:"#173404",br:["Gaysorn","Song Wat","Siam Discovery","Ecotopia","Lofteyes","Talat Noi"],type:"full",sal:36000},
+{n:"Fai M.",i:"FM",role:"marketing",bg:"#F0997B",fg:"#4A1B0C",br:["Gaysorn","Song Wat","Siam Discovery","Ecotopia","Lofteyes","Talat Noi"],type:"full",sal:34000},
+{n:"Nira P.",i:"NP",role:"manager",bg:"#C7C3F2",fg:"#26215C",br:["Gaysorn","Song Wat","Siam Discovery","Ecotopia","Lofteyes","Talat Noi"],type:"full",sal:42000},
+{n:"Mai A.",i:"MA",role:"supervisor",bg:"#CECBF6",fg:"#26215C",br:["Gaysorn","Song Wat"],type:"full",sal:24000,wd:26,at:{"Gaysorn":14,"Song Wat":8},otN:4,otH:2,earn:["Gaysorn","Song Wat"]},
+{n:"Ploy T.",i:"PT",role:"ka",bg:"#9FE1CB",fg:"#04342C",br:["Gaysorn"],type:"full",sal:18000,wd:26,at:{"Gaysorn":22},otN:3,otH:0,earn:["Gaysorn"]},
+{n:"Kan S.",i:"KS",role:"ka",bg:"#F5C4B3",fg:"#4A1B0C",br:["Ecotopia"],type:"full",sal:18000,wd:26,at:{"Ecotopia":24},otN:3,otH:2,earn:["Ecotopia"]},
+{n:"Nok W.",i:"NW",role:"ka",bg:"#FAC775",fg:"#412402",br:["Song Wat","Lofteyes"],type:"full",sal:17000,wd:26,at:{"Song Wat":16,"Lofteyes":6},otN:2,otH:1,earn:["Song Wat","Lofteyes"]},
+{n:"Big S.",i:"BS",role:"logistic",bg:"#BFD9F2",fg:"#0A3358",br:["Gaysorn","Song Wat","Siam Discovery","Ecotopia","Lofteyes","Talat Noi"],type:"full",sal:32000},
+{n:"Bas R.",i:"BR",role:"ka",bg:"#A9DCF0",fg:"#06334A",br:["Ecotopia"],type:"part",rate:68,hrs:52,at:{"Ecotopia":7},otN:0,otH:0,earn:[]}];
+
+var PROD=[
+{c:"FG1-ABPF100-NG",n:"Ambient parfum 100 ml (neroli garden)",un:"bottle",u:312,npd:0},
+{c:"FG2-BHM75-CLR",n:"Hair and body mist 75 ml (charlene rose)",un:"bottle",u:287,npd:0},
+{c:"FG4-HC50-CLR",n:"Nourishing hand cream 50 ml (charlene rose)",un:"tube",u:241,npd:0},
+{c:"FG2-BC300-CLR",n:"Body cleanser 300 ml (charlene rose)",un:"bottle",u:198,npd:0},
+{c:"FG1-ABPF100-WT",n:"Ambient parfum 100 ml (white tea retreats)",un:"bottle",u:176,npd:0},
+{c:"FG1-FBF100-CTM",n:"Fabric fragrance 100 ml (cotton musk)",un:"bottle",u:154,npd:0},
+{c:"FG1-RS50-VF",n:"Room spray 50 ml (velvet fig)",un:"bottle",u:152,npd:1},
+{c:"FG2-HW300-NG",n:"Hand wash 300 ml (neroli garden)",un:"bottle",u:139,npd:0},
+{c:"FG2-BHM75-WRV",n:"Hair and body mist 75 ml (wildrose valley)",un:"bottle",u:122,npd:0},
+{c:"FG5-CD180-AD",n:"Candle 180 g (amber dusk)",un:"jar",u:113,npd:1},
+{c:"FG4-HC50-EP",n:"Nourishing hand cream 50 ml (everpine)",un:"tube",u:108,npd:0},
+{c:"FG2-BC300-EP",n:"Body cleanser 300 ml (everpine)",un:"bottle",u:94,npd:0},
+{c:"FG3-SB100-NG",n:"Hand soap bar 100 g (neroli garden)",un:"bar",u:71,npd:0},
+{c:"FG6-RD200-WT",n:"Reed diffuser 200 ml (white tea)",un:"set",u:66,npd:0},
+{c:"FG2-TM30-CLR",n:"Travel mist 30 ml (charlene rose)",un:"bottle",u:52,npd:0}];
+
+var STK=[
+{c:"FG2-BC300-CLR",n:"Body cleanser 300 ml (charlene rose)",un:"bottle",y:24,out:4,rec:0,mn:10,mx:40,cost:390},
+{c:"FG4-HC50-CLR",n:"Nourishing hand cream 50 ml (charlene rose)",un:"tube",y:18,out:3,rec:0,mn:12,mx:36,cost:250},
+{c:"FG1-ABPF100-NG",n:"Ambient parfum 100 ml (neroli garden)",un:"bottle",y:11,out:2,rec:0,mn:8,mx:24,cost:760},
+{c:"FG2-BHM75-CLR",n:"Hair and body mist 75 ml (charlene rose)",un:"bottle",y:19,out:5,rec:12,mn:15,mx:34,cost:320},
+{c:"FG1-FBF100-CTM",n:"Fabric fragrance 100 ml (cotton musk)",un:"bottle",y:12,out:3,rec:0,mn:12,mx:30,cost:410},
+{c:"FG2-HW300-NG",n:"Hand wash 300 ml (neroli garden)",un:"bottle",y:18,out:2,rec:0,mn:10,mx:32,cost:280}];
+var CONS=[
+{c:"CN-BAG-S",n:"Paper bag small",un:"pc",y:150,out:10,rec:0,mn:80,mx:400,cost:6},
+{c:"CN-BAG-L",n:"Paper bag large",un:"pc",y:70,out:8,rec:0,mn:80,mx:300,cost:9},
+{c:"CN-TIS-ST",n:"Tissue paper sheet",un:"sheet",y:322,out:12,rec:0,mn:150,mx:600,cost:2},
+{c:"CN-RIB-12",n:"Ribbon 12 mm",un:"roll",y:8,out:1,rec:0,mn:4,mx:20,cost:45}];
+var REASONS=["Damaged","Tester used","Display sample","Received not recorded","Sold not recorded","Transferred to another branch","Counting error"];
+
+var SH={M:{f:"10:00",t:"18:00",s:"M",b:"var(--g50)",c:"var(--g70)",n:"Morning"},
+A:{f:"13:00",t:"21:00",s:"A",b:"var(--a50)",c:"var(--a70)",n:"Afternoon"},
+O:{f:"Off",t:"",s:"",b:"#F1EFE8",c:"#888780",n:"Day off"},
+L:{f:"Leave",t:"",s:"L",b:"var(--r50)",c:"var(--r70)",n:"Approved day off"}};
+
+var HOL={"2026-09-23":1,"2026-10-23":1,"2026-12-07":1};
+var ROSTER={};
+(function(){var pat=["M","A","M","O","A","M","O"];
+for(var k=1;k<PEOPLE.length;k++){var a=[];for(var d=0;d<31;d++)a.push(pat[(d+k*2)%7]);ROSTER[PEOPLE[k].n]=a}
+ROSTER["Mai A."][17]="L";ROSTER["Kan S."][9]="L";ROSTER["Ploy T."][22]="L";
+ROSTER["Mai A."][12]="O";ROSTER["Ploy T."][12]="O";ROSTER["Kan S."][12]="O";ROSTER["Nok W."][12]="A";
+ROSTER["Bas R."]=["O","O","M","O","O","M","O","O","M","O","O","A","O","O","M","O","O","A","O","O","M","O","O","M","O","O","A","O","O","M","O"];})();
+var PUBLISHED={"2026-09":1};
+
+var REQS=[
+{id:1,t:"swap",who:"Ploy T.",note:"Family event",st:"pending",days:[{d:10,w:"Nok W.",ok:1},{d:11,w:"Nok W.",ok:1},{d:12,w:"Mai A.",ok:0}]},
+{id:2,t:"off",who:"Nok W.",note:"Medical appointment",st:"pending",days:[{d:19,w:"",ok:1}]}];
+var INBOX=[{id:5,t:"swap",who:"Mai A.",note:"Doctor appointment",st:"waiting",days:[{d:16,w:"Kan S.",ok:null},{d:17,w:"Kan S.",ok:null}]}];
+var MINE=[{id:9,t:"swap",st:"approved",days:[{d:15,w:"Nok W.",ok:1}]},{id:10,t:"off",st:"declined",days:[{d:23,w:"",ok:1}]}];
+
+var VAR=[
+{c:"FG2-BC300-CLR",n:"Body cleanser 300 ml (charlene rose)",un:"bottle",y:24,out:4,rec:0,c1:18,c2:null,rsn:"",note:"",st:"open"},
+{c:"FG2-BHM75-CLR",n:"Hair and body mist 75 ml (charlene rose)",un:"bottle",y:19,out:5,rec:12,c1:28,c2:null,rsn:"",note:"",st:"open"}];
+
+var LEDGER=[
+{d:"8 Sep 09:14",br:"Ecotopia",c:"FG2-BC300-CLR",n:"Body cleanser 300 ml (charlene rose)",un:"bottle",ty:"Count",q:18,who:"Kan S.",to:"Shop floor"},
+{d:"7 Sep 21:05",br:"Ecotopia",c:"FG2-BC300-CLR",n:"Body cleanser 300 ml (charlene rose)",un:"bottle",ty:"Sale",q:-4,who:"AdaPOS import",to:"Customer"},
+{d:"7 Sep 16:40",br:"Ecotopia",c:"FG2-BHM75-CLR",n:"Hair and body mist 75 ml (charlene rose)",un:"bottle",ty:"Tester",q:-1,who:"Ploy T.",to:"Shop floor"},
+{d:"6 Sep 14:20",br:"Ecotopia",c:"FG2-BHM75-CLR",n:"Hair and body mist 75 ml (charlene rose)",un:"bottle",ty:"Received",q:12,who:"Kan S.",to:"From central warehouse"},
+{d:"6 Sep 11:02",br:"Song Wat",c:"FG1-ABPF100-NG",n:"Ambient parfum 100 ml (neroli garden)",un:"bottle",ty:"Transfer out",q:-6,who:"Nok W.",to:"To Gaysorn"},
+{d:"6 Sep 11:02",br:"Gaysorn",c:"FG1-ABPF100-NG",n:"Ambient parfum 100 ml (neroli garden)",un:"bottle",ty:"Transfer in",q:6,who:"Mai A.",to:"From Song Wat"},
+{d:"5 Sep 18:30",br:"Gaysorn",c:"FG5-CD180-AD",n:"Candle 180 g (amber dusk)",un:"jar",ty:"Damage",q:-2,who:"Mai A.",to:"Broken in transit"},
+{d:"5 Sep 09:08",br:"Ecotopia",c:"FG2-BC300-CLR",n:"Body cleanser 300 ml (charlene rose)",un:"bottle",ty:"Count",q:28,who:"Ploy T.",to:"Shop floor"},
+{d:"4 Sep 19:44",br:"Siam Discovery",c:"FG4-HC50-EP",n:"Nourishing hand cream 50 ml (everpine)",un:"tube",ty:"Sale",q:-3,who:"Manual entry",to:"Customer"},
+{d:"4 Sep 12:15",br:"Ecotopia",c:"FG1-RS50-VF",n:"Room spray 50 ml (velvet fig)",un:"bottle",ty:"Display",q:-1,who:"Kan S.",to:"Window display"},
+{d:"3 Sep 10:20",br:"Lofteyes",c:"FG2-HW300-NG",n:"Hand wash 300 ml (neroli garden)",un:"bottle",ty:"Adjustment",q:-2,who:"Nira P.",to:"Approved: missing"},
+{d:"2 Sep 08:50",br:"Talat Noi",c:"FG1-FBF100-CTM",n:"Fabric fragrance 100 ml (cotton musk)",un:"bottle",ty:"Received",q:24,who:"Bas R.",to:"From central warehouse"}];
+
+var COLS=[["A","Trans Date","01/09/2026"],["B","Doc No","INV-2609-0412"],["C","Item Code","FG2-BC300-CLR"],["D","Description","Body cleanser 300ml"],["E","Qty","2"],["F","Unit Price","1,290.00"],["G","Disc %","10"],["H","Net Amt","2,322.00"],["I","Tender","Credit Card"],["J","Staff","A. Suwan"]];
+var FLDS=[{k:"date",l:"Date",req:1,g:"A"},{k:"bill",l:"Bill number",req:1,g:"B"},{k:"sku",l:"Product code",req:1,g:"C"},{k:"qty",l:"Quantity",req:1,g:"E"},{k:"amt",l:"Net amount",req:1,g:"H"},{k:"disc",l:"Discount %",req:0,g:"G"},{k:"pay",l:"Payment method",req:0,g:"I"}];
+
+/* ---------------- state ---------------- */
+var S={role:"manager",me:"Kan S.",page:"dash",branch:"All branches",
+cur:new Date(2026,8,8),per:"month",c0:"2026-09-01",c1:"2026-09-03",cOpen:0,
+kpi:null,gOpen:{},bOpen:{},npd:0,showAll:0,q:"",bq:{},openC:{},
+span:"week",msub:"cal",edit:0,pick:null,draft:0,selDay:null,shEdit:0,
+form:0,ft:"swap",r0:null,r1:null,cal2:0,dmap:{},fnote:"",err:"",
+stab:"count",skind:"fg",scBranch:"",cnt:{},done:0,flagged:{},vAct:null,vMode:null,tmp:"",tmpN:"",
+salesTab:"import",billsTab:"import",map:{},saved:0,upBranch:"",uploaded:0,mprod:{},mctry:{},
+srtab:"inv",mvPer:"day",mvType:"All",
+rtab:"rep",rOpen:{},settab:"br",focus:null,
+cov:null,otPick:null,shTab:"roster",
+evForm:0,evD:"2026-09-15",evT:"count",evN:"",evB:"All branches",
+dlForm:0,dlB:"Gaysorn",dlD:"2026-09-18",dlS:"Morning",dlI:"",
+rcvId:0,rcv:{},rrsn:{},rnote:{},
+xForm:0,xF:"Ecotopia",xT:"Central warehouse",xq:{},xN:""};
+(function(){for(var i=0;i<FLDS.length;i++)S.map[FLDS[i].k]=""})();
+
+function P(n){for(var i=0;i<PEOPLE.length;i++)if(PEOPLE[i].n==n)return PEOPLE[i];return PEOPLE[3]}
+function me(){return P(S.me)}
+function isMgr(){return S.role=="manager"||S.role=="admin"||S.role=="people"}
+function isAdmin(){return S.role=="admin"}
+function isSup(){return S.role=="supervisor"}
+function isKA(){return S.role=="ka"||S.role=="parttime"}
+function canAdjust(){return S.role=="manager"||S.role=="admin"}
+function canSeeMoney(){return S.role=="manager"||S.role=="admin"||S.role=="people"}
+function visBranches(){if(isMgr()||S.role=="marketing"||S.role=="logistic")return BR.map(function(b){return b.n});return me().br}
+function scoped(){var v=visBranches();
+if(S.branch!="All branches")return BR.filter(function(b){return b.n==S.branch});
+return BR.filter(function(b){return v.indexOf(b.n)>=0})}
+
+/* ---------------- dates ---------------- */
+var MN=["January","February","March","April","May","June","July","August","September","October","November","December"];
+var MS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function iso(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
+function ym(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)}
+function weekStart(d){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()),k=(x.getDay()+6)%7;x.setDate(x.getDate()-k);return x}
+function daysIn(d){return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()}
+function shiftDate(dir,per){var d=new Date(S.cur);
+if(per=="day")d.setDate(d.getDate()+dir);
+else if(per=="week")d.setDate(d.getDate()+7*dir);
+else d.setMonth(d.getMonth()+dir);
+S.cur=d}
+function dnum(a,b){return Math.round((b-a)/86400000)+1}
+function cDates(){var a=new Date(S.c0+"T00:00:00"),b=new Date(S.c1+"T00:00:00");
+if(b<a){var t=a;a=b;b=t}return[a,b]}
+function periodLabel(per){var d=S.cur;
+if(per=="custom"){var r=cDates();
+return r[0].getDate()+" "+MS[r[0].getMonth()]+" – "+r[1].getDate()+" "+MS[r[1].getMonth()]+" "+r[1].getFullYear()}
+if(per=="day")return d.getDate()+" "+MS[d.getMonth()]+" "+d.getFullYear();
+if(per=="week"){var a=weekStart(d),b=new Date(a);b.setDate(b.getDate()+6);
+return a.getDate()+" "+MS[a.getMonth()]+" – "+b.getDate()+" "+MS[b.getMonth()]+" "+b.getFullYear()}
+return MN[d.getMonth()]+" "+d.getFullYear()}
+function periodKey(per){var d=S.cur;
+if(per=="custom")return S.c0+"_"+S.c1;
+if(per=="day")return iso(d);
+if(per=="week")return iso(weekStart(d));
+return ym(d)}
+var TODAY=new Date(2026,8,8);
+function isFutureMonth(){return S.cur.getFullYear()>TODAY.getFullYear()||(S.cur.getFullYear()==TODAY.getFullYear()&&S.cur.getMonth()>TODAY.getMonth())}
+function seedOf(k){var h=2166136261;for(var i=0;i<k.length;i++){h^=k.charCodeAt(i);h=(h*16777619)>>>0}return h}
+function factor(per){var base;
+if(per=="custom"){var r=cDates();base=.033*dnum(r[0],r[1])}
+else base={day:.033,week:.23,month:1}[per];
+return base*(0.82+(seedOf(periodKey(per))%40)/100)}
+function shiftCustom(dir){var r=cDates(),n=dnum(r[0],r[1]);
+var a=new Date(r[0]);a.setDate(a.getDate()+dir*n);
+var b=new Date(r[1]);b.setDate(b.getDate()+dir*n);
+S.c0=iso(a);S.c1=iso(b)}
+function series(key,n,lo,hi){var h=seedOf(key),a=[];
+for(var i=0;i<n;i++){h=(h*1664525+1013904223)>>>0;a.push(lo+(h%1000)/1000*(hi-lo))}return a}
+function dayLabels(){var n=daysIn(S.cur),a=[];
+for(var i=1;i<=n;i++)a.push(i+" "+MS[S.cur.getMonth()]);return a}
+function weekLabels(){var a=weekStart(S.cur),o=[],DN=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+for(var i=0;i<7;i++){var d=new Date(a);d.setDate(d.getDate()+i);o.push({l:DN[i]+" "+d.getDate(),idx:d.getDate()-1,iso:iso(d),m:d.getMonth()})}
+return o}
+/* ---------------- helpers ---------------- */
+function e(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function m(x){return Math.round(x*factor(S.per))}
+function bt(x){return"฿"+Math.round(x).toLocaleString()}
+function b2(x){return"฿"+x.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+function nm(x){return m(x).toLocaleString()}
+function bh(x){return"฿"+m(x).toLocaleString()}
+function tot(k){var l=scoped(),t=0;for(var i=0;i<l.length;i++)t+=l[i][k];return t}
+function av(p,cls){return'<span class="av '+(cls||"")+'" style="background:'+p.bg+';color:'+p.fg+'">'+p.i+'</span>'}
+function stat(l,v,s,c){return'<div class="stat"><div class="l">'+l+'</div><div class="v"'+(c?' style="color:'+c+'"':'')+'>'+v+'</div>'+(s?'<div class="s">'+s+'</div>':'')+'</div>'}
+function card(b,hue){return'<div class="card'+(hue?' k-'+hue:'')+'">'+b+'</div>'}
+function hd(t,r){return'<div class="hd"><h2>'+t+'</h2>'+(r||'')+'</div>'}
+function eyebrow(t){return'<div class="eyebrow">'+t+'</div>'}
+function bar2(a,b){var t=a+b||1;return'<span class="bar"><i style="width:'+(a/t*100)+'%;background:var(--sage)"></i><i style="width:'+(b/t*100)+'%;background:var(--accent)"></i></span>'}
+function chev(o){return'<span class="ic" aria-hidden="true">'+(o?"▾":"▸")+'</span>'}
+function seg(id,opts,cur,sec){var h='<div class="seg'+(sec?" sec":"")+'" role="group">';
+for(var i=0;i<opts.length;i++)h+='<button data-'+id+'="'+opts[i][0]+'" aria-pressed="'+(cur==opts[i][0])+'">'+opts[i][1]+'</button>';
+return h+'</div>'}
+function branchSelect(id,val,allowAll,lbl){var v=visBranches();
+var h='<label class="pill"><span class="sub">'+(lbl||"Branch")+'</span><select id="'+id+'" aria-label="Branch">';
+if(allowAll)h+='<option'+(val=="All branches"?" selected":"")+'>All branches</option>';
+for(var i=0;i<v.length;i++)h+='<option'+(val==v[i]?" selected":"")+'>'+e(v[i])+'</option>';
+return h+'</select></label>'}
+function branchPill(){return branchSelect("brSel",S.branch,isMgr()||visBranches().length>1)}
+function dnav(cur,attr,opts){var h='<div class="dwrap"><div class="dctl">';
+if(opts){for(var i=0;i<opts.length;i++)h+='<button data-'+attr+'="'+opts[i][0]+'" aria-pressed="'+(cur==opts[i][0])+'">'+opts[i][1]+'</button>';
+if(attr=="per")h+='<button data-per="custom" aria-pressed="'+(cur=="custom")+'">Custom</button>';
+h+='<span class="dsep"></span>'}
+var per=opts?cur:"month";
+h+='<button class="ghost" data-nav="-1" aria-label="Previous">\u2039</button><span class="navlab">'+periodLabel(per)+'</span><button class="ghost" data-nav="1" aria-label="Next">\u203a</button>';
+if(per=="custom")h+='<span class="dsep"></span><button class="ghost wide2" id="cOpen" aria-expanded="'+!!S.cOpen+'" aria-label="Edit range">\u25a4</button>';
+else h+='<span class="dsep"></span><label class="dpick"><span class="ic" aria-hidden="true">\u25a4</span><input type="date" id="jump" value="'+iso(S.cur)+'" aria-label="Jump to date"></label>';
+h+='</div>';
+if(per=="custom"&&S.cOpen){var r=cDates();
+h+='<div class="rangebox"><div class="rgrid"><label><span class="sub">From</span><input type="date" id="c0" value="'+S.c0+'"></label><label><span class="sub">To</span><input type="date" id="c1" value="'+S.c1+'"></label></div>';
+h+='<div class="quick">';
+var q=[["3 days",3],["7 days",7],["14 days",14],["30 days",30]];
+for(i=0;i<q.length;i++)h+='<button class="btn sm" data-quick="'+q[i][1]+'">'+q[i][0]+'</button>';
+h+='</div><p class="sub" style="margin:9px 0 0">'+dnum(r[0],r[1])+' days selected. The arrows step by the same length.</p></div>'}
+return h+'</div>'}
+function chip(c){var s=SH[c];return'<span class="tag" style="background:'+s.b+';color:'+s.c+'">'+(s.t?s.f+"–"+s.t:s.f)+'</span>'}
+function csv(rows,name){var out=rows.map(function(r){return r.map(function(c){
+var s=String(c==null?"":c);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(",")}).join("\n");
+var b=new Blob(["\ufeff"+out],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");
+a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();
+setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},400)}
+
+/* ---------------- nav ---------------- */
+var NAV=[
+{k:"dash",l:"Dashboard",i:"\u25e7",roles:"admin,manager,supervisor,ka,parttime,logistic,people,marketing"},
+{g:"Sales"},
+{k:"sales",l:"Sales",i:"\u20bf",roles:"admin,manager,supervisor"},
+{k:"bills",l:"Bills",i:"\u25a4",roles:"admin,manager,supervisor"},
+{k:"traffic",l:"Store traffic",i:"\u25ce",roles:"admin,manager,supervisor"},
+{g:"Stock"},
+{k:"stock",l:"Stock count",i:"\u25a6",roles:"admin,manager,supervisor,ka,parttime"},
+{k:"var",l:"Differences to check",i:"!",roles:"ka,parttime",badge:function(){return VAR.filter(function(v){return v.st=="open"}).length}},
+{k:"receive",l:"Receiving",i:"\u25bc",roles:"admin,manager,supervisor,ka,parttime,logistic",badge:function(){return myDeliv().filter(function(x){return x.d<=iso(TODAY)}).length}},
+{k:"adj",l:"Stock adjustments",i:"\u21c5",roles:"admin,manager",badge:function(){return VAR.filter(function(v){return v.st=="explained"||v.st=="unexplained"}).length}},
+{k:"sreport",l:"Stock reports",i:"\u25a7",roles:"admin,manager,supervisor,logistic"},
+{k:"transfer",l:"Transfers",i:"\u21c4",roles:"admin,manager,supervisor,logistic"},
+{g:"People"},
+{k:"shifts",l:"Shifts",i:"\u25a5",roles:"admin,manager,supervisor,ka,parttime,people",badge:function(){return isMgr()?REQS.filter(function(r){return r.st=="pending"}).length:INBOX.length}},
+{k:"report",l:"Overtime & commission",i:"\u25b1",roles:"admin,manager,people"},
+{g:"Logistics"},
+{k:"logistics",l:"Delivery schedule",i:"\u25a7",roles:"admin,manager,logistic",badge:function(){return SHORTS.filter(function(x){return x.st=="open"}).length}},
+{g:"Manage"},
+{k:"calendar",l:"Calendar & events",i:"\u25a4",roles:"admin,manager,people,marketing"},
+{k:"sync",l:"AccCloud sync",i:"\u21bb",roles:"admin",badge:function(){return SYNC.failed}},
+{k:"settings",l:"Settings",i:"\u2699",roles:"admin,manager"}];
+function renderNav(){var h="",pend=[];
+for(var i=0;i<NAV.length;i++){var n=NAV[i];
+if(n.g){pend=['<div class="navlbl">'+n.g+'</div>'];continue}
+if(n.roles.indexOf(S.role)<0)continue;
+while(pend.length)h+=pend.shift();
+var b=n.badge?n.badge():0;
+h+='<button data-pg="'+n.k+'"'+(S.page==n.k?' aria-current="page"':'')+'><span class="ic" aria-hidden="true">'+n.i+'</span>'+n.l+(b?'<span class="cnt">'+b+'</span>':'')+'</button>'}
+document.getElementById("nav").innerHTML=h}
+
+/* ---------------- dashboard ---------------- */
+var HUE={sales:"gr",units:"pu",bills:"te",traffic:"bl"};
+function spark(key,hue,neg){var v=series(key,14,20,100),i,pts=[],w=100,h=26;
+for(i=0;i<v.length;i++)pts.push((i/(v.length-1)*w).toFixed(1)+","+(h-v[i]/100*(h-3)).toFixed(1));
+var d="M"+pts.join(" L"),area=d+" L"+w+","+h+" L0,"+h+" Z";
+return'<svg class="spk" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" aria-hidden="true"><path d="'+area+'" fill="var(--hue-bg)"/><path d="'+d+'" fill="none" stroke="var(--hue)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>'}
+function delta(key){var v=series(key+"d",1,-14,26)[0];
+return'<span class="delta '+(v>=0?"up":"down")+'">'+(v>=0?"\u25b2":"\u25bc")+' '+Math.abs(v).toFixed(1)+'%</span>'}
+function kpis(){var d=[["sales","Sales",bh(tot("rev"))],["units","Units sold",nm(tot("u"))],
+["bills","Bills",nm(tot("bt")+tot("bf"))],["traffic","Traffic",nm(tot("tt")+tot("tf"))]];
+var h='<div class="kgrid">';
+for(var i=0;i<4;i++){var a=d[i][0]==S.kpi,k=d[i][0]+periodKey(S.per);
+h+='<button class="kcard h-'+HUE[d[i][0]]+(a?" on":"")+'" data-kpi="'+d[i][0]+'" aria-pressed="'+a+'">'+
+'<span class="krow"><span class="klabel">'+d[i][1]+'</span>'+delta(k)+'</span>'+
+'<span class="kval">'+d[i][2]+'</span>'+spark(k,HUE[d[i][0]])+
+'<span class="ksub">vs previous '+(S.per=="custom"?"period":S.per)+'</span></button>'}
+return h+'</div>'}
+function goals(){var l=scoped().slice().sort(function(a,b){return achv2(b)-achv2(a)});
+var h=hd("Goal progress",'<span class="sub">Sales excl. VIP against target</span>');
+h+='<div class="ggrid">';
+for(var i=0;i<l.length;i++){var b=l[i],a=achv2(b),cl=a>=100?"g4":a>=80?"g3":a>=51?"g2":"g1";
+h+='<div class="gitem"><div class="gtop"><span class="grow trunc">'+e(b.n)+'</span><span class="gpct '+cl+'">'+a.toFixed(0)+'%</span></div>'+
+'<div class="gbar"><i class="'+cl+'" style="width:'+Math.min(100,a)+'%"></i></div>'+
+'<div class="gfoot"><span>'+bt(b.rev-b.vip)+'</span><span class="sub">of '+bt(b.goal)+'</span></div></div>'}
+return card(h+'</div>',"gr")}
+function achv2(b){return(b.rev-b.vip)/b.goal*100}
+function needsAction(){var r=[["Fabric fragrance 100 ml is low","Ecotopia","9 / 12 bottle","stock"],
+["Stock count differences to check","Ecotopia","2 items","adj"],
+["POS cash difference","Gaysorn","฿−250","adj"]];
+var h=hd("Needs action",'<span class="tag t-r">3</span>');
+for(var i=0;i<r.length;i++)h+='<button class="row rowbtn" data-pg="'+r[i][3]+'"><span class="grow trunc" style="text-align:left">'+r[i][0]+'</span><span class="sub">'+r[i][1]+'</span><span style="color:var(--accent);font-weight:500">'+r[i][2]+'</span></button>';
+return card(h,"am")}
+function onShift(){var r=[["Mai A.","Gaysorn",0],["Ploy T.","Gaysorn",0],["Kan S.","Swap pending",1]];
+var h=hd("On shift today");
+for(var i=0;i<r.length;i++)h+='<div class="row" style="padding:7px 0">'+av(P(r[i][0]),"sm")+'<span class="grow trunc">'+r[i][0]+'</span><span class="sub" style="color:'+(r[i][2]?"var(--a70)":"var(--muted)")+'">'+r[i][1]+'</span></div>';
+return card(h,"gr")}
+function upcoming(){var l=upcomingEvents(4);
+var h=hd("Upcoming",(isMgr()?'<button class="btn sm" data-pg="calendar">Manage</button>':''));
+if(!l.length)h+='<div class="empty">Nothing planned.</div>';
+for(var i=0;i<l.length;i++)h+='<div class="row" style="padding:7px 0"><span style="color:var(--accent);width:56px;flex-shrink:0;font-size:12px">'+fmtD(l[i].d)+'</span><span class="grow trunc">'+e(l[i].n)+'</span><span class="tag '+ETYPE[l[i].ty].c+'">'+ETYPE[l[i].ty].l+'</span></div>';
+return card(h,"gr")}
+function topFive(){var f=PROD.filter(function(p){return p.n.toLowerCase().indexOf(S.q.toLowerCase())>=0});
+var lim=(S.showAll||S.q)?f.length:5,mx=PROD[0].u;
+var h=hd(S.q?"Products":"Top 5 products",'<span class="sub">By units sold</span>');
+h+='<div class="srch"><span class="ic" aria-hidden="true">⌕</span><input id="q" value="'+e(S.q)+'" placeholder="Search product"></div>';
+if(!f.length)h+='<div class="empty">No product matches that search.</div>';
+for(var i=0;i<Math.min(lim,f.length);i++)h+='<div class="row" style="padding:7px 0"><span class="sub" style="width:18px">'+(i+1)+'</span><span class="grow trunc">'+e(f[i].n)+(f[i].npd?' <span class="tag t-p">New</span>':'')+'</span><span class="bar" style="width:56px"><i style="width:'+Math.round(f[i].u/mx*100)+'%;background:var(--sage)"></i></span><span style="width:78px;text-align:right"><b>'+nm(f[i].u)+'</b> <span class="sub">'+f[i].un+'</span></span></div>';
+if(!S.q&&f.length>5)h+='<button class="btn wide" id="sa" style="margin-top:10px">'+(S.showAll?"Show top 5":"Show all "+f.length+" products")+'</button>';
+return card(h,"pu")}
+function dSales(){var l=scoped().slice(),g={},i;
+var h='<div class="tint gr"></div>'+hd("Sales detail",'<button class="btn sm" id="kclose" aria-label="Close">✕</button>');
+h+='<div class="stats">'+stat("Total",bh(tot("rev")))+stat("Excl. VIP",bh(tot("rev")-tot("vip")))+stat("VIP",bh(tot("vip")))+'</div>'+eyebrow("By store type");
+for(i=0;i<l.length;i++)(g[l[i].t]=g[l[i].t]||[]).push(l[i]);
+var ord=["Own store","Consignment","Pop-up"];
+for(var j=0;j<ord.length;j++){var t=ord[j],a=g[t];if(!a)continue;
+a=a.sort(function(x,y){return y.rev-x.rev});
+var ts=0,tv=0;for(i=0;i<a.length;i++){ts+=a[i].rev;tv+=a[i].vip}
+var o=S.gOpen[t]!==false;
+h+='<div class="acc"><button data-g="'+e(t)+'" aria-expanded="'+o+'">'+chev(o)+'<span class="grow" style="font-weight:500">'+t+'</span><span class="sub">'+a.length+'</span><span style="font-weight:500;min-width:96px;text-align:right">'+bh(ts)+'</span></button>';
+if(o){h+='<div><div class="stats">'+stat("Total",bh(ts))+stat("Excl. VIP",bh(ts-tv))+stat("VIP",bh(tv))+'</div>';
+h+='<div class="scroll"><table><tr><th>Branch</th><th class="r">Total</th><th class="r">Excl. VIP</th><th class="r">VIP</th></tr>';
+for(i=0;i<a.length;i++)h+='<tr><td>'+e(a[i].n)+'</td><td class="r"><b>'+bh(a[i].rev)+'</b></td><td class="r">'+bh(a[i].rev-a[i].vip)+'</td><td class="r sub">'+bh(a[i].vip)+'</td></tr>';
+h+='</table></div></div>'}
+h+='</div>'}
+return card(h,"gr")}
+function dUnits(){var l=scoped().slice().sort(function(a,b){return b.u-a.u}),i,j;
+var npd=PROD.filter(function(p){return p.npd}),nu=0;
+for(i=0;i<npd.length;i++)nu+=npd[i].u;
+var h='<div class="tint pu"></div>'+hd("Units sold",'<button class="btn sm" id="kclose" aria-label="Close">✕</button>');
+h+='<div class="acc npd"><button data-npd="1" aria-expanded="'+!!S.npd+'">'+chev(S.npd)+'<span class="grow" style="font-weight:500;color:var(--p70)">New products</span><span class="sub" style="color:var(--p65)">'+npd.length+' items</span><span style="font-weight:500;color:#26215C;min-width:60px;text-align:right">'+nm(nu)+'</span></button>';
+if(S.npd){h+='<div>';
+for(i=0;i<npd.length;i++)h+='<div class="row" style="border-color:#CECBF6"><span class="grow trunc">'+e(npd[i].n)+'</span><span><b>'+nm(npd[i].u)+'</b> <span class="sub">'+npd[i].un+'</span></span></div>';
+h+='</div>'}
+h+='</div>'+eyebrow("By branch");
+for(i=0;i<l.length;i++){var b=l[i],o=S.bOpen[b.n]!==false,q=S.bq[b.n]||"";
+var pl=PROD.slice(0,7).filter(function(p){return p.n.toLowerCase().indexOf(q.toLowerCase())>=0});
+var lim=(q||S.bOpen[b.n+"_all"])?pl.length:5;
+h+='<div class="acc"><button data-b="'+e(b.n)+'" aria-expanded="'+o+'">'+chev(o)+'<span class="grow" style="font-weight:500">'+e(b.n)+'</span><span class="sub">'+b.t+'</span><span style="font-weight:500">'+nm(b.u)+'</span></button>';
+if(o){h+='<div><div class="srch"><span class="ic" aria-hidden="true">⌕</span><input data-bq="'+e(b.n)+'" value="'+e(q)+'" placeholder="Search in '+e(b.n)+'"></div>';
+if(!pl.length)h+='<div class="empty">No product matches that search.</div>';
+for(j=0;j<Math.min(lim,pl.length);j++)h+='<div class="row"><span class="grow trunc">'+e(pl[j].n)+(pl[j].npd?' <span class="tag t-p">New</span>':'')+'</span><span><b>'+nm(Math.round(pl[j].u*b.u/2400))+'</b> <span class="sub">'+pl[j].un+'</span></span></div>';
+if(!q&&pl.length>5)h+='<button class="btn wide sm" data-all="'+e(b.n)+'" style="margin-top:10px">'+(S.bOpen[b.n+"_all"]?"Show top 5":"Show all "+pl.length)+'</button>';
+h+='</div>'}
+h+='</div>'}
+return card(h,"pu")}
+function dBills(){var l=scoped(),s=tot("bt")+tot("bf"),i,j,agg={};
+for(i=0;i<l.length;i++)for(j=0;j<l[i].c.length;j++)agg[l[i].c[j][0]]=(agg[l[i].c[j][0]]||0)+l[i].c[j][1];
+var ct=[];for(var k in agg)ct.push([k,agg[k]]);
+ct.sort(function(a,b){return b[1]-a[1]});
+var mx=ct.length?ct[0][1]:1;
+var h='<div class="tint te"></div>'+hd("Bills",'<button class="btn sm" id="kclose" aria-label="Close">✕</button>');
+h+='<div class="stats">'+stat("Total bills",nm(s))+stat("Thai",nm(tot("bt")),Math.round(tot("bt")/s*100)+"% of bills")+stat("Foreign",nm(tot("bf")),Math.round(tot("bf")/s*100)+"% of bills")+'</div>';
+h+=eyebrow("By country")+'<div class="scroll"><table><tr><th>Country</th><th class="r">Bills</th><th class="r" style="width:110px">Share</th></tr>';
+for(i=0;i<ct.length;i++)h+='<tr><td>'+flag(ct[i][0])+e(ct[i][0])+'</td><td class="r"><b>'+nm(ct[i][1])+'</b></td><td class="r"><span class="bar" style="width:40px;display:inline-flex;vertical-align:middle"><i style="width:'+Math.round(ct[i][1]/mx*100)+'%;background:'+(i==0?"var(--sage)":"var(--accent)")+'"></i></span> <span class="sub">'+Math.round(ct[i][1]/s*100)+'%</span></td></tr>';
+h+='</table></div>'+eyebrow("By branch");
+var x=l.slice().sort(function(a,b){return(b.bt+b.bf)-(a.bt+a.bf)});
+for(i=0;i<x.length;i++){var b=x[i],t=b.bt+b.bf,o=!!S.openC[b.n];
+h+='<div class="acc"><button data-c="'+e(b.n)+'" aria-expanded="'+o+'" style="background:'+(o?"var(--panel)":"var(--white)")+'">'+chev(o)+'<span class="grow"><span style="font-weight:500;display:block">'+e(b.n)+'</span><span class="sub">'+b.t+'</span></span><span style="width:76px">'+bar2(b.bt,b.bf)+'<span style="display:flex;justify-content:space-between;margin-top:3px"><span class="sub" style="font-size:10px">'+Math.round(b.bt/t*100)+'%</span><span style="font-size:10px;color:var(--accent)">'+Math.round(b.bf/t*100)+'%</span></span></span><span style="font-weight:500;min-width:52px;text-align:right">'+nm(t)+'</span></button>';
+if(o){h+='<div>';var cm=b.c[0][1];
+for(j=0;j<b.c.length;j++)h+='<div class="row"><span class="grow trunc">'+flag(b.c[j][0])+e(b.c[j][0])+'</span><span class="bar" style="width:40px"><i style="width:'+Math.round(b.c[j][1]/cm*100)+'%;background:'+(j==0?"var(--sage)":"var(--accent)")+'"></i></span><span style="width:46px;text-align:right;font-weight:500">'+nm(b.c[j][1])+'</span><span class="sub" style="width:40px;text-align:right">'+Math.round(b.c[j][1]/t*100)+'%</span></div>';
+h+='</div>'}
+h+='</div>'}
+return card(h,"te")}
+function dTraffic(){var l=scoped().slice().sort(function(a,b){return(b.tt+b.tf)-(a.tt+a.tf)}),s=tot("tt")+tot("tf");
+var h='<div class="tint bl"></div>'+hd("Traffic",'<button class="btn sm" id="kclose" aria-label="Close">✕</button>');
+h+='<div class="stats">'+stat("Total visitors",nm(s))+stat("Thai",nm(tot("tt")),Math.round(tot("tt")/s*100)+"% of visitors")+stat("Foreign",nm(tot("tf")),Math.round(tot("tf")/s*100)+"% of visitors")+'</div>';
+h+='<div class="scroll"><table><tr><th>Branch</th><th style="width:110px;text-align:center">Thai / foreign</th><th class="r">Visitors</th></tr>';
+for(var i=0;i<l.length;i++){var t=l[i].tt+l[i].tf;
+h+='<tr><td><span style="font-weight:500;display:block">'+e(l[i].n)+'</span><span class="sub">'+l[i].t+'</span></td><td>'+bar2(l[i].tt,l[i].tf)+'<span style="display:flex;justify-content:space-between;margin-top:4px"><span class="sub" style="font-size:11px">'+Math.round(l[i].tt/t*100)+'%</span><span style="font-size:11px;color:var(--accent)">'+Math.round(l[i].tf/t*100)+'%</span></span></td><td class="r" style="font-weight:500;font-size:15px">'+nm(t)+'</td></tr>'}
+return card(h+'</table></div>',"bl")}
+function pageDash(){
+var h='<div class="pagebar"><h1>Dashboard</h1>'+dnav(S.per,"per",[["day","Day"],["week","Week"],["month","Month"]])+branchPill()+'</div>';
+h+=kpis();
+if(S.kpi=="sales")h+=dSales();
+else if(S.kpi=="units")h+=dUnits();
+else if(S.kpi=="bills")h+=dBills();
+else if(S.kpi=="traffic")h+=dTraffic();
+else{h+=goals()+needsAction();
+h+='<div class="two">'+onShift()+upcoming()+'</div>';
+var inc=incomingCard();if(inc)h+='<div style="margin-bottom:12px">'+inc+'</div>';
+h+=topFive()}
+return h}
+/* ---------------- stock count ---------------- */
+function stkList(){return S.skind=="fg"?STK:CONS}
+function expq(p){return p.y-p.out+p.rec}
+function counted(){var l=stkList(),n=0;for(var i=0;i<l.length;i++){var v=S.cnt[l[i].c];if(v!==undefined&&v!=="")n++}return n}
+function kindCards(){var fg=S.skind=="fg";
+return'<div class="stats">'+
+'<button class="stat kpi" data-kind="fg" aria-pressed="'+fg+'" style="border:'+(fg?"2px solid var(--brown)":"1px solid var(--bd)")+'"><div style="font-weight:500">Finished goods</div><div class="s" style="color:'+(fg?"var(--g70)":"var(--subtle)")+'">Every day · due today</div></button>'+
+'<button class="stat kpi" data-kind="cn" aria-pressed="'+!fg+'" style="border:'+(!fg?"2px solid var(--brown)":"1px solid var(--bd)")+'"><div style="font-weight:500">Consumables</div><div class="s" style="color:'+(!fg?"var(--a70)":"var(--subtle)")+'">Every week · due Mon 14 Sep</div></button></div>'}
+function stockCount(){var l=stkList(),c=counted();
+var h='<div class="pagebar"><h1>Stock count</h1>'+seg("stab",[["count","Count"],["move","Movement"]],S.stab)+branchSelect("scSel",S.scBranch,false,"Counting at")+'<span class="pill">'+periodLabel("day")+'</span></div>';
+h+=kindCards();
+h+='<div class="stats">'+stat("Counted",c+" / "+l.length,c==l.length?"All done":l.length-c+" left")+stat("Branch",e(S.scBranch),"Shop floor")+'</div>';
+var b=hd("Count what is on the shelf",'<span class="sub">Enter the real quantity</span>');
+b+='<div class="srch narrow"><span class="ic" aria-hidden="true">⌕</span><input id="sq" value="'+e(S.q)+'" placeholder="Search product or code"></div>';
+var f=l.filter(function(p){return(p.n+" "+p.c).toLowerCase().indexOf(S.q.toLowerCase())>=0});
+if(!f.length)b+='<div class="empty">No product matches that search.</div>';
+for(var i=0;i<f.length;i++){var p=f[i],v=S.cnt[p.c],has=v!==undefined&&v!=="";
+b+='<div class="row"><span class="grow"><span class="trunc" style="display:block">'+e(p.n)+'</span><span class="code">'+p.c+'</span></span><span class="sub" style="width:52px;text-align:right">'+p.un+'</span><input class="num" data-sc="'+p.c+'" inputmode="numeric" value="'+e(has?v:"")+'" placeholder="—" aria-label="Count '+e(p.n)+' in '+p.un+'" style="border-color:'+(has?"var(--sage)":"var(--bd)")+'"></div>'}
+h+=card(b);
+h+=card('<p class="sub" style="margin:0 0 10px">Yesterday\'s figures unlock once you submit. Count what you see first.</p><button class="btn pri wide" id="subCount"'+(c<l.length?' disabled':'')+'>Submit count</button>'+(c<l.length?'<p class="sub" style="text-align:center;margin:8px 0 0">Count every item before submitting.</p>':''));
+return h}
+function step(l,v,c){return'<span style="flex:1;text-align:center;min-width:56px"><span class="sub" style="display:block;font-size:10px">'+l+'</span><span style="font-weight:500;color:'+(c||"var(--dark)")+'">'+v+'</span></span>'}
+function chain(p,f){var d=f-expq(p);
+return'<div class="chain">'+step("Yesterday",p.y)+'<span class="ic">›</span>'+step("Out","−"+p.out,"var(--r70)")+'<span class="ic">›</span>'+
+(p.rec?step("Received","+"+p.rec,"var(--g70)")+'<span class="ic">›</span>':'')+
+step("Should be",expq(p),"var(--muted)")+'<span class="ic">›</span>'+
+step("Counted",f,d?(d>0?"var(--g70)":"var(--r70)"):"var(--dark)")+'</div>'}
+function stockMove(){var l=stkList(),i;
+var mgrPeek=!isKA();
+if(!S.done&&!mgrPeek)return'<div class="pagebar"><h1>Stock count</h1>'+seg("stab",[["count","Count"],["move","Movement"]],S.stab)+'</div>'+
+'<div class="locked"><div style="font-size:24px;color:#C3C1B8" aria-hidden="true">🔒</div><h2 style="margin-top:10px">Unlocks after you submit</h2><p class="sub" style="max-width:380px;margin:8px auto 0">Yesterday\'s count and today\'s movement stay hidden until your count is in, so what you enter is what you actually see on the shelf.</p><button class="btn" data-stab="count" style="margin-top:14px">Back to counting</button></div>';
+var useSub=S.done;
+var nd=0,lo=[];
+for(i=0;i<l.length;i++){var mine=useSub?+S.cnt[l[i].c]:expq(l[i]);if(mine!==expq(l[i]))nd++;if(mine<l[i].mn)lo.push(l[i])}
+var h='<div class="pagebar"><h1>Stock count</h1>'+seg("stab",[["count","Count"],["move","Movement"]],S.stab)+branchSelect("scSel",S.scBranch,false,"Branch")+'</div>';
+if(useSub)h+='<div class="note g" style="margin-bottom:12px"><span aria-hidden="true">✓</span><span><strong>Count submitted</strong><br>'+e(S.me)+' · 09:14 · '+periodLabel("day")+'</span></div>';
+else h+='<div class="note p" style="margin-bottom:12px"><span aria-hidden="true">i</span><span>Today\'s count has not been submitted at '+e(S.scBranch)+' yet. Showing expected quantities from recorded movement.</span></div>';
+h+='<div class="stats">'+stat("Items",l.length+"")+stat("Not matching",nd+"","",nd?"var(--accent)":"")+stat("Below minimum",lo.length+"","",lo.length?"var(--accent)":"")+'</div>';
+var b=hd("Stock movement since yesterday",'<span class="sub">7 Sep → 8 Sep</span>');
+for(i=0;i<l.length;i++){var p=l[i],mine=useSub?+S.cnt[p.c]:expq(p),d=mine-expq(p);
+b+='<div style="border-top:1px solid var(--bd);padding:12px 0">';
+b+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><span class="grow trunc" style="font-weight:500">'+e(p.n)+'</span><span class="sub">'+p.un+'</span>'+(d?'<span class="tag '+(d>0?"t-g":"t-r")+'">'+(d>0?"+"+d:d)+'</span>':'<span class="tag t-g">Matches</span>')+'</div>';
+b+=chain(p,mine);
+if(d&&isKA())b+='<div style="display:flex;align-items:center;gap:8px;margin-top:9px"><span class="grow" style="font-size:12px;color:var(--a70)">'+(d>0?d+" more":Math.abs(d)+" fewer")+' than the movement explains.</span>'+(S.flagged[p.c]?'<span class="tag t-p">Sent to manager</span>':'<button class="btn sm" data-flag="'+p.c+'">Check this</button>')+'</div>';
+if(mine<p.mn)b+='<p style="font-size:12px;color:var(--r70);margin:7px 0 0">Below minimum of '+p.mn+' '+p.un+' — needs reordering</p>';
+b+='</div>'}
+h+=card(b);
+if(useSub)h+=card('<p class="sub" style="margin:0 0 10px">Your manager reviews every difference. The day is not closed until each one is resolved.</p><button class="btn wide" id="again">Start a new count</button>');
+return h}
+function pageStock(){return S.stab=="move"?stockMove():stockCount()}
+
+/* ---------------- differences / adjustments ---------------- */
+function finq(p){return p.c2===null?p.c1:p.c2}
+function vBadge(st){var mm={open:["Waiting on KA","t-a"],explained:["Ready to approve","t-p"],unexplained:["Unexplained","t-r"],approved:["Adjusted","t-g"]};
+return'<span class="tag '+mm[st][1]+'">'+mm[st][0]+'</span>'}
+function pageAdj(){var wait=0,i;
+for(i=0;i<VAR.length;i++)if(VAR[i].st=="explained"||VAR[i].st=="unexplained")wait++;
+var h='<div class="pagebar"><h1>Stock adjustments</h1>'+branchPill()+'<span class="pill">'+periodLabel("day")+'</span></div>';
+if(!canAdjust())return h+card('<div class="empty">Supervisors can view stock reports but cannot approve adjustments. Ask a manager to approve.</div>');
+h+='<div class="stats">'+stat("Ready to approve",wait+"","",wait?"var(--accent)":"")+stat("Net units","−3","if approved","var(--r70)")+stat("Value","฿−2,850","estimate","var(--r70)")+'</div>';
+var any=0;
+for(i=0;i<VAR.length;i++){var p=VAR[i];if(p.st=="open")continue;any=1;
+var f=finq(p),d=f-expq(p);
+var b='<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">'+av(P("Kan S."))+'<span class="grow"><span style="font-weight:500;display:block">'+e(p.n)+'</span><span class="sub">Kan S. · 09:14 · '+p.un+'</span></span>'+vBadge(p.st)+'</div>';
+b+=chain(p,f);
+if(p.c2!==null)b+='<div class="stats" style="margin-top:9px">'+stat("First count",p.c1+" "+p.un)+stat("Recount",p.c2+" "+p.un)+'</div>';
+b+='<div class="note '+(p.st=="unexplained"?"r":"a")+'" style="margin-top:11px"><span><strong>'+(p.st=="unexplained"?"KA could not explain this":e(p.rsn||"Reason given"))+'</strong><br>'+e(p.note||"No note added")+'</span></div>';
+if(p.st=="approved")b+='<div class="note g" style="margin-top:11px"><span>Adjustment posted. Stock is now '+f+' '+p.un+'.</span></div>';
+else b+='<div class="acts"><button class="btn pri" data-vap="'+i+'">Approve adjustment ('+(d>0?"+"+d:d)+')</button><button class="btn" data-vrc="'+i+'">Ask for recount</button></div>';
+h+=card(b)}
+if(!any)h+=card('<div class="empty">Nothing to approve. Differences appear here once a KA has checked them.</div>');
+var op=VAR.filter(function(v){return v.st=="open"});
+h+=card(hd("Waiting on the KA to check")+(op.length?op.map(function(v){return'<div class="row"><span class="grow trunc">'+e(v.n)+'</span>'+vBadge("open")+'</div>'}).join(""):'<div class="empty">Nothing outstanding.</div>'));
+return h}
+function pageVar(){var i,open=0;
+for(i=0;i<VAR.length;i++)if(VAR[i].st=="open")open++;
+var h='<div class="pagebar"><h1>Differences to check</h1><span class="pill">'+periodLabel("day")+'</span></div>';
+h+='<div class="stats">'+stat("Counted","6 / 6","Submitted 09:14")+stat("Differences",VAR.length+"","","var(--accent)")+stat("Still to check",open+"","",open?"var(--accent)":"var(--g70)")+'</div>';
+h+='<p class="sub" style="margin:0 0 12px">Your count is recorded. Stock will not change until a manager approves.</p>';
+for(i=0;i<VAR.length;i++){var p=VAR[i],f=finq(p),d=f-expq(p),a=S.vAct===i;
+var b='<div style="display:flex;align-items:center;gap:8px;margin-bottom:11px"><span class="grow trunc" style="font-weight:500">'+e(p.n)+'</span><span class="sub">'+p.un+'</span>'+vBadge(p.st)+'</div>'+chain(p,f);
+if(p.c2!==null)b+='<div class="stats" style="margin-top:9px">'+stat("First count",p.c1+"")+stat("Recount",p.c2+"")+'</div>';
+b+='<p style="font-size:12px;margin:10px 0 0;color:'+(d?"var(--a70)":"var(--g70)")+'">'+(d?(d>0?d+" more":Math.abs(d)+" fewer")+" than the movement explains.":"Recount matches the system. Nothing to adjust.")+'</p>';
+if(p.st=="open"&&!a)b+='<div class="acts"><button class="btn" data-va="'+i+'_re">Count again</button><button class="btn" data-va="'+i+'_wh">I know why</button><button class="btn" data-va="'+i+'_no">Cannot explain</button></div>';
+if(a&&S.vMode=="re")b+='<div class="note p" style="margin-top:12px;display:block"><p style="margin:0 0 9px">Go back and count it again. Both counts are kept on record.</p><div style="display:flex;gap:8px"><input class="num" id="vt" inputmode="numeric" value="'+e(S.tmp)+'" placeholder="New" aria-label="Recount"><button class="btn pri" style="flex:1;justify-content:center" data-vs="'+i+'">Save recount</button><button class="btn" data-vx="1">Cancel</button></div></div>';
+if(a&&(S.vMode=="wh"||S.vMode=="no")){b+='<div class="note p" style="margin-top:12px;display:block">';
+if(S.vMode=="wh"){b+='<label class="sub" for="vrs">Reason</label><select id="vrs" style="margin:4px 0 10px"><option value="">Choose a reason</option>';
+for(var j=0;j<REASONS.length;j++)b+='<option'+(S.tmp==REASONS[j]?" selected":"")+'>'+REASONS[j]+'</option>';
+b+='</select>'}
+else b+='<p style="margin:0 0 10px">This goes to your manager as unexplained. Add anything you noticed.</p>';
+b+='<label class="sub" for="vnt">Note'+(S.vMode=="wh"?" (optional)":"")+'</label><input id="vnt" value="'+e(S.tmpN)+'" placeholder="Two testers opened on Saturday" style="margin:4px 0 10px">';
+b+='<div style="display:flex;gap:8px"><button class="btn pri" style="flex:1;justify-content:center" data-vs2="'+i+'">Send to manager</button><button class="btn" data-vx="1">Cancel</button></div></div>'}
+if(p.st=="explained"||p.st=="unexplained")b+='<div class="note p" style="margin-top:12px"><span><strong>'+e(p.rsn||"No reason found")+'</strong>'+(p.note?'<br>'+e(p.note):'')+'<br><span class="sub" style="color:var(--p65)">Sent to manager · waiting for approval</span></span></div>';
+h+=card(b)}
+return h}
+
+/* ---------------- stock reports ---------------- */
+function invRows(){var v=S.branch=="All branches"?visBranches():[S.branch],rows=[];
+for(var b=0;b<v.length;b++){var bn=v[b],sd=seedOf(bn);
+for(var t=0;t<2;t++){var lst=t?CONS:STK;
+for(var i=0;i<lst.length;i++){var p=lst[i];
+var q=Math.max(0,Math.round(expq(p)*(0.55+((sd+i*97)%90)/100)));
+rows.push({br:bn,ty:t?"Consumable":"Finished goods",c:p.c,n:p.n,un:p.un,q:q,mn:p.mn,mx:p.mx,val:q*p.cost})}}}
+return rows}
+function pageSReport(){var h='<div class="pagebar"><h1>Stock reports</h1>'+seg("srtab",[["inv","Inventory"],["low","Low stock"],["mov","Movement"],["wh","Warehouse"]],S.srtab)+branchPill()+'</div>';
+var rows=invRows(),i;
+if(S.srtab=="wh")return h+warehouseTab();
+if(S.srtab=="inv"){var tq=0,tv=0,gr={};
+for(i=0;i<rows.length;i++){tq+=rows[i].q;tv+=rows[i].val;(gr[rows[i].ty]=gr[rows[i].ty]||[]).push(rows[i])}
+h+='<div class="stats">'+stat("Lines",rows.length+"")+stat("Units on hand",tq.toLocaleString())+stat("Stock value",bt(tv),"at cost")+stat("As of","Live","updated 09:14")+'</div>';
+var b=hd("Inventory by branch and type",'<button class="btn sm" id="expInv">Export to Excel</button>');
+var ord=["Finished goods","Consumable"];
+for(var g=0;g<ord.length;g++){var lst=gr[ord[g]];if(!lst)continue;
+b+='<div class="eyebrow ey-'+(g?"te":"gr")+'">'+ord[g]+'</div><div class="scroll"><table class="inv"><tr><th>Branch</th><th>Product</th><th class="r">On hand</th><th>Unit</th><th class="r">Min</th><th class="r">Max</th><th class="r">Value</th></tr>';
+for(i=0;i<lst.length;i++){var r=lst[i],low=r.q<r.mn,over=r.q>r.mx;
+b+='<tr class="'+(low?"lo":over?"ov":"")+'"><td class="nowrap">'+e(r.br)+'</td><td><span class="trunc" style="display:block;max-width:230px">'+e(r.n)+'</span><span class="code">'+r.c+'</span></td><td class="r num-c'+(low?" bad":over?" over":"")+'">'+r.q+'</td><td class="sub">'+r.un+'</td><td class="r sub">'+r.mn+'</td><td class="r sub">'+r.mx+'</td><td class="r num-c">'+bt(r.val)+'</td></tr>'}
+b+='</table></div>'}
+b+='<div class="keys"><span><i class="sw lo"></i>Below minimum</span><span><i class="sw ov"></i>Above maximum</span></div>';
+h+=card(b)}
+else if(S.srtab=="low"){var low=rows.filter(function(r){return r.q<r.mn}).sort(function(a,b2){return(a.q/a.mn)-(b2.q/b2.mn)});
+h+='<div class="stats">'+stat("Below minimum",low.length+"","",low.length?"var(--accent)":"")+stat("Branches affected",(function(){var s={};for(i=0;i<low.length;i++)s[low[i].br]=1;return Object.keys(s).length})()+"")+stat("To reorder",low.reduce(function(a,r){return a+(r.mx-r.q)},0).toLocaleString(),"units to max")+'</div>';
+var b=hd("Below minimum",'<button class="btn sm" id="expLow">Export to Excel</button>');
+if(!low.length)b+='<div class="empty">Nothing is below its minimum right now.</div>';
+else{b+='<div class="scroll"><table class="inv"><tr><th>Branch</th><th>Product</th><th class="r">On hand</th><th>Unit</th><th class="r">Min</th><th class="r">Order to max</th></tr>';
+for(i=0;i<low.length;i++)b+='<tr class="lo"><td class="nowrap">'+e(low[i].br)+'</td><td><span class="trunc" style="display:block;max-width:250px">'+e(low[i].n)+'</span><span class="code">'+low[i].c+'</span></td><td class="r num-c bad">'+low[i].q+'</td><td class="sub">'+low[i].un+'</td><td class="r sub">'+low[i].mn+'</td><td class="r num-c">'+(low[i].mx-low[i].q)+'</td></tr>';
+b+='</table></div>'}
+h+=card(b)}
+else{var v=S.branch=="All branches"?visBranches():[S.branch];
+var lg=LEDGER.filter(function(r){return v.indexOf(r.br)>=0&&(S.mvType=="All"||r.ty==S.mvType)});
+if(S.mvPer=="month")lg=lg.slice();else lg=lg.filter(function(r){return/^[5-8] Sep/.test(r.d)});
+var inq=0,outq=0;
+for(i=0;i<lg.length;i++){if(lg[i].ty=="Count")continue;if(lg[i].q>0)inq+=lg[i].q;else outq-=lg[i].q}
+var types=["All","Sale","Tester","Display","Damage","Received","Transfer out","Transfer in","Adjustment","Count"];
+var f2='<label class="pill"><span class="sub">Type</span><select id="mvType">';
+for(i=0;i<types.length;i++)f2+='<option'+(S.mvType==types[i]?" selected":"")+'>'+types[i]+'</option>';
+f2+='</select></label>';
+h+='<div class="pagebar" style="margin-top:-6px">'+seg("mvPer",[["day","Daily"],["month","Monthly"]],S.mvPer,1)+f2+'<span class="grow"></span><button class="btn sm" id="expMov">Export to Excel</button></div>';
+h+='<div class="stats">'+stat("Movements",lg.length+"")+stat("Units in","+"+inq,"","var(--g70)")+stat("Units out","−"+outq,"","var(--r70)")+'</div>';
+var b=hd("Stock movement");
+if(!lg.length)b+='<div class="empty">No movement matches these filters.</div>';
+else{b+='<div class="scroll"><table class="inv"><tr><th>When</th><th>Branch</th><th>Product</th><th>Type</th><th class="r">Qty</th><th>Unit</th><th>Where it went</th><th>By</th></tr>';
+for(i=0;i<lg.length;i++){var r=lg[i];
+b+='<tr><td class="sub" style="white-space:nowrap">'+r.d+'</td><td>'+e(r.br)+'</td><td class="trunc" style="max-width:200px">'+e(r.n)+'<div class="code">'+r.c+'</div></td><td><span class="tag '+(r.ty=="Sale"?"t-n":r.q>0?"t-g":"t-a")+'">'+r.ty+'</span></td><td class="r num-c" style="color:'+(r.ty=="Count"?"var(--muted)":r.q>0?"var(--g70)":"var(--r70)")+'">'+(r.ty=="Count"?r.q:(r.q>0?"+"+r.q:r.q))+'</td><td class="sub">'+r.un+'</td><td class="sub">'+e(r.to)+'</td><td>'+e(r.who)+'</td></tr>'}
+b+='</table></div>'}
+h+=card(b)}
+return h}
+/* ---------------- sales / bills / traffic ---------------- */
+function uploadBox(id){return'<div class="drop"><span style="font-size:24px;color:var(--subtle)" aria-hidden="true">▣</span><p style="margin:8px 0 2px">Drop the report file here</p><p class="sub" style="margin:0">Excel or CSV, one branch per file</p><label class="btn pri" style="margin-top:12px" for="'+id+'">Choose file</label><input type="file" id="'+id+'" accept=".xlsx,.xls,.csv" style="display:none"></div>'}
+function importPanel(){var h='<div class="pagebar" style="margin-top:-4px">'+branchSelect("upSel",S.upBranch,false,"Import for")+'<span class="sub">Pick the branch before choosing a file</span></div>';
+var b2=null;for(var i=0;i<BR.length;i++)if(BR[i].n==S.upBranch)b2=BR[i];
+var known=b2&&b2.pos;
+if(!S.uploaded)return h+card(hd("Upload a sales report")+uploadBox("fileA")+'<p class="sub" style="margin:12px 0 0">'+(known?"This branch uses AdaPOS. The file is read automatically.":"This branch has no AdaPOS export. You will map the columns once, then the mapping is reused every month.")+'</p>');
+if(known){h+=card('<div style="display:flex;align-items:center;gap:10px;margin-bottom:13px"><span class="ic" style="color:var(--g70)" aria-hidden="true">▣</span><span class="grow"><span style="font-weight:500;display:block" class="trunc">รายงาน_-_ยอดขายตามบิล_20260908.xlsx</span><span class="sub">Recognised as AdaPOS · branch 00003 → '+e(S.upBranch)+'</span></span><button class="btn sm" id="upReset">Replace</button></div><div class="stats" style="margin:0">'+stat("Bills","153")+stat("Units","294")+stat("Sales","฿224,722")+stat("VIP bills","0","discount ≥ 20%")+'</div>');
+var b=hd("Before importing");
+var rows=[[1,"Branch code 00003 matches "+S.upBranch],[1,"1–31 Aug 2026 · no overlap with imported data"],[0,"4 product codes are not in your product list"],[0,"12 bills already imported — will be updated, not duplicated"]];
+for(i=0;i<rows.length;i++)b+='<div class="row"><span class="ic" style="color:'+(rows[i][0]?"var(--g70)":"var(--a70)")+'" aria-hidden="true">'+(rows[i][0]?"✓":"!")+'</span><span class="grow">'+rows[i][1]+'</span>'+(rows[i][0]?'':'<button class="btn sm">Review</button>')+'</div>';
+b+='<p class="sub" style="margin:13px 0 11px">Bill numbers are unique, so re-uploading the same file updates rather than duplicates.</p><button class="btn pri wide">Import 153 bills</button>';
+return h+card(b)}
+if(S.saved)return h+card('<div class="note g" style="margin-bottom:12px"><span aria-hidden="true">✓</span><span><strong>Mapping saved for '+e(S.upBranch)+'</strong><br>Next month, this format imports with one click.</span></div><div class="stats">'+stat("Rows read","412")+stat("Bills","188")+stat("Sales","฿890,300")+'</div><button class="btn wide" id="upReset">Import another file</button>');
+h+=card('<div style="display:flex;align-items:center;gap:10px"><span class="ic" style="color:var(--a70)" aria-hidden="true">▣</span><span class="grow"><span style="font-weight:500;display:block" class="trunc">'+e(S.upBranch.replace(/ /g,""))+'_Sales_Sep2026.xlsx</span><span class="sub">Unknown format · 10 columns, 412 rows</span></span><button class="btn sm" id="upReset">Replace</button></div>');
+var need=0;for(i=0;i<FLDS.length;i++)if(FLDS[i].req&&!S.map[FLDS[i].k])need++;
+var b=hd("Tell us what each column is",'<button class="btn sm" id="iguess">Auto-detect</button>');
+b+='<p class="sub" style="margin:-6px 0 13px">You only do this once. The mapping is saved against this branch and reused every month.</p>';
+for(i=0;i<FLDS.length;i++){var f=FLDS[i],v=S.map[f.k],col=null;
+for(var j=0;j<COLS.length;j++)if(COLS[j][0]==v)col=COLS[j];
+b+='<div class="row"><span style="width:112px;flex-shrink:0"><span style="display:block">'+f.l+'</span><span style="font-size:10px;color:'+(f.req?"var(--accent)":"var(--subtle)")+'">'+(f.req?"required":"optional")+'</span></span><select data-map="'+f.k+'" style="flex:1" aria-label="'+f.l+'"><option value="">Not in this file</option>';
+for(j=0;j<COLS.length;j++)b+='<option value="'+COLS[j][0]+'"'+(v==COLS[j][0]?" selected":"")+'>'+COLS[j][0]+' — '+COLS[j][1]+'</option>';
+b+='</select><span class="code trunc" style="width:104px;text-align:right">'+(col?e(col[2]):"—")+'</span></div>'}
+b+=eyebrow("Preview")+'<div class="scroll"><table><tr><th>Date</th><th>Product</th><th class="r">Qty</th><th class="r">Amount</th></tr>';
+var pv=[["01/09","Body cleanser 300ml","2","฿2,322"],["01/09","Hand cream 50ml","1","฿790"],["02/09","Ambient parfum 100ml","1","฿2,490"]];
+for(i=0;i<3;i++)b+='<tr style="color:'+(need?"#C3C1B8":"var(--dark)")+'"><td>'+(need?"—":pv[i][0])+'</td><td class="trunc">'+(need?"Waiting for the required columns":pv[i][1])+'</td><td class="r">'+(need?"":pv[i][2])+'</td><td class="r">'+(need?"":pv[i][3])+'</td></tr>';
+b+='</table></div>';
+if(need)b+='<p style="color:var(--r70);font-size:13px;margin:11px 0 0">'+need+' required column'+(need>1?"s":"")+' still to choose.</p>';
+b+='<button class="btn pri wide" id="isave" style="margin-top:12px"'+(need?" disabled":"")+'>Save mapping and import</button>';
+return h+card(b)}
+function pageSales(){var h='<div class="pagebar"><h1>Sales</h1>'+seg("salesTab",[["import","Import file"],["manual","Manual entry"]],S.salesTab)+'<span class="pill">'+periodLabel("day")+'</span></div>';
+if(S.salesTab=="import")return h+importPanel();
+h+=card('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+branchSelect("scSel",S.scBranch,false,"Branch")+'<span class="pill">'+periodLabel("day")+'</span><span class="grow"></span><span class="sub">For branches with no POS export</span></div>');
+var b=hd("Units sold today",'<span class="sub">Feeds the stock movement</span>');
+b+='<div class="srch narrow"><span class="ic" aria-hidden="true">⌕</span><input id="q" value="'+e(S.q)+'" placeholder="Search product"></div>';
+var f=PROD.filter(function(p){return(p.n+" "+p.c).toLowerCase().indexOf(S.q.toLowerCase())>=0}).slice(0,6);
+for(var i=0;i<f.length;i++)b+='<div class="row"><span class="grow"><span class="trunc" style="display:block">'+e(f[i].n)+'</span><span class="code">'+f[i].c+'</span></span><span class="sub" style="width:52px;text-align:right">'+f[i].un+'</span><input class="num" data-mp="'+i+'" inputmode="numeric" value="'+e(S.mprod[i]||"")+'" placeholder="0" aria-label="Units of '+e(f[i].n)+'"></div>';
+b+='<button class="btn wide sm" style="margin-top:12px">＋ Add another product</button>';
+h+=card(b);
+var mm=hd("Money");
+mm+='<div style="display:flex;gap:10px;flex-wrap:wrap"><label style="flex:1;min-width:150px"><span class="sub">Total sales</span><input inputmode="numeric" placeholder="฿0" style="margin-top:4px"></label><label style="flex:1;min-width:150px"><span class="sub">Of which VIP</span><input inputmode="numeric" placeholder="฿0" style="margin-top:4px"></label></div>';
+mm+='<p class="sub" style="margin:11px 0">VIP sales are excluded from the commission pool. Enter ฿0 if there were none.</p><button class="btn pri wide">Save today\'s sales</button>';
+return h+card(mm)}
+function pageBills(){var h='<div class="pagebar"><h1>Bills</h1>'+seg("billsTab",[["import","Import file"],["manual","Manual entry"]],S.billsTab)+'<span class="pill">'+periodLabel("day")+'</span></div>';
+if(S.billsTab=="import"){h+=card('<div class="note p"><span aria-hidden="true">i</span><span>The POS file gives bill count and units sold. Nationality is not in any POS export, so it is keyed in on the manual tab.</span></div>');
+return h+importPanel()}
+h+=card('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+branchSelect("scSel",S.scBranch,false,"Branch")+'<span class="pill">'+periodLabel("day")+'</span><span class="grow"></span><span class="sub">Bill count by nationality</span></div>');
+var b=hd("Bills by country",'<span class="sub">Count of bills, not customers</span>');
+var cs=["Thailand","China","Japan","South Korea","Singapore"];
+for(var i=0;i<cs.length;i++)b+='<div class="row"><span class="grow">'+flag(cs[i])+cs[i]+'</span><input class="num" data-mc="'+cs[i]+'" inputmode="numeric" value="'+e(S.mctry[cs[i]]||"")+'" placeholder="0" aria-label="Bills from '+cs[i]+'"></div>';
+b+='<button class="btn wide sm" style="margin-top:12px">＋ Add a country</button>';
+var tot2=0;for(i=0;i<cs.length;i++)tot2+=+(S.mctry[cs[i]]||0);
+b+='<div class="note a" style="margin-top:12px"><span class="grow">Keyed in so far</span><span><b>'+tot2+'</b> bills</span></div>';
+b+='<p class="sub" style="margin:11px 0">The imported POS file says 153 bills today. A gap between the two is flagged for the manager.</p><button class="btn pri wide">Save bill counts</button>';
+return h+card(b)}
+function pageTraffic(){var h='<div class="pagebar"><h1>Store traffic</h1><span class="pill">'+periodLabel("day")+'</span></div>';
+h+=card('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+branchSelect("scSel",S.scBranch,false,"Branch")+'<span class="pill">'+periodLabel("day")+'</span><span class="grow"></span><span class="sub">Counted by hand at the door</span></div>');
+var b=hd("Visitors today",'<span class="sub">Everyone who stepped in</span>');
+b+='<div style="display:flex;gap:10px;flex-wrap:wrap"><label style="flex:1;min-width:150px"><span class="sub">'+flag("Thailand")+'Thai</span><input inputmode="numeric" placeholder="0" style="margin-top:4px"></label><label style="flex:1;min-width:150px"><span class="sub">🌏 Foreign</span><input inputmode="numeric" placeholder="0" style="margin-top:4px"></label></div>';
+b+='<p class="sub" style="margin:12px 0">Traffic is Thai versus foreign only. Country detail is collected on bills, where the customer is at the counter.</p><button class="btn pri wide">Save traffic</button>';
+return h+card(b)}
+
+/* ---------------- shifts ---------------- */
+function rosterPeople(){var v=(S.branch=="All branches")?visBranches():[S.branch];
+return PEOPLE.filter(function(p){if(p.role!="ka"&&p.role!="supervisor")return 0;
+for(var i=0;i<p.br.length;i++)if(v.indexOf(p.br[i])>=0)return 1;return 0})}
+function pubKey(){return ym(S.cur)}
+function isPub(){return !!PUBLISHED[pubKey()]}
+function onDay(d,t){var l=rosterPeople(),a=[];
+if(!isPub())return a;
+for(var i=0;i<l.length;i++)if(ROSTER[l[i].n][d]==t)a.push(l[i]);return a}
+function legend(){var k=["M","A","O","L"],h='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:11px">';
+for(var i=0;i<4;i++)h+='<span class="sub" style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:'+SH[k[i]].b+';border:1px solid '+SH[k[i]].c+'"></span>'+SH[k[i]].n+(SH[k[i]].t?" "+SH[k[i]].f+"–"+SH[k[i]].t:"")+'</span>';
+return h+'<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--r70)"><span aria-hidden="true">!</span>Coverage gap</span></div>'}
+function notPublished(){return'<div class="locked"><div style="font-size:24px;color:#C3C1B8" aria-hidden="true">▥</div><h2 style="margin-top:10px">No roster for '+periodLabel("month")+'</h2><p class="sub" style="max-width:400px;margin:8px auto 0">Nothing has been planned for this month yet.'+(isMgr()?' Start from a blank month or copy the pattern from the month before.':' Your manager has not published it.')+'</p>'+(isMgr()?'<div class="acts" style="justify-content:center;margin-top:14px"><button class="btn pri" id="copyPrev">Copy previous month</button><button class="btn" id="blankMonth">Start blank</button></div>':'')+'</div>'}
+function weekGrid(){var l=rosterPeople(),wl=weekLabels();
+if(S.branch=="All branches"&&visBranches().length>1){var out="",v=visBranches();
+for(var bi=0;bi<v.length;bi++){var bn=v[bi],sub=l.filter(function(p){return p.br.indexOf(bn)>=0});
+if(!sub.length)continue;
+out+='<div class="eyebrow ey-gr">'+e(bn)+'</div>'+weekRows(sub,wl)}
+return out+legend()}
+return weekRows(l,wl)+legend()}
+function weekRows(l,wl){
+var h='<div class="scroll"><table style="min-width:660px"><tr><th style="width:136px">KA</th>';
+for(var d=0;d<7;d++)h+='<th style="text-align:center'+(d>4?';background:#F1EFE8':'')+'">'+wl[d].l+'</th>';
+h+='</tr>';
+for(var i=0;i<l.length;i++){var p=l[i],isMe=isKA()&&p.n==S.me;
+h+='<tr'+(isMe?' class="mine"':'')+'><td><span style="display:flex;align-items:center;gap:8px">'+av(p)+'<span style="min-width:0"><span class="trunc" style="display:block">'+e(p.n)+(isMe?" (you)":"")+'</span><span class="sub" style="font-size:10px">'+(S.branch=="All branches"?e(p.br.join(", ")):(p.type=="part"?"Part-time":p.role=="supervisor"?"Supervisor":"KA"))+'</span></span></span></td>';
+for(d=0;d<7;d++){var idx=wl[d].idx,c=ROSTER[p.n][idx]||"O",s=SH[c],sel=S.pick&&S.pick.p==p.n&&S.pick.d==idx;
+h+='<td style="text-align:center;padding:5px 4px'+(d>4?';background:#FBFAF7':'')+'">'+(S.edit?'<button class="cell" data-cell="'+e(p.n)+'|'+idx+'" style="border:'+(sel?"2px solid var(--brown)":"1px solid var(--bd)")+';background:'+s.b+';color:'+s.c+'">'+(s.t?s.f+"<br>"+s.t:s.f)+'</button>':'<span class="cell" style="background:'+s.b+';color:'+s.c+'">'+(s.t?s.f+"<br>"+s.t:s.f)+'</span>')+'</td>'}
+h+='</tr>'}
+return h+'</table></div>'}
+function calGrid(){var DN=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],n=daysIn(S.cur);
+var first=new Date(S.cur.getFullYear(),S.cur.getMonth(),1),lead=(first.getDay()+6)%7;
+var h='<div class="calwrap"><div class="calhead">';
+for(var i=0;i<7;i++)h+='<div>'+DN[i]+'</div>';
+h+='</div>';
+var cells=lead+n,weeks=Math.ceil(cells/7);
+for(var w=0;w<weeks;w++){h+='<div class="calrow">';
+for(var c=0;c<7;c++){var idx=w*7+c-lead;
+if(idx<0||idx>=n){h+='<div class="calcell blank"></div>';continue}
+var dt=new Date(S.cur.getFullYear(),S.cur.getMonth(),idx+1);
+var mm=onDay(idx,"M"),aa=onDay(idx,"A"),gap=!mm.length||!aa.length,hol=HOL[iso(dt)];
+var mine=isKA()&&ROSTER[S.me]&&ROSTER[S.me][idx]!="O"&&ROSTER[S.me][idx]!="L";
+h+='<button class="calcell" data-day="'+idx+'" style="background:'+(gap?"var(--r50)":hol?"var(--r50)":mine?"#FBFBF9":c>4?"#FBFAF7":"var(--white)")+'">';
+h+='<span class="cdate" style="color:'+(gap||hol?"var(--r70)":"var(--muted)")+'">'+(idx+1)+(gap?" !":"")+(hol?" Hol":"")+'</span>';
+var rr=[["M",mm],["A",aa]];
+for(var t=0;t<2;t++){h+='<span class="crow"><span class="cdot" style="background:'+SH[rr[t][0]].b+'"></span>';
+if(!rr[t][1].length)h+='<span style="font-size:9px;color:var(--r70)">none</span>';
+else{for(var j=0;j<Math.min(3,rr[t][1].length);j++)h+=av(rr[t][1][j],"xs");
+if(rr[t][1].length>3)h+='<span class="sub" style="font-size:9px">+'+(rr[t][1].length-3)+'</span>'}
+h+='</span>'}
+h+='</button>'}
+h+='</div>'}
+return h+'</div>'+legend()}
+function perGrid(){var l=rosterPeople(),n=daysIn(S.cur);
+var h='<div class="scroll"><table style="min-width:660px"><tr><th style="width:118px">KA</th><th>'+MN[S.cur.getMonth()]+'</th><th class="r" style="width:110px">Shift · Off · OT</th></tr>';
+for(var i=0;i<l.length;i++){var p=l[i],sh=0,of=0;
+for(var d=0;d<n;d++){var c=ROSTER[p.n][d]||"O";if(c=="O"||c=="L")of++;else sh++}
+h+='<tr><td><span style="display:flex;align-items:center;gap:7px">'+av(p,"sm")+'<span class="trunc">'+e(p.n)+'</span></span></td><td><span style="display:flex;gap:1px">';
+for(d=0;d<n;d++)h+=(S.edit?'<button class="mcell" data-cell="'+e(p.n)+'|'+d+'" aria-label="Day '+(d+1)+'" style="background:'+SH[ROSTER[p.n][d]||"O"].b+'"></button>':'<span class="mcell" style="background:'+SH[ROSTER[p.n][d]||"O"].b+'"></span>');
+h+='</span></td><td class="r">'+sh+' · '+of+' · <span style="color:var(--accent)">'+(p.type=="part"?"—":(i*2+3)+"h")+'</span></td></tr>'}
+return h+'</table></div>'+legend()}
+function dayPanel(){if(S.selDay===null||S.span!="month"||S.msub!="cal")return'';
+var d=S.selDay,rows=[["Morning · "+SH.M.f+" – "+SH.M.t,onDay(d,"M"),"M"],["Afternoon · "+SH.A.f+" – "+SH.A.t,onDay(d,"A"),"A"],["Off",onDay(d,"O").concat(onDay(d,"L")),"O"]];
+var h=hd((d+1)+" "+MN[S.cur.getMonth()]+" "+S.cur.getFullYear(),'<button class="btn sm" id="dayx" aria-label="Close">✕</button>');
+for(var t=0;t<3;t++){h+='<div class="row" style="align-items:flex-start"><span style="width:184px;flex-shrink:0;font-size:12px;color:var(--muted)"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+SH[rows[t][2]].b+';margin-right:6px"></span>'+rows[t][0]+'</span><span class="grow" style="display:flex;gap:6px;flex-wrap:wrap">';
+if(!rows[t][1].length)h+='<span style="font-size:12px;color:'+(t<2?"var(--r70)":"var(--subtle)")+'">'+(t<2?"Nobody assigned":"—")+'</span>';
+else for(var j=0;j<rows[t][1].length;j++)h+='<span class="who">'+av(rows[t][1][j],"sm")+'<span>'+e(rows[t][1][j].n)+'</span></span>';
+h+='</span></div>'}
+return card(h)}
+function pickPanel(){if(!S.pick||!S.edit)return'';
+var p=P(S.pick.p),cur=ROSTER[S.pick.p][S.pick.d]||"O";
+var h='<div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">'+av(p)+'<span class="grow"><span style="font-weight:500;display:block">'+e(p.n)+'</span><span class="sub">'+(S.pick.d+1)+' '+MS[S.cur.getMonth()]+' · currently '+SH[cur].n.toLowerCase()+'</span></span><button class="btn sm" id="pickx" aria-label="Close">✕</button></div>';
+if(cur=="L")h+='<div class="note r" style="margin-bottom:11px"><span aria-hidden="true">🔒</span><span>Approved day off. Assigning a shift overrides a request you already approved.</span></div>';
+h+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+var o=["M","A","O"];
+for(var j=0;j<3;j++)h+='<button data-set="'+o[j]+'" class="shbtn" style="border:'+(cur==o[j]?"2px solid "+SH[o[j]].c:"1px solid var(--bd)")+';background:'+SH[o[j]].b+';color:'+SH[o[j]].c+'">'+SH[o[j]].n+(SH[o[j]].t?'<br><span style="font-size:10px;opacity:.85">'+SH[o[j]].f+' – '+SH[o[j]].t+'</span>':'')+'</button>';
+return card(h+'</div>')}
+function shiftTimes(){if(!S.shEdit)return'';
+var h=hd("Shift times",'<button class="btn sm" id="shx" aria-label="Close">✕</button>');
+h+='<p class="sub" style="margin:-6px 0 13px">Changing these updates every shift on the roster. Past days keep the times they were worked.</p>';
+var k=["M","A"];
+for(var i=0;i<2;i++)h+='<div class="row"><span class="grow"><span style="display:block;font-weight:500">'+SH[k[i]].n+'</span><span class="sub">Used by '+(k[i]=="M"?"opening":"closing")+' staff</span></span><label class="sub">Start <input type="time" data-sht="'+k[i]+'|f" value="'+SH[k[i]].f+'" style="width:120px;margin-left:6px"></label><label class="sub">End <input type="time" data-sht="'+k[i]+'|t" value="'+SH[k[i]].t+'" style="width:120px;margin-left:6px"></label></div>';
+h+='<button class="btn pri wide" id="shSave" style="margin-top:12px">Save shift times</button>';
+return card(h)}
+function reqCard(r){var p=P(r.who),ok=r.days.filter(function(x){return x.ok});
+var h='<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">'+av(p)+'<span class="grow"><span style="font-weight:500;display:block">'+e(r.who)+'</span><span class="sub">'+ok.length+' of '+r.days.length+' day'+(r.days.length>1?"s":"")+' accepted</span></span><span class="tag '+(r.t=="swap"?"t-p":"t-a")+'">'+(r.t=="swap"?"Swap":"Day off")+'</span></div>';
+h+='<div style="background:var(--panel);border-radius:8px;padding:3px 12px">';
+for(var j=0;j<r.days.length;j++){var x=r.days[j];
+h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;flex-wrap:wrap'+(j?';border-top:1px solid var(--bd)':'')+'"><span class="sub" style="width:48px;flex-shrink:0">'+(x.d+1)+' '+MS[S.cur.getMonth()]+'</span>'+chip(ROSTER[r.who][x.d]||"O");
+if(r.t=="swap")h+='<span class="ic" style="color:var(--accent)">⇄</span>'+av(P(x.w),"xs")+chip(ROSTER[x.w][x.d]||"O")+'<span class="grow"></span><span class="tag '+(x.ok?"t-g":"t-n")+'">'+(x.ok?"Accepted":"Declined")+'</span>';
+h+='</div>'}
+h+='</div>';
+if(r.note)h+='<p class="sub" style="margin:11px 0 0">'+e(r.note)+'</p>';
+if(r.t=="swap"&&ok.length<r.days.length)h+='<div class="note a" style="margin-top:11px"><span>Only accepted days are approved. The rest stay as they are.</span></div>';
+h+='<div class="acts"><button class="btn pri" data-rap="'+r.id+'">Approve '+ok.length+' day'+(ok.length==1?"":"s")+'</button><button class="btn" data-rdc="'+r.id+'">Decline</button></div>';
+return card(h)}
+function inboxCards(){if(!INBOX.length)return'';
+var h=hd("Waiting for you",'<span class="tag t-p">'+INBOX.length+'</span>');
+for(var i=0;i<INBOX.length;i++){var r=INBOX[i],p=P(r.who);
+h+='<div class="inb"><div style="display:flex;align-items:center;gap:9px;margin-bottom:11px">'+av(p)+'<span class="grow"><span style="font-weight:500;display:block">'+e(r.who)+' wants to swap with you</span><span class="sub">Accept or decline each day</span></span></div>';
+for(var j=0;j<r.days.length;j++){var x=r.days[j];
+h+='<div class="inbday"><div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap"><span style="width:48px;flex-shrink:0;font-size:12px">'+(x.d+1)+' '+MS[S.cur.getMonth()]+'</span><span class="sub" style="font-size:10px">you</span>'+chip(ROSTER[S.me][x.d]||"O")+'<span class="ic" style="color:var(--accent)">⇄</span><span class="sub" style="font-size:10px">you get</span>'+chip(ROSTER[r.who][x.d]||"O")+'</div>';
+if(x.ok===null)h+='<div style="display:flex;gap:7px"><button class="btn pri sm" style="flex:1;justify-content:center" data-ia="'+r.id+'|'+j+'">Accept</button><button class="btn sm" style="flex:1;justify-content:center" data-idc="'+r.id+'|'+j+'">Decline</button></div>';
+else h+='<div class="tag '+(x.ok?"t-g":"t-n")+'" style="display:block;text-align:center;padding:6px">'+(x.ok?"You accepted — sent to manager":"You declined")+'</div>';
+h+='</div>'}
+if(r.note)h+='<p class="sub" style="margin:0">'+e(r.note)+'</p>';
+h+='</div>'}
+return card(h)}
+function rangeBtn(){var n=daysIn(S.cur);
+var lbl=S.r0===null?"Select dates":(S.r1===null||S.r1===S.r0?(S.r0+1)+" "+MS[S.cur.getMonth()]:(Math.min(S.r0,S.r1)+1)+" – "+(Math.max(S.r0,S.r1)+1)+" "+MS[S.cur.getMonth()]+" · "+(Math.abs(S.r1-S.r0)+1)+" days");
+var h='<button id="rb" class="btn wide" style="height:40px;justify-content:flex-start;border-color:'+(S.cal2?"var(--p65)":"var(--bd)")+'"><span class="ic" aria-hidden="true">▤</span><span class="grow trunc" style="text-align:left;color:'+(S.r0===null?"var(--subtle)":"var(--dark)")+'">'+lbl+'</span><span class="ic" aria-hidden="true">'+(S.cal2?"▴":"▾")+'</span></button>';
+if(!S.cal2)return h;
+var DN=["M","T","W","T","F","S","S"];
+h+='<div class="minical"><div class="calhead sm">';
+for(var i=0;i<7;i++)h+='<div>'+DN[i]+'</div>';
+h+='</div>';
+var first=new Date(S.cur.getFullYear(),S.cur.getMonth(),1),lead=(first.getDay()+6)%7;
+for(var w=0;w<Math.ceil((lead+n)/7);w++){h+='<div class="calrow sm">';
+for(var c=0;c<7;c++){var d=w*7+c-lead;
+if(d<0||d>=n){h+='<div style="flex:1"></div>';continue}
+var lo=S.r1===null?S.r0:Math.min(S.r0,S.r1),hi=S.r1===null?S.r0:Math.max(S.r0,S.r1);
+var ins=S.r0!==null&&d>=lo&&d<=hi,end=d===S.r0||d===S.r1;
+h+='<button data-rd="'+d+'" class="mini" style="background:'+(end?"var(--brown)":ins?"var(--p50)":"transparent")+';color:'+(end?"#fff":ins?"var(--p70)":"var(--dark)")+'">'+(d+1)+'</button>'}
+h+='</div>'}
+return h+'<p class="sub" style="margin:5px 0 0">'+(S.r0===null||S.r1!==null?"Tap a day to start a new range":"Tap the last day of the range")+'</p></div>'}
+function reqForm(){var h='<div class="hd"><h2 style="color:var(--p70)">New request</h2><button class="btn sm" id="fcan" aria-label="Cancel">✕</button></div>';
+h+='<div style="display:flex;gap:8px;margin-bottom:13px"><button data-ft="swap" class="typebtn" style="border:'+(S.ft=="swap"?"2px solid var(--p65)":"1px solid var(--bd)")+';background:'+(S.ft=="swap"?"var(--p50)":"var(--white)")+';color:'+(S.ft=="swap"?"var(--p70)":"var(--muted)")+'">Shift swap</button><button data-ft="off" class="typebtn" style="border:'+(S.ft=="off"?"2px solid var(--a70)":"1px solid var(--bd)")+';background:'+(S.ft=="off"?"var(--a50)":"var(--white)")+';color:'+(S.ft=="off"?"var(--a70)":"var(--muted)")+'">Day off</button></div>';
+h+='<label class="sub" style="display:block;margin-bottom:4px">Dates</label>'+rangeBtn();
+if(S.r0!==null&&!S.cal2){var lo=S.r1===null?S.r0:Math.min(S.r0,S.r1),hi=S.r1===null?S.r0:Math.max(S.r0,S.r1);
+h+='<div class="daysbox"><p class="sub" style="margin:0 0 6px;color:var(--p65)">'+(S.ft=="swap"?"Choose who covers each day":"Days you will be off")+'</p>';
+for(var d=lo;d<=hi;d++){var c=ROSTER[S.me][d]||"O",isoff=c=="O"||c=="L";
+h+='<div style="padding:9px 0;border-top:1px solid var(--p50)"><div style="display:flex;align-items:center;gap:8px"><span style="width:52px;flex-shrink:0;font-size:12px">'+(d+1)+' '+MS[S.cur.getMonth()]+'</span>'+chip(c)+'<span class="grow"></span><span style="font-size:11px;color:'+(isoff?"var(--subtle)":"var(--g70)")+'">'+(isoff?"already off":S.ft=="swap"?"needs cover":"will be off")+'</span></div>';
+if(S.ft=="swap"&&!isoff){h+='<select data-dm="'+d+'" style="margin-top:7px"><option value="">Choose a colleague</option>';
+var rp=rosterPeople();
+for(var i=0;i<rp.length;i++)if(rp[i].n!=S.me)h+='<option value="'+e(rp[i].n)+'"'+(S.dmap[d]==rp[i].n?" selected":"")+'>'+e(rp[i].n)+' — '+(SH[ROSTER[rp[i].n][d]||"O"].t?SH[ROSTER[rp[i].n][d]].f+"–"+SH[ROSTER[rp[i].n][d]].t:"day off")+'</option>';
+h+='</select>'}
+h+='</div>'}
+h+='</div>'}
+h+='<label class="sub" style="display:block;margin:12px 0 4px">Reason (optional)</label><input id="fnote" value="'+e(S.fnote)+'" placeholder="Family event">';
+if(S.err)h+='<p style="color:var(--r70);font-size:13px;margin:11px 0 0">'+e(S.err)+'</p>';
+h+='<p class="sub" style="margin:12px 0">'+(S.ft=="swap"?"Each colleague accepts their own day first. Only accepted days go to your manager. Requests lapse 48 hours before the shift.":"Your manager reviews this request.")+'</p>';
+h+='<button class="btn pri wide" id="fsub">Send request</button>';
+return card(h)}
+function pageShifts(){var mgr=isMgr(),p=REQS.filter(function(r){return r.st=="pending"});
+var tabs=mgr?[["roster","Roster"],["cover","Coverage"],["ot","Overtime"]]:[["roster","Roster"]];
+var h='<div class="pagebar"><h1>Shifts</h1>'+(mgr?seg("shTab",tabs,S.shTab)+" ":"");
+if(S.shTab=="roster"||!mgr){h+=dnav(S.span,"span",[["week","Week"],["month","Month"]]);
+if(S.span=="month")h+=seg("msub",[["cal","Calendar"],["per","By person"]],S.msub,1)}
+else h+=dnav("month",null,null);
+h+=branchPill();
+if(mgr&&S.shTab=="roster"){if(!S.edit)h+='<button class="btn" id="edit">Edit roster</button>';
+h+='<button class="btn" id="shopen">Shift times</button>'}
+h+='</div>';
+if(mgr&&S.shTab=="cover")return h+card(hd("Branch coverage",'<span class="sub">People on shift each day</span>')+coverGrid())+coverPanel();
+if(mgr&&S.shTab=="ot")return h+'<div class="note p" style="margin-bottom:12px"><span aria-hidden="true">i</span><span>Overtime is the time worked beyond the scheduled shift. Record the real start and finish and the hours are worked out for you.</span></div>'+otPanel()+otList();
+if(isFutureMonth()&&!isPub()&&S.span=="month")return h+notPublished();
+if(S.edit)h+='<div class="note a" style="margin-bottom:12px"><span class="grow"><strong>Draft — not published</strong><br>'+(S.draft?S.draft+" change"+(S.draft>1?"s":""):"No changes yet")+'. Nobody is notified until you publish.</span><button class="btn pri sm" id="pub">Publish</button><button class="btn sm" id="disc">Discard</button></div>';
+h+=shiftTimes();
+if(mgr)h+='<div class="stats">'+stat("Shifts this week","28")+stat("Pending requests",p.length+"",p.length?"Needs review":"All clear")+stat("Overtime",OT.reduce(function(a,r){return a+otHours(r)},0).toFixed(1)+" h","this month")+'</div>';
+else h+='<div class="stats">'+stat("My shifts","5","this week")+stat("Days off","2")+(S.role=="parttime"?stat("Hours","52 h","this month"):stat("Overtime","3.5 h","฿660 est."))+'</div>';
+var g=S.span=="week"?weekGrid():(S.msub=="cal"?calGrid():perGrid());
+h+=card(hd("Roster",isKA()?'<span class="sub">'+e(S.me)+'</span>':'')+g);
+h+=pickPanel()+dayPanel();
+if(mgr){var q=hd("Requests",p.length?'<span class="tag t-r">'+p.length+'</span>':'');
+q+='<p class="sub" style="margin:-6px 0 12px">Only shows requests a colleague has already responded to.</p>';
+if(!p.length)q+='<div class="empty">Nothing waiting.</div>';
+h+=card(q);
+for(var i=0;i<p.length;i++)h+=reqCard(p[i])}
+else{h+=inboxCards();
+h+=S.form?reqForm():'<div style="margin-top:12px"><button class="btn wide" id="newreq" style="height:40px">＋ New request</button></div>';
+var m2=hd("My requests");
+for(var i=0;i<MINE.length;i++){var r=MINE[i],ap=r.st=="approved",wt=r.st=="waiting";
+var lbl=r.days.length==1?(r.days[0].d+1)+" "+MS[S.cur.getMonth()]:(r.days[0].d+1)+" – "+(r.days[r.days.length-1].d+1)+" "+MS[S.cur.getMonth()]+" ("+r.days.length+" days)";
+m2+='<div class="row"><span class="grow"><span style="display:block">'+(r.t=="swap"?"Shift swap":"Day off")+'</span><span class="sub">'+lbl+'</span></span><span class="tag '+(ap?"t-g":wt?"t-p":"t-n")+'">'+(ap?"Approved":wt?"Waiting":"Declined")+'</span></div>'}
+h+='<div style="margin-top:12px">'+card(m2)+'</div>'}
+return h}
+/* ---------------- calendar / events ---------------- */
+var ETYPE={holiday:{l:"Public holiday",c:"t-r",ot:"OT \u00d7 2"},count:{l:"Stock count",c:"t-p",ot:""},
+launch:{l:"Product launch",c:"t-g",ot:""},promo:{l:"Promotion",c:"t-a",ot:""},training:{l:"Training",c:"t-n",ot:""}};
+var EVENTS=[
+{id:1,d:"2026-09-12",ty:"count",n:"Monthly full stock count",br:"All branches"},
+{id:2,d:"2026-09-23",ty:"holiday",n:"Public holiday",br:"All branches"},
+{id:3,d:"2026-10-23",ty:"holiday",n:"Chulalongkorn Day",br:"All branches"},
+{id:4,d:"2026-11-01",ty:"launch",n:"Velvet fig collection launch",br:"All branches"},
+{id:5,d:"2026-09-18",ty:"training",n:"New KA onboarding",br:"Gaysorn"},
+{id:6,d:"2026-09-26",ty:"promo",n:"Members double points",br:"All branches"},
+{id:7,d:"2026-12-07",ty:"holiday",n:"Public holiday",br:"All branches"}];
+function evOn(isoD){return EVENTS.filter(function(x){return x.d==isoD})}
+function isHoliday(isoD){return EVENTS.some(function(x){return x.d==isoD&&x.ty=="holiday"})}
+function upcomingEvents(n){var t=iso(TODAY);
+return EVENTS.filter(function(x){return x.d>=t}).sort(function(a,b){return a.d<b.d?-1:1}).slice(0,n||3)}
+function fmtD(isoD){var p=isoD.split("-");return(+p[2])+" "+MS[+p[1]-1]}
+function pageCalendar(){var h='<div class="pagebar"><h1>Calendar</h1>'+dnav("month",null,null)+'<button class="btn pri" id="evNew">Add event</button></div>';
+h+='<div class="note p" style="margin-bottom:12px"><span aria-hidden="true">i</span><span>Days marked as a public holiday pay overtime at 2\u00d7 instead of 1.5\u00d7. That is why holidays live here and not in a separate list.</span></div>';
+if(S.evForm){var b=hd("New event",'<button class="btn sm" id="evCan" aria-label="Cancel">\u2715</button>');
+b+='<div class="rgrid" style="grid-template-columns:1fr 1fr;gap:10px"><label><span class="sub">Date</span><input type="date" id="evD" value="'+e(S.evD)+'"></label><label><span class="sub">Type</span><select id="evT">';
+for(var k in ETYPE)b+='<option value="'+k+'"'+(S.evT==k?" selected":"")+'>'+ETYPE[k].l+'</option>';
+b+='</select></label></div>';
+b+='<label style="display:block;margin-top:10px"><span class="sub">Name</span><input id="evN" value="'+e(S.evN)+'" placeholder="Monthly full stock count"></label>';
+b+='<label style="display:block;margin-top:10px"><span class="sub">Applies to</span><select id="evB"><option>All branches</option>';
+var v=visBranches();for(var i=0;i<v.length;i++)b+='<option'+(S.evB==v[i]?" selected":"")+'>'+e(v[i])+'</option>';
+b+='</select></label>';
+if(S.err)b+='<p style="color:var(--r70);font-size:13px;margin:11px 0 0">'+e(S.err)+'</p>';
+b+='<button class="btn pri wide" id="evSave" style="margin-top:13px">Save event</button>';
+h+=card(b,"pu")}
+var mo=ym(S.cur),list=EVENTS.filter(function(x){return x.d.indexOf(mo)==0}).sort(function(a,b){return a.d<b.d?-1:1});
+var q=hd(MN[S.cur.getMonth()]+" "+S.cur.getFullYear(),'<span class="sub">'+list.length+' event'+(list.length==1?"":"s")+'</span>');
+if(!list.length)q+='<div class="empty">Nothing planned this month.</div>';
+for(i=0;i<list.length;i++){var x=list[i];
+q+='<div class="row"><span class="datechip"><b>'+(+x.d.split("-")[2])+'</b><span>'+MS[+x.d.split("-")[1]-1]+'</span></span><span class="grow"><span style="display:block">'+e(x.n)+'</span><span class="sub">'+e(x.br)+(ETYPE[x.ty].ot?" \u00b7 "+ETYPE[x.ty].ot:"")+'</span></span><span class="tag '+ETYPE[x.ty].c+'">'+ETYPE[x.ty].l+'</span><button class="btn sm" data-evdel="'+x.id+'" aria-label="Remove">\u2715</button></div>'}
+h+=card(q);
+var up=hd("Coming up next",'<span class="sub">Shown on the dashboard</span>'),ue=upcomingEvents(5);
+for(i=0;i<ue.length;i++)up+='<div class="row"><span style="color:var(--accent);width:58px;flex-shrink:0;font-size:12px">'+fmtD(ue[i].d)+'</span><span class="grow trunc">'+e(ue[i].n)+'</span><span class="tag '+ETYPE[ue[i].ty].c+'">'+ETYPE[ue[i].ty].l+'</span></div>';
+return h+card(up,"te")}
+
+/* ---------------- shift coverage ---------------- */
+function coverGrid(){var v=(S.branch=="All branches")?visBranches():[S.branch],n=daysIn(S.cur);
+var h='<div class="scroll"><table class="inv cover"><tr><th style="min-width:124px">Branch</th>';
+for(var d=0;d<n;d++){var dt=new Date(S.cur.getFullYear(),S.cur.getMonth(),d+1),we=(dt.getDay()+6)%7>4;
+h+='<th class="cday'+(we?" we":"")+(isHoliday(iso(dt))?" hol":"")+'">'+(d+1)+'</th>'}
+h+='<th class="r" style="min-width:74px">Gaps</th></tr>';
+for(var b=0;b<v.length;b++){var bn=v[b],staff=PEOPLE.filter(function(p){return(p.role=="ka"||p.role=="supervisor")&&p.br.indexOf(bn)>=0});
+var gaps=0,cells="";
+for(d=0;d<n;d++){var mm=0,aa=0;
+for(var i=0;i<staff.length;i++){var c=ROSTER[staff[i].n][d];if(c=="M")mm++;else if(c=="A")aa++}
+var gap=!mm||!aa;if(gap)gaps++;
+var tot2=mm+aa,cls=gap?"cv0":tot2>=3?"cv3":tot2==2?"cv2":"cv1";
+cells+='<td class="cvcell"><button class="cv '+cls+'" data-cov="'+e(bn)+'|'+d+'" aria-label="'+e(bn)+' day '+(d+1)+': '+mm+' morning, '+aa+' afternoon">'+(gap?"!":tot2)+'</button></td>'}
+h+='<tr><td class="nowrap"><b>'+e(bn)+'</b><div class="sub">'+staff.length+' staff</div></td>'+cells+'<td class="r num-c'+(gaps?" bad":"")+'">'+gaps+'</td></tr>'}
+h+='</table></div>';
+h+='<div class="keys"><span><i class="sw cv0"></i>Gap — a shift unstaffed</span><span><i class="sw cv1"></i>1 person</span><span><i class="sw cv2"></i>2 people</span><span><i class="sw cv3"></i>3 or more</span></div>';
+return h}
+function coverPanel(){if(!S.cov)return'';
+var bn=S.cov.b,d=S.cov.d,staff=PEOPLE.filter(function(p){return(p.role=="ka"||p.role=="supervisor")&&p.br.indexOf(bn)>=0});
+var mm=[],aa=[],off=[];
+for(var i=0;i<staff.length;i++){var c=ROSTER[staff[i].n][d];
+if(c=="M")mm.push(staff[i]);else if(c=="A")aa.push(staff[i]);else off.push(staff[i])}
+var h=hd(e(bn)+" \u00b7 "+(d+1)+" "+MN[S.cur.getMonth()],'<button class="btn sm" id="covx" aria-label="Close">\u2715</button>');
+var rows=[["Morning \u00b7 "+SH.M.f+" \u2013 "+SH.M.t,mm,"M"],["Afternoon \u00b7 "+SH.A.f+" \u2013 "+SH.A.t,aa,"A"],["Off",off,"O"]];
+for(var t=0;t<3;t++){h+='<div class="row" style="align-items:flex-start"><span style="width:184px;flex-shrink:0;font-size:12px;color:var(--muted)"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+SH[rows[t][2]].b+';margin-right:6px"></span>'+rows[t][0]+'</span><span class="grow" style="display:flex;gap:6px;flex-wrap:wrap">';
+if(!rows[t][1].length)h+='<span style="font-size:12px;color:'+(t<2?"var(--r70)":"var(--subtle)")+'">'+(t<2?"Nobody assigned":"\u2014")+'</span>';
+else for(var j=0;j<rows[t][1].length;j++)h+='<span class="who">'+av(rows[t][1][j],"sm")+'<span>'+e(rows[t][1][j].n)+'</span></span>';
+h+='</span></div>'}
+return card(h,"pu")}
+
+/* ---------------- overtime records ---------------- */
+var OT=[
+{id:1,who:"Mai A.",d:11,sh:"A",from:"13:00",to:"22:00",note:"Mall late closing",st:"approved"},
+{id:2,who:"Kan S.",d:22,sh:"M",from:"10:00",to:"20:00",note:"Stock count day",st:"approved"},
+{id:3,who:"Ploy T.",d:7,sh:"M",from:"10:00",to:"19:30",note:"Queue at closing",st:"pending"}];
+function mins(t){var p=t.split(":");return(+p[0])*60+(+p[1])}
+function otHours(r){var sched=SH[r.sh];if(!sched||!sched.t)return 0;
+var extra=(mins(r.to)-mins(sched.t))+(mins(sched.f)-mins(r.from));
+return Math.max(0,extra)/60}
+function otRate(r){var dt=new Date(S.cur.getFullYear(),S.cur.getMonth(),r.d+1);return isHoliday(iso(dt))?2:1.5}
+function otPanel(){if(!S.otPick)return'';
+var r=S.otPick,p=P(r.who),sched=SH[r.sh],hrs=otHours(r),rate=otRate(r);
+var pay=(p.sal&&p.wd)?(p.sal/p.wd/8)*rate*hrs:0;
+var h=hd("Record hours worked",'<button class="btn sm" id="otx" aria-label="Close">\u2715</button>');
+h+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:13px">'+av(p)+'<span class="grow"><span style="font-weight:500;display:block">'+e(r.who)+'</span><span class="sub">'+(r.d+1)+' '+MN[S.cur.getMonth()]+' \u00b7 scheduled '+sched.f+' \u2013 '+sched.t+(rate==2?' \u00b7 public holiday':'')+'</span></span></div>';
+h+='<div class="rgrid"><label><span class="sub">Started</span><input type="time" id="otF" value="'+r.from+'"></label><label><span class="sub">Finished</span><input type="time" id="otT" value="'+r.to+'"></label></div>';
+h+='<label style="display:block;margin-top:10px"><span class="sub">Why the extra hours</span><input id="otN" value="'+e(r.note)+'" placeholder="Mall late closing"></label>';
+h+='<div class="otcalc"><div class="row" style="border:0;padding:6px 0"><span class="grow sub">Beyond the scheduled shift</span><span class="mono"><b>'+hrs.toFixed(1)+' h</b></span></div>';
+h+='<div class="row" style="padding:6px 0"><span class="grow sub">Rate '+(rate==2?"(public holiday)":"(normal day)")+'</span><span class="mono">\u00d7 '+rate+'</span></div>';
+if(p.type=="part")h+='<div class="note a" style="margin-top:9px"><span>Part-time staff are paid their hourly rate for every hour, with no overtime multiplier.</span></div>';
+else h+='<div class="row" style="padding:8px 0 0"><span class="grow">Overtime pay</span><span class="mono"><b>'+b2(pay)+'</b></span></div>';
+h+='</div>';
+h+='<div class="acts"><button class="btn pri" id="otSave">'+(r.id?"Save":"Add record")+'</button>'+(r.id?'<button class="btn" data-otdel="'+r.id+'">Remove</button>':'')+'</div>';
+return card(h,"am")}
+function otList(){var h=hd("Overtime this month",'<button class="btn sm" id="otNew">Add record</button>');
+var l=OT.slice().sort(function(a,b){return a.d-b.d}),tot2=0,i;
+if(!l.length)h+='<div class="empty">No overtime recorded. Add a record when someone works beyond their shift.</div>';
+for(i=0;i<l.length;i++){var r=l[i],p=P(r.who),hrs=otHours(r),rate=otRate(r);tot2+=hrs;
+h+='<button class="row rowbtn" data-otedit="'+r.id+'"><span class="datechip"><b>'+(r.d+1)+'</b><span>'+MS[S.cur.getMonth()]+'</span></span>'+av(p,"sm")+'<span class="grow" style="text-align:left"><span style="display:block">'+e(r.who)+'</span><span class="sub trunc">'+SH[r.sh].f+'\u2013'+SH[r.sh].t+' \u2192 '+r.from+'\u2013'+r.to+(r.note?" \u00b7 "+e(r.note):"")+'</span></span>'+
+(rate==2?'<span class="tag t-r">\u00d7 2</span>':'<span class="tag t-n">\u00d7 1.5</span>')+
+'<span class="num-c" style="width:52px;text-align:right">'+hrs.toFixed(1)+' h</span><span class="tag '+(r.st=="approved"?"t-g":"t-a")+'">'+(r.st=="approved"?"Approved":"Pending")+'</span></button>'}
+h+='<div class="sumline"><span class="grow">Total overtime</span><span class="mono"><b>'+tot2.toFixed(1)+' h</b></span></div>';
+return card(h,"am")}
+
+/* ---------------- logistics ---------------- */
+var DELIV=[
+{id:1,br:"Gaysorn",d:"2026-09-10",slot:"Morning",items:34,ref:"DO-26090034",st:"scheduled",by:"Big S."},
+{id:2,br:"Song Wat",d:"2026-09-10",slot:"Afternoon",items:18,ref:"DO-26090035",st:"scheduled",by:"Big S."},
+{id:3,br:"Ecotopia",d:"2026-09-09",slot:"Morning",items:22,ref:"DO-26090028",st:"in transit",by:"Big S."},
+{id:4,br:"Siam Discovery",d:"2026-09-08",slot:"Morning",items:41,ref:"DO-26090021",st:"delivered",by:"Big S."},
+{id:5,br:"Lofteyes",d:"2026-09-14",slot:"Afternoon",items:12,ref:"DO-26090041",st:"scheduled",by:"Big S."},
+{id:6,br:"Talat Noi",d:"2026-09-16",slot:"Morning",items:26,ref:"DO-26090044",st:"scheduled",by:"Big S."}];
+var DST={scheduled:{l:"Scheduled",c:"t-p"},"in transit":{l:"In transit",c:"t-a"},delivered:{l:"Delivered",c:"t-g"},received:{l:"Received",c:"t-g"},missed:{l:"Missed",c:"t-r"}};
+function canLogistics(){return S.role=="manager"||S.role=="logistic"}
+function pageLogistics(){var h='<div class="pagebar"><h1>Delivery schedule</h1>'+dnav("month",null,null)+branchPill();
+if(canLogistics())h+='<button class="btn pri" id="dlNew">Schedule delivery</button>';
+h+='</div>';
+var v=(S.branch=="All branches")?visBranches():[S.branch];
+var mo=ym(S.cur);
+var l=DELIV.filter(function(x){return v.indexOf(x.br)>=0&&x.d.indexOf(mo)==0}).sort(function(a,b){return a.d<b.d?-1:1});
+var sch=l.filter(function(x){return x.st=="scheduled"}).length,tr=l.filter(function(x){return x.st=="in transit"}).length;
+h+='<div class="stats">'+stat("Deliveries",l.length+"",MN[S.cur.getMonth()])+stat("Scheduled",sch+"")+stat("In transit",tr+"","","var(--a70)")+stat("Items",l.reduce(function(a,x){return a+x.items},0)+"","total lines")+'</div>';
+if(S.dlForm&&canLogistics()){var b=hd("Schedule a delivery",'<button class="btn sm" id="dlCan" aria-label="Cancel">\u2715</button>');
+b+='<div class="rgrid"><label><span class="sub">Branch</span><select id="dlB">';
+for(var i=0;i<BR.length;i++)b+='<option'+(S.dlB==BR[i].n?" selected":"")+'>'+e(BR[i].n)+'</option>';
+b+='</select></label><label><span class="sub">Delivery date</span><input type="date" id="dlD" value="'+e(S.dlD)+'"></label></div>';
+b+='<div class="rgrid" style="margin-top:10px"><label><span class="sub">Time slot</span><select id="dlS"><option'+(S.dlS=="Morning"?" selected":"")+'>Morning</option><option'+(S.dlS=="Afternoon"?" selected":"")+'>Afternoon</option></select></label><label><span class="sub">Item lines</span><input id="dlI" inputmode="numeric" value="'+e(S.dlI)+'" placeholder="24"></label></div>';
+b+='<p class="sub" style="margin:11px 0">The branch sees this on their dashboard and confirms what actually arrives at the door. Barcode scanning at receiving comes later.</p>';
+if(S.err)b+='<p style="color:var(--r70);font-size:13px;margin:0 0 11px">'+e(S.err)+'</p>';
+b+='<button class="btn pri wide" id="dlSave">Schedule delivery</button>';
+h+=card(b,"pu")}
+var q=hd("Deliveries",'<span class="sub">Set by '+(canLogistics()?"you":"head of logistics")+'</span>');
+if(!l.length)q+='<div class="empty">Nothing scheduled this month.</div>';
+for(i=0;i<l.length;i++){var x=l[i],past=x.d<iso(TODAY);
+q+='<div class="row"><span class="datechip"><b>'+(+x.d.split("-")[2])+'</b><span>'+MS[+x.d.split("-")[1]-1]+'</span></span><span class="grow"><span style="display:block"><b>'+e(x.br)+'</b> <span class="sub">'+x.slot+'</span></span><span class="sub">'+x.ref+' \u00b7 '+x.items+' lines \u00b7 set by '+e(x.by)+'</span></span><span class="tag '+DST[x.st].c+'">'+DST[x.st].l+'</span>';
+if(canLogistics()&&x.st!="delivered")q+='<button class="btn sm" data-dlnext="'+x.id+'">'+(x.st=="scheduled"?"Mark in transit":"Mark delivered")+'</button>';
+q+='</div>'}
+h+=card(q);
+var nx=hd("What happens at the store",'<span class="sub">Next phase</span>');
+nx+='<ol class="steps"><li><b>Delivery scheduled</b><span class="sub">Head of logistics sets the date and slot. The branch sees it on their dashboard.</span></li>'+
+'<li><b>Arrives at the door</b><span class="sub">The KA opens the delivery note and checks what was requested against what turned up.</span></li>'+
+'<li><b>Confirm or flag</b><span class="sub">Matching lines are received into stock. Short or damaged lines are flagged back to logistics.</span></li>'+
+'<li><b>Stock movement posted</b><span class="sub">Received quantities become a movement row, so the next count has the right expected figure.</span></li></ol>';
+nx+='<div class="note p" style="margin-top:12px"><span aria-hidden="true">i</span><span>Barcode scanning replaces the manual check in step 2. The delivery note carries a code per line, so the KA scans instead of ticking.</span></div>';
+var sq=hd("Shortages from branches",'<span class="sub">Raised at the door</span>');
+var so=SHORTS.filter(function(x){return x.st=="open"});
+if(!so.length)sq+='<div class="empty">No open shortages.</div>';
+for(i=0;i<so.length;i++){var s3=so[i];
+sq+='<div class="row"><span class="grow"><span class="trunc" style="display:block">'+e(s3.n)+'</span><span class="sub">'+e(s3.br)+' \u00b7 '+s3.d+' \u00b7 '+e(s3.by)+(s3.note?" \u00b7 "+e(s3.note):"")+'</span></span><span class="tag t-a">'+e(s3.rsn)+'</span><span class="num-c bad" style="width:70px;text-align:right">'+s3.got+' / '+s3.exp+'</span>'+(canLogistics()?'<button class="btn sm" data-shclose="'+s3.id+'">Resolve</button>':'')+'</div>'}
+return h+card(sq,"am")+card(nx,"te")}
+function incomingCard(){var v=visBranches();
+var l=DELIV.filter(function(x){return v.indexOf(x.br)>=0&&x.d>=iso(TODAY)&&x.st!="delivered"}).sort(function(a,b){return a.d<b.d?-1:1}).slice(0,3);
+if(!l.length)return'';
+var h=hd("Incoming deliveries",'<span class="sub">From the warehouse</span>');
+for(var i=0;i<l.length;i++)h+='<div class="row"><span class="datechip"><b>'+(+l[i].d.split("-")[2])+'</b><span>'+MS[+l[i].d.split("-")[1]-1]+'</span></span><span class="grow"><span style="display:block">'+e(l[i].br)+' \u00b7 <span class="sub">'+l[i].slot+'</span></span><span class="sub">'+l[i].items+' lines \u00b7 '+l[i].ref+'</span></span><span class="tag '+DST[l[i].st].c+'">'+DST[l[i].st].l+'</span></div>';
+return card(h,"bl")}
+
+/* ---------------- receiving ---------------- */
+var DLINES={
+1:[["FG1-ABPF100-NG","Ambient parfum 100 ml (neroli garden)","bottle",12],["FG2-BHM75-CLR","Hair and body mist 75 ml (charlene rose)","bottle",10],["FG4-HC50-CLR","Nourishing hand cream 50 ml (charlene rose)","tube",8],["CN-BAG-L","Paper bag large","pc",4]],
+2:[["FG2-BC300-CLR","Body cleanser 300 ml (charlene rose)","bottle",6],["FG1-RS50-VF","Room spray 50 ml (velvet fig)","bottle",8],["CN-TIS-ST","Tissue paper sheet","sheet",4]],
+3:[["FG2-BHM75-CLR","Hair and body mist 75 ml (charlene rose)","bottle",12],["FG1-FBF100-CTM","Fabric fragrance 100 ml (cotton musk)","bottle",6],["FG5-CD180-AD","Candle 180 g (amber dusk)","jar",4]],
+5:[["FG2-HW300-NG","Hand wash 300 ml (neroli garden)","bottle",8],["FG4-HC50-EP","Nourishing hand cream 50 ml (everpine)","tube",4]],
+6:[["FG1-FBF100-CTM","Fabric fragrance 100 ml (cotton musk)","bottle",14],["FG2-TM30-CLR","Travel mist 30 ml (charlene rose)","bottle",12]]};
+var SREASON=["Short shipped","Damaged in transit","Wrong item sent","Extra sent","Missing from pallet"];
+var SHORTS=[{id:1,dl:4,br:"Siam Discovery",c:"FG4-HC50-EP",n:"Nourishing hand cream 50 ml (everpine)",un:"tube",exp:6,got:4,rsn:"Damaged in transit",note:"Two tubes crushed in the box",by:"Mai A.",d:"8 Sep 10:12",st:"open"}];
+function lines(id){return DLINES[id]||[]}
+function myDeliv(){var v=visBranches();
+return DELIV.filter(function(x){return v.indexOf(x.br)>=0&&x.st!="received"}).sort(function(a,b){return a.d<b.d?-1:1})}
+function rcvDone(){var l=lines(S.rcvId),n=0;
+for(var i=0;i<l.length;i++){var q=S.rcv[l[i][0]];if(q!==undefined&&q!=="")n++}return n}
+function pageReceive(){var i;
+if(!S.rcvId){var l=myDeliv();
+var h='<div class="pagebar"><h1>Receiving</h1>'+branchPill()+'<span class="pill">'+periodLabel("day")+'</span></div>';
+h+='<div class="stats">'+stat("To receive",l.length+"","","var(--accent)")+stat("Arriving today",l.filter(function(x){return x.d==iso(TODAY)}).length+"")+stat("Open shortages",SHORTS.filter(function(x){return x.st=="open"}).length+"","","var(--r70)")+'</div>';
+var q=hd("Deliveries on the way",'<span class="sub">Scheduled by logistics</span>');
+if(!l.length)q+='<div class="empty">Nothing on the way.</div>';
+for(i=0;i<l.length;i++){var x=l[i],today=x.d==iso(TODAY),ready=x.st=="in transit"||today||x.d<iso(TODAY);
+q+='<div class="row"><span class="datechip"><b>'+(+x.d.split("-")[2])+'</b><span>'+MS[+x.d.split("-")[1]-1]+'</span></span><span class="grow"><span style="display:block"><b>'+e(x.br)+'</b> <span class="sub">'+x.slot+'</span></span><span class="sub">'+x.ref+' \u00b7 '+lines(x.id).length+' lines</span></span><span class="tag '+DST[x.st].c+'">'+DST[x.st].l+'</span><button class="btn '+(ready?"pri":"")+' sm" data-rcv="'+x.id+'">'+(ready?"Check in":"Open")+'</button></div>'}
+h+=card(q);
+var sh=SHORTS.filter(function(x){return visBranches().indexOf(x.br)>=0});
+var sb=hd("Shortages raised",'<span class="sub">Sent to logistics</span>');
+if(!sh.length)sb+='<div class="empty">No shortages outstanding.</div>';
+for(i=0;i<sh.length;i++){var s2=sh[i];
+sb+='<div class="row"><span class="grow"><span class="trunc" style="display:block">'+e(s2.n)+'</span><span class="sub">'+e(s2.br)+' \u00b7 '+s2.d+' \u00b7 '+e(s2.by)+'</span></span><span class="tag t-a">'+e(s2.rsn)+'</span><span class="num-c bad" style="width:74px;text-align:right">'+s2.got+' / '+s2.exp+'</span><span class="tag '+(s2.st=="open"?"t-r":"t-g")+'">'+(s2.st=="open"?"Open":"Closed")+'</span></div>'}
+return h+card(sb,"te")}
+var dl=null;for(i=0;i<DELIV.length;i++)if(DELIV[i].id==S.rcvId)dl=DELIV[i];
+if(!dl){S.rcvId=0;return pageReceive()}
+var l=lines(dl.id),done=rcvDone();
+var h='<div class="pagebar"><button class="btn sm" id="rcvBack">\u2039 Deliveries</button><h1 style="margin-left:8px">'+e(dl.ref)+'</h1></div>';
+h+='<div class="note p" style="margin-bottom:12px"><span aria-hidden="true">i</span><span>Count what is in the box against the delivery note. Short lines are still received \u2014 you take what arrived and raise the difference.</span></div>';
+h+='<div class="stats">'+stat("Branch",e(dl.br),dl.slot+" \u00b7 "+fmtD(dl.d))+stat("Checked",done+" / "+l.length,done==l.length?"All lines":l.length-done+" left")+'</div>';
+var b=hd("Delivery note",'<span class="sub">Expected vs arrived</span>');
+for(i=0;i<l.length;i++){var ln=l[i],code=ln[0],exp=ln[3];
+var v=S.rcv[code],has=v!==undefined&&v!=="",got=has?+v:null,diff=has?got-exp:0;
+b+='<div style="border-top:1px solid var(--bd);padding:12px 0">';
+b+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="grow" style="min-width:150px"><span class="trunc" style="display:block">'+e(ln[1])+'</span><span class="code">'+code+'</span></span>';
+b+='<span class="expq"><span class="sub">Note says</span><b>'+exp+'</b></span>';
+b+='<span class="sub" style="width:44px;text-align:right">'+ln[2]+'</span>';
+b+='<input class="num" data-rc="'+code+'" inputmode="numeric" value="'+e(has?v:"")+'" placeholder="\u2014" aria-label="Arrived quantity for '+e(ln[1])+'" style="border-color:'+(has?(diff?"var(--a60)":"var(--sage)"):"var(--bd)")+'"></span></div>';
+if(has&&diff){b+='<div class="note a" style="margin-top:10px;display:block"><p style="margin:0 0 8px">'+(diff<0?Math.abs(diff)+" fewer than the note says.":diff+" more than the note says.")+' This line is received as '+got+' and the difference is sent to logistics.</p>';
+b+='<select data-rr="'+code+'" style="margin-bottom:8px"><option value="">Choose a reason</option>';
+for(var j=0;j<SREASON.length;j++)b+='<option'+(S.rrsn[code]==SREASON[j]?" selected":"")+'>'+SREASON[j]+'</option>';
+b+='</select><input data-rn="'+code+'" value="'+e(S.rnote[code]||"")+'" placeholder="Note for logistics (optional)"></div>'}
+else if(has)b+='<p style="font-size:12px;color:var(--g70);margin:8px 0 0">Matches the note.</p>';
+b+='</div>'}
+h+=card(b);
+var miss=0;
+for(i=0;i<l.length;i++){var c2=l[i][0],v2=S.rcv[c2];
+if(v2!==undefined&&v2!==""&&+v2!==l[i][3]&&!S.rrsn[c2])miss++}
+var f='';
+if(miss)f+='<div class="note r" style="margin-bottom:11px"><span aria-hidden="true">!</span><span>'+miss+' difference'+(miss>1?"s need":" needs")+' a reason before you can confirm.</span></div>';
+f+='<p class="sub" style="margin:0 0 10px">Confirming adds the arrived quantities to stock and raises a shortage for every difference.</p>';
+f+='<button class="btn pri wide" id="rcvSave"'+((done<l.length||miss)?" disabled":"")+'>Confirm receipt</button>';
+return h+card(f)}
+/* ---------------- AccCloud product sync ---------------- */
+var WHMAP=[
+{wh:"000001",n:"\u0e04\u0e25\u0e31\u0e07\u0e01\u0e25\u0e32\u0e07",en:"Central warehouse",br:""},
+{wh:"000010",n:"\u0e15\u0e25\u0e32\u0e14\u0e19\u0e49\u0e2d\u0e22",en:"Talat Noi",br:"Talat Noi"},
+{wh:"000011",n:"\u0e40\u0e01\u0e29\u0e23",en:"Gaysorn",br:"Gaysorn"},
+{wh:"000012",n:"\u0e17\u0e23\u0e07\u0e27\u0e32\u0e14",en:"Song Wat",br:"Song Wat"},
+{wh:"000013",n:"\u0e2a\u0e22\u0e32\u0e21\u0e14\u0e34\u0e2a\u0e04\u0e31\u0e1f\u0e40\u0e27\u0e2d\u0e23\u0e35\u0e48",en:"Siam Discovery",br:"Siam Discovery"},
+{wh:"000014",n:"Ecotopia",en:"Ecotopia",br:"Ecotopia"},
+{wh:"000015",n:"Lofteyes",en:"Lofteyes",br:"Lofteyes"},
+{wh:"000020",n:"\u0e04\u0e25\u0e31\u0e07\u0e2d\u0e2d\u0e19\u0e44\u0e25\u0e19\u0e4c",en:"Online warehouse",br:""}];
+function whOf(br){for(var i=0;i<WHMAP.length;i++)if(WHMAP[i].br==br)return WHMAP[i];return null}
+var SYNC={at:"16 Sep 2026, 03:00",ok:1,pulled:0,added:0,updated:0,failed:0,running:0,
+fails:[{c:"FG9-XX000-NEW",why:"No matching product in store-ops"},{c:"FG2-BHM75-LMT",why:"Product group FG-LMT not mapped"}]};
+function whStock(){var out=[],i,j;
+for(i=0;i<WHMAP.length;i++){var w=WHMAP[i],sd=seedOf(w.wh);
+for(j=0;j<PROD.length;j++){var p=PROD[j];
+var bal=Math.round(((sd+j*163)%220)*(w.br?0.22:1));
+if(!w.br&&j%4==3)bal=0;
+out.push({wh:w.wh,whn:w.en,thn:w.n,br:w.br,c:p.c,n:p.n,un:p.un,bal:bal,grp:p.c.split("-")[0]})}}
+return out}
+function pageSync(){var h='<div class="pagebar"><h1>AccCloud sync</h1><span class="pill">Product master</span></div>';
+h+='<div class="stats">'+stat("Last sync",SYNC.at,SYNC.ok?"Completed":"Failed",SYNC.ok?"":"var(--r70)")+
+stat("Products",SYNC.pulled?SYNC.pulled+"":"—","pulled from AccCloud")+
+stat("Failed",SYNC.failed?SYNC.failed+"":(SYNC.pulled?"0":"—"),"unmapped codes",SYNC.failed?"var(--r70)":"")+'</div>';
+var b=hd("Connection",'<span class="tag '+(SYNC.ok?"t-g":"t-r")+'">'+(SYNC.ok?"Connected":"Error")+'</span>');
+b+='<div class="kv"><span class="sub">Endpoint</span><span class="mono">POST /api/support/Product/getProductRemain</span></div>';
+b+='<div class="kv"><span class="sub">Auth</span><span class="mono">x-api-key + x-secret-key</span></div>';
+b+='<div class="kv"><span class="sub">companyCode</span><span class="mono">MIMETTA</span></div>';
+b+='<div class="kv"><span class="sub">Filter</span><span class="mono">prodCode starts with FG</span></div>';
+b+='<div class="kv"><span class="sub">Schedule</span><span>Nightly at 03:00, plus on demand</span></div>';
+b+='<button class="btn pri wide" id="syncGo" style="margin-top:13px"'+(SYNC.running?" disabled":"")+'>'+(SYNC.running?"Syncing\u2026":"Sync now")+'</button>';
+h+=card(b,"pu");
+if(SYNC.pulled){var r=hd("Last run");
+r+='<div class="stats">'+stat("Pulled",SYNC.pulled+"")+stat("New",SYNC.added+"")+stat("Updated",SYNC.updated+"")+stat("Failed",SYNC.failed+"","","var(--r70)")+'</div>';
+if(SYNC.failed){r+='<div class="note r" style="margin-bottom:11px"><span aria-hidden="true">!</span><span>These codes came back from AccCloud but could not be matched. They are not imported and nothing was guessed.</span></div>';
+r+='<div class="scroll"><table class="inv"><tr><th>Product code</th><th>Why it failed</th><th class="r">Action</th></tr>';
+for(var i=0;i<SYNC.fails.length;i++)r+='<tr class="lo"><td class="mono">'+SYNC.fails[i].c+'</td><td>'+SYNC.fails[i].why+'</td><td class="r"><button class="btn sm">Map it</button></td></tr>';
+r+='</table></div>'}
+else r+='<div class="note g"><span aria-hidden="true">\u2713</span><span>Every code matched. Nothing to review.</span></div>';
+h+=card(r)}
+var w=hd("Warehouse mapping",'<span class="sub">AccCloud whCode to branch</span>');
+w+='<div class="scroll"><table class="inv"><tr><th>whCode</th><th>Warehouse</th><th>Store-ops branch</th></tr>';
+for(i=0;i<WHMAP.length;i++)w+='<tr><td class="mono">'+WHMAP[i].wh+'</td><td>'+WHMAP[i].en+'<div class="sub">'+WHMAP[i].n+'</div></td><td>'+(WHMAP[i].br?e(WHMAP[i].br):'<span class="sub">Not a shop branch</span>')+'</td></tr>';
+w+='</table></div><p class="sub" style="margin-top:10px">A delivery to an unmapped warehouse is rejected rather than guessed. Add the branch here first.</p>';
+h+=card(w,"te");
+var d=hd("Delivery orders",'<span class="tag t-a">Waiting on AccCloud</span>');
+d+='<p class="sub" style="margin:-6px 0 11px">The documented endpoint is <span class="mono">DeliveryOrder/save</span>, which writes a DO into AccCloud. Reading one back needs an endpoint that does not appear in the API list yet.</p>';
+d+='<div class="kv"><span class="sub">Needed</span><span>Fetch a DO and its lines by document number</span></div>';
+d+='<div class="kv"><span class="sub">Status filter</span><span>Import F only. W is not final, D is deleted.</span></div>';
+d+='<div class="kv"><span class="sub">Re-check</span><span>Status is read again on delivery day, in case it became D</span></div>';
+return h+card(d,"am")}
+
+/* ---------------- warehouse stock ---------------- */
+function warehouseTab(){var rows=whStock(),i;
+var q=(S.q||"").toLowerCase();
+var f=rows.filter(function(r){return(r.n+" "+r.c+" "+r.whn).toLowerCase().indexOf(q)>=0});
+var central=f.filter(function(r){return!r.br});
+var tv=0;for(i=0;i<f.length;i++)tv+=f[i].bal;
+var h='<div class="stats">'+stat("Lines",f.length+"")+stat("Units in AccCloud",tv.toLocaleString())+stat("Central warehouse",central.reduce(function(a,r){return a+r.bal},0).toLocaleString(),"available to send")+stat("Source","AccCloud","getProductRemain")+'</div>';
+var b=hd("Stock held in AccCloud",'<button class="btn sm" id="expWh">Export to Excel</button>');
+b+='<p class="sub" style="margin:-6px 0 11px">Balances come straight from AccCloud and are read-only here. Store-ops counts are separate — a gap between the two is worth investigating.</p>';
+b+='<div class="srch narrow"><span class="ic" aria-hidden="true">\u2315</span><input id="q" value="'+e(S.q)+'" placeholder="Search product or warehouse"></div>';
+var byWh={};
+for(i=0;i<f.length;i++)(byWh[f[i].whn]=byWh[f[i].whn]||[]).push(f[i]);
+var keys=Object.keys(byWh);
+if(!keys.length)b+='<div class="empty">Nothing matches that search.</div>';
+for(var k=0;k<keys.length;k++){var lst=byWh[keys[k]],o=S.bOpen["wh_"+keys[k]]!==false;
+var sum=0;for(i=0;i<lst.length;i++)sum+=lst[i].bal;
+b+='<div class="acc"><button data-b="wh_'+e(keys[k])+'" aria-expanded="'+o+'">'+chev(o)+'<span class="grow" style="font-weight:500">'+e(keys[k])+'</span><span class="sub">'+(lst[0].br?"Shop branch":"Warehouse")+'</span><span class="mono sub">'+lst[0].wh+'</span><span style="font-weight:500;min-width:70px;text-align:right">'+sum.toLocaleString()+'</span></button>';
+if(o){b+='<div class="scroll"><table class="inv"><tr><th>Product</th><th class="r">Balance</th><th>Unit</th></tr>';
+for(i=0;i<lst.length;i++)b+='<tr'+(lst[i].bal?"":' class="lo"')+'><td><span class="trunc" style="display:block;max-width:280px">'+e(lst[i].n)+'</span><span class="code">'+lst[i].c+'</span></td><td class="r num-c'+(lst[i].bal?"":" bad")+'">'+lst[i].bal+'</td><td class="sub">'+lst[i].un+'</td></tr>';
+b+='</table></div>'}
+b+='</div>'}
+return card(b)}
+
+/* ---------------- transfers ---------------- */
+var XFER=[
+{id:1,from:"Talat Noi",to:"Central warehouse",d:"2026-09-06",ref:"TR-26090012",st:"sent",by:"Bas R.",
+ lines:[["FG2-HW300-NG","Hand wash 300 ml (neroli garden)","bottle",12]],note:"Returning slow movers"},
+{id:2,from:"Song Wat",to:"Gaysorn",d:"2026-09-04",ref:"TR-26090008",st:"received",by:"Nok W.",
+ lines:[["FG1-ABPF100-NG","Ambient parfum 100 ml (neroli garden)","bottle",6]],note:"Gaysorn ran short"}];
+var XST={draft:{l:"Draft",c:"t-n"},sent:{l:"Sent",c:"t-a"},received:{l:"Received",c:"t-g"}};
+function pageTransfer(){var i;
+var h='<div class="pagebar"><h1>Transfers</h1>'+branchSelect("scSel",S.scBranch,false,"From")+'<button class="btn pri" id="xNew">New transfer</button></div>';
+h+='<div class="note p" style="margin-bottom:12px"><span aria-hidden="true">i</span><span>Use this to send stock to another branch or back to the central warehouse. Both sides get a movement row, so neither count drifts.</span></div>';
+if(S.xForm){var b=hd("New transfer",'<button class="btn sm" id="xCan" aria-label="Cancel">\u2715</button>');
+b+='<div class="rgrid"><label><span class="sub">From</span><select id="xF">';
+for(i=0;i<BR.length;i++)b+='<option'+(S.xF==BR[i].n?" selected":"")+'>'+e(BR[i].n)+'</option>';
+b+='</select></label><label><span class="sub">To</span><select id="xT"><option'+(S.xT=="Central warehouse"?" selected":"")+'>Central warehouse</option>';
+for(i=0;i<BR.length;i++)b+='<option'+(S.xT==BR[i].n?" selected":"")+'>'+e(BR[i].n)+'</option>';
+b+='</select></label></div>';
+if(S.xF==S.xT)b+='<p style="color:var(--r70);font-size:13px;margin:10px 0 0">From and to cannot be the same place.</p>';
+b+=eyebrow("What is going")+'<div class="srch narrow"><span class="ic" aria-hidden="true">\u2315</span><input id="q" value="'+e(S.q)+'" placeholder="Search product"></div>';
+var f=PROD.filter(function(p){return(p.n+" "+p.c).toLowerCase().indexOf((S.q||"").toLowerCase())>=0}).slice(0,6);
+for(i=0;i<f.length;i++)b+='<div class="row"><span class="grow"><span class="trunc" style="display:block">'+e(f[i].n)+'</span><span class="code">'+f[i].c+'</span></span><span class="sub" style="width:50px;text-align:right">'+f[i].un+'</span><input class="num" data-xq="'+f[i].c+'" inputmode="numeric" value="'+e(S.xq[f[i].c]||"")+'" placeholder="0" aria-label="Quantity of '+e(f[i].n)+'"></div>';
+var n=0;for(var k in S.xq)if(+S.xq[k]>0)n++;
+b+='<label style="display:block;margin-top:12px"><span class="sub">Note</span><input id="xN" value="'+e(S.xN)+'" placeholder="Gaysorn ran short"></label>';
+if(S.err)b+='<p style="color:var(--r70);font-size:13px;margin:11px 0 0">'+e(S.err)+'</p>';
+b+='<p class="sub" style="margin:12px 0">Sending reduces stock here straight away. The other side confirms what arrived, exactly like a warehouse delivery.</p>';
+b+='<button class="btn pri wide" id="xSave"'+(n?"":" disabled")+'>Send '+(n?n+" line"+(n>1?"s":""):"")+'</button>';
+h+=card(b,"pu")}
+var v=visBranches();
+var l=XFER.filter(function(x){return v.indexOf(x.from)>=0||v.indexOf(x.to)>=0});
+var q=hd("Transfer history");
+if(!l.length)q+='<div class="empty">No transfers yet.</div>';
+for(i=0;i<l.length;i++){var x=l[i];
+q+='<div class="row"><span class="datechip"><b>'+(+x.d.split("-")[2])+'</b><span>'+MS[+x.d.split("-")[1]-1]+'</span></span><span class="grow"><span style="display:block"><b>'+e(x.from)+'</b> \u2192 <b>'+e(x.to)+'</b></span><span class="sub">'+x.ref+' \u00b7 '+x.lines.length+' line'+(x.lines.length>1?"s":"")+' \u00b7 '+e(x.by)+(x.note?" \u00b7 "+e(x.note):"")+'</span></span><span class="tag '+XST[x.st].c+'">'+XST[x.st].l+'</span></div>'}
+h+=card(q);
+var n2=hd("Why this is separate from receiving",'<span class="sub">From your DO history</span>');
+n2+='<p class="sub" style="margin:-6px 0 0">Your AccCloud delivery orders run in every direction \u2014 Talat Noi returning stock to the factory, Song Wat drawing stock from Talat Noi. Receiving handles what arrives; this handles what leaves. The same transfer appears as an outgoing movement at one end and an incoming delivery at the other.</p>';
+return h+card(n2,"te")}
+/* ---------------- OT & commission ---------------- */
+function tier(p){var r=Math.ceil(p);return r>=100?1.5:r>=80?1:r>=51?.7:.5}
+function achv(b){return(b.rev-b.vip)/b.goal*100}
+function poolOf(b){return(b.rev-b.vip)*tier(achv(b))/100}
+function attOf(bn){var t=0;for(var i=0;i<PEOPLE.length;i++){var p=PEOPLE[i];
+if(p.type=="part"||!p.earn||p.earn.indexOf(bn)<0)continue;t+=(p.at[bn]||0)}return t}
+function hrOf(p){return p.sal/p.wd/8}
+function otOf(p){return p.type=="part"?0:hrOf(p)*1.5*p.otN+hrOf(p)*2*p.otH}
+function commOf(p){if(p.type=="part")return 0;var t=0;
+for(var j=0;j<p.earn.length;j++){var bn=p.earn[j],b=null;
+for(var i=0;i<BR.length;i++)if(BR[i].n==bn)b=BR[i];
+if(!b)continue;var ta=attOf(bn);if(!ta)continue;t+=(p.at[bn]||0)/ta*poolOf(b)}return t}
+function lineRow(a,b,mut){return'<div style="display:flex;padding:6px 0;font-size:12px"><span class="grow" style="color:'+(mut?"var(--subtle)":"var(--muted)")+'">'+a+'</span><span class="mono" style="color:'+(mut?"var(--muted)":"var(--dark)")+'">'+b+'</span></div>'}
+function isShopStaff(p){return p.role=="ka"||p.role=="supervisor"}
+function pageReport(){var staff=PEOPLE.filter(isShopStaff),i,k;
+var to=0,tc=0,tp=0;
+for(i=0;i<staff.length;i++){to+=otOf(staff[i]);tc+=commOf(staff[i]);if(staff[i].type=="part")tp+=staff[i].rate*staff[i].hrs}
+var h='<div class="pagebar"><h1>Overtime &amp; commission</h1>'+seg("rtab",[["rep","Report"],["set","Who earns where"]],S.rtab)+dnav("month",null,null)+'</div>';
+if(isFutureMonth())h+='<div class="note a" style="margin-bottom:12px"><span aria-hidden="true">i</span><span>'+periodLabel("month")+' has not finished. Figures update as sales and attendance are recorded.</span></div>';
+if(S.rtab=="set"){
+var t='<p class="sub" style="margin:0 0 13px">Tick the branches each KA earns commission from. Attendance at an unticked branch still counts as a work day, but earns nothing. Part-time staff never earn commission.</p>';
+t+='<div class="scroll"><table style="min-width:640px"><tr><th>KA</th>';
+for(i=0;i<BR.length;i++)t+='<th style="text-align:center;width:82px">'+e(BR[i].n)+'</th>';
+t+='</tr>';
+for(k=0;k<staff.length;k++){var p=staff[k];
+t+='<tr><td><span style="display:flex;align-items:center;gap:8px">'+av(p,"sm")+'<span><span style="display:block">'+e(p.n)+'</span><span class="sub">'+(p.type=="part"?"Part-time":p.role=="supervisor"?"Supervisor":"KA")+'</span></span></span></td>';
+for(i=0;i<BR.length;i++){var on=p.earn&&p.earn.indexOf(BR[i].n)>=0,days=(p.at&&p.at[BR[i].n])||0;
+t+='<td style="text-align:center">'+(p.type=="part"?'<span class="sub">—</span>':'<button class="tick" data-earn="'+k+'|'+i+'" aria-pressed="'+on+'" aria-label="'+e(p.n)+' earns at '+e(BR[i].n)+'" style="border:'+(on?"0":"1px solid var(--bd)")+';background:'+(on?"var(--brown)":"var(--white)")+'">'+(on?"✓":"")+'</button><div class="sub" style="font-size:10px;margin-top:3px">'+(days?days+" d":"—")+'</div>')+'</td>'}
+t+='</tr>'}
+t+='</table></div><p class="sub" style="margin-top:10px">Unticking a branch removes that KA from its pool split, which raises everyone else\'s share.</p>';
+return h+card(hd("Who earns where")+t)}
+h+='<div class="stats">'+stat("Overtime",bt(to))+stat("Commission",bt(tc))+stat("Part-time wages",bt(tp))+stat("Total payout",bt(to+tc+tp),periodLabel("month"))+'</div>';
+var pb='<div class="scroll"><table style="min-width:620px"><tr><th>Branch</th><th class="r">Sales excl. VIP</th><th class="r">Goal</th><th class="r">Achieved</th><th class="r">Tier</th><th class="r">Pool</th></tr>';
+for(i=0;i<BR.length;i++){var b=BR[i],a=achv(b);
+pb+='<tr><td>'+e(b.n)+'<div class="sub">'+b.t+'</div></td><td class="r">'+bt(b.rev-b.vip)+'</td><td class="r sub">'+bt(b.goal)+'</td><td class="r" style="color:'+(a>=80?"var(--g70)":"var(--accent)")+'">'+a.toFixed(1)+'%</td><td class="r sub">'+tier(a)+'%</td><td class="r"><b>'+bt(poolOf(b))+'</b></td></tr>'}
+pb+='</table></div><p class="sub" style="margin-top:9px">Goals come from the expense portal. Achievement rounds up to the next whole percent before the tier applies.</p>';
+h+=card(hd("Commission pools")+pb);
+var q=hd("By person",'<button class="btn sm" id="expPay">Export to Excel</button>');
+for(k=0;k<staff.length;k++){var p=staff[k],o=!!S.rOpen[k],c=commOf(p),o2=otOf(p),pay=p.type=="part"?p.rate*p.hrs:0;
+var days=0;for(var bn in (p.at||{}))days+=p.at[bn];
+q+='<div class="acc"><button data-rp="'+k+'" aria-expanded="'+o+'">'+chev(o)+av(p)+'<span class="grow" style="text-align:left"><span style="font-weight:500;display:block">'+e(p.n)+'</span><span class="sub">'+days+' days'+(p.type=="part"?" · part-time":" · "+(p.earn.join(", ")||"no commission"))+'</span></span><span class="col"><span class="sub">Overtime</span>'+(p.type=="part"?'<span class="sub">—</span>':bt(o2))+'</span><span class="col"><span class="sub">Commission</span>'+(p.type=="part"?'<span class="sub">—</span>':bt(c))+'</span><span class="col"><span class="sub">Total</span><b>'+bt(o2+c+pay)+'</b></span></button>';
+if(o){var d='';
+if(p.type=="part"){d+=eyebrow("Part-time wages")+lineRow("Hourly rate",b2(p.rate),1)+lineRow("Hours worked this month",p.hrs+" h",1);
+d+='<div class="sumline"><span class="grow">Wages</span><span class="mono"><b>'+b2(pay)+'</b></span></div>';
+d+='<div class="note a" style="margin-top:12px"><span>Part-time staff do not earn overtime or commission. They are excluded from the branch pool split.</span></div>'}
+else{d+=eyebrow("Overtime")+lineRow("Salary ÷ "+p.wd+" work days ÷ 8 hours",b2(hrOf(p))+" / hour",1);
+if(p.otN)d+=lineRow("Normal day · "+p.otN+" h × 1.5",b2(hrOf(p)*1.5*p.otN));
+if(p.otH)d+=lineRow("Public holiday · "+p.otH+" h × 2",b2(hrOf(p)*2*p.otH));
+d+='<div class="sumline"><span class="grow">Overtime pay</span><span class="mono"><b>'+b2(o2)+'</b></span></div>';
+d+=eyebrow("Commission");
+for(var j=0;j<p.earn.length;j++){var bn2=p.earn[j],bb=null;
+for(i=0;i<BR.length;i++)if(BR[i].n==bn2)bb=BR[i];
+if(!bb)continue;var ta=attOf(bn2),mine=p.at[bn2]||0,sh=ta?mine/ta:0;
+d+='<div class="commbox"><div style="font-weight:500;font-size:12px;margin-bottom:3px">'+e(bn2)+'</div>';
+d+=lineRow("Pool · "+bt(bb.rev-bb.vip)+" × "+tier(achv(bb))+"%",bt(poolOf(bb)),1);
+d+=lineRow("Your days ÷ branch days · "+mine+" ÷ "+ta,(sh*100).toFixed(1)+"%",1);
+d+='<div class="sumline sm"><span class="grow">From '+e(bn2)+'</span><span class="mono">'+b2(sh*poolOf(bb))+'</span></div></div>'}
+if(!p.earn.length)d+='<p class="sub">Not set to earn commission at any branch.</p>';
+d+='<div class="sumline"><span class="grow">Commission</span><span class="mono"><b>'+b2(c)+'</b></span></div>'}
+d+='<div class="note g" style="margin-top:12px"><span class="grow">Total this month</span><span class="mono"><b>'+b2(o2+c+pay)+'</b></span></div>';
+q+='<div>'+d+'</div>'}
+q+='</div>'}
+return h+card(q)}
+
+/* ---------------- settings ---------------- */
+function pageSettings(){var h='<div class="pagebar"><h1>Settings</h1>'+seg("settab",[["br","Branches"],["pr","Products"],["pe","People"],["sh","Shift times"]],S.settab)+'</div>',i;
+if(S.settab=="br"){var b='<div class="scroll"><table style="min-width:620px"><tr><th>Branch</th><th>Type</th><th>Sales source</th><th class="r">Monthly goal</th></tr>';
+for(i=0;i<BR.length;i++)b+='<tr><td><b>'+e(BR[i].n)+'</b></td><td><span class="tag t-n">'+BR[i].t+'</span></td><td class="sub">'+(BR[i].pos?"AdaPOS export":BR[i].t=="Pop-up"?"Manual entry":"Mapped file")+'</td><td class="r">'+bt(BR[i].goal)+'</td></tr>';
+b+='</table></div><p class="sub" style="margin-top:10px">Goals sync from the expense portal. Store type decides how sales reach the system and how the commission pool is grouped.</p>';
+h+=card(hd("Branches",'<button class="btn sm">Add branch</button>')+b)}
+else if(S.settab=="pr"){var b=hd("Products",'<button class="btn sm">Add product</button>');
+b+='<div class="srch narrow"><span class="ic" aria-hidden="true">⌕</span><input id="q" value="'+e(S.q)+'" placeholder="Search product or code"></div>';
+var f=PROD.filter(function(p){return(p.n+" "+p.c).toLowerCase().indexOf(S.q.toLowerCase())>=0});
+b+='<div class="scroll"><table style="min-width:620px"><tr><th>Product</th><th>Code</th><th>Unit</th><th class="r">Min</th><th class="r">Max</th><th class="r">New</th></tr>';
+for(i=0;i<f.length;i++)b+='<tr><td class="trunc" style="max-width:250px">'+e(f[i].n)+'</td><td class="code">'+f[i].c+'</td><td class="sub">'+f[i].un+'</td><td class="r">'+(8+i%6)+'</td><td class="r">'+(24+i%3*6)+'</td><td class="r">'+(f[i].npd?'<span class="tag t-p">Yes</span>':'<span class="sub">—</span>')+'</td></tr>';
+h+=card(b+'</table></div><p class="sub" style="margin-top:10px">Minimum drives the low stock alert. Products marked new are tracked separately on the dashboard for 90 days after launch.</p>')}
+else if(S.settab=="pe"){var b='<div class="scroll"><table style="min-width:660px"><tr><th>Name</th><th>Role</th><th>Type</th><th>Branches</th><th class="r">Pay</th></tr>';
+for(i=0;i<PEOPLE.length;i++){var p=PEOPLE[i];
+b+='<tr><td><span style="display:flex;align-items:center;gap:8px">'+av(p,"sm")+e(p.n)+'</span></td><td><span class="tag t-n">'+(p.role=="manager"?"Manager":p.role=="supervisor"?"Supervisor":"KA")+'</span></td><td class="sub">'+(p.type=="part"?"Part-time":"Full-time")+'</td><td class="sub trunc" style="max-width:190px">'+e(p.br.join(", "))+'</td><td class="r">'+(p.type=="part"?b2(p.rate)+"/h":bt(p.sal)+"/mo")+'</td></tr>'}
+b+='</table></div><div class="note a" style="margin-top:12px"><span>Pay is visible to managers and the people team only. Part-time staff are paid an hourly rate with no overtime or commission.</span></div>';
+h+=card(hd("People",'<button class="btn sm">Add person</button>')+b)}
+else{var b=hd("Shift times");
+b+='<p class="sub" style="margin:-6px 0 13px">Changing these updates every shift on the roster. Past days keep the times they were worked.</p>';
+var k2=["M","A"];
+for(i=0;i<2;i++)b+='<div class="row"><span class="grow"><span style="display:block;font-weight:500">'+SH[k2[i]].n+'</span><span class="sub">Used by '+(k2[i]=="M"?"opening":"closing")+' staff</span></span><label class="sub">Start <input type="time" data-sht="'+k2[i]+'|f" value="'+SH[k2[i]].f+'" style="width:130px;margin-left:6px"></label><label class="sub">End <input type="time" data-sht="'+k2[i]+'|t" value="'+SH[k2[i]].t+'" style="width:130px;margin-left:6px"></label></div>';
+b+='<button class="btn pri wide" id="shSave" style="margin-top:12px">Save shift times</button>';
+h+=card(b)}
+return h}
+
+/* ---------------- render ---------------- */
+function render(){renderNav();
+var el=document.getElementById("main"),h="";
+if(S.page=="dash")h=pageDash();
+else if(S.page=="stock")h=pageStock();
+else if(S.page=="var")h=pageVar();
+else if(S.page=="adj")h=pageAdj();
+else if(S.page=="sreport")h=pageSReport();
+else if(S.page=="sales")h=pageSales();
+else if(S.page=="bills")h=pageBills();
+else if(S.page=="traffic")h=pageTraffic();
+else if(S.page=="shifts")h=pageShifts();
+else if(S.page=="report")h=pageReport();
+else if(S.page=="receive")h=pageReceive();
+else if(S.page=="transfer")h=pageTransfer();
+else if(S.page=="sync")h=pageSync();
+else if(S.page=="calendar")h=pageCalendar();
+else if(S.page=="logistics")h=pageLogistics();
+else if(S.page=="settings")h=pageSettings();
+el.innerHTML=h;renderTabs();
+if(S.focus){var f=document.getElementById(S.focus)||document.querySelector('[data-bq="'+S.focus+'"]');
+if(f){f.focus();try{f.setSelectionRange(f.value.length,f.value.length)}catch(x){}}}
+}
+var TABS={
+admin:[["dash","Home","\u25e7"],["sales","Sales","\u20bf"],["stock","Stock","\u25a6"],["shifts","Shifts","\u25a5"],["__more","More","\u22ef"]],
+manager:[["dash","Home","\u25e7"],["sales","Sales","\u20bf"],["stock","Stock","\u25a6"],["shifts","Shifts","\u25a5"],["__more","More","\u22ef"]],
+supervisor:[["dash","Home","\u25e7"],["sales","Sales","\u20bf"],["stock","Stock","\u25a6"],["shifts","Shifts","\u25a5"],["__more","More","\u22ef"]],
+ka:[["dash","Home","\u25e7"],["stock","Count","\u25a6"],["receive","Receive","\u25bc"],["var","Check","!"],["shifts","Shifts","\u25a5"]],
+parttime:[["dash","Home","\u25e7"],["stock","Count","\u25a6"],["receive","Receive","\u25bc"],["var","Check","!"],["shifts","Shifts","\u25a5"]],
+logistic:[["dash","Home","\u25e7"],["logistics","Deliveries","\u25a7"],["transfer","Transfers","\u21c4"],["sreport","Stock","\u25a7"]],
+people:[["dash","Home","\u25e7"],["shifts","Shifts","\u25a5"],["report","Payout","\u25b1"],["calendar","Calendar","\u25a4"]],
+marketing:[["dash","Home","\u25e7"],["calendar","Calendar","\u25a4"]]};
+function renderTabs(){var t=TABS[S.role],h="";
+for(var i=0;i<t.length;i++){var on=S.page==t[i][0];
+var b=0;if(t[i][0]=="var")b=VAR.filter(function(v){return v.st=="open"}).length;
+if(t[i][0]=="shifts")b=isMgr()?REQS.filter(function(r){return r.st=="pending"}).length:INBOX.length;
+h+='<button data-tab="'+t[i][0]+'"'+(on?' aria-current="page"':'')+'><span class="tico" aria-hidden="true">'+t[i][2]+'</span>'+t[i][1]+(b?'<span class="tdot"></span>':'')+'</button>'}
+document.getElementById("tabs").innerHTML=h}
+var ALLOWED={
+admin:["dash","sales","bills","traffic","stock","adj","sreport","receive","transfer","sync","shifts","report","calendar","logistics","settings"],
+manager:["dash","sales","bills","traffic","stock","adj","sreport","receive","transfer","shifts","report","calendar","logistics","settings"],
+supervisor:["dash","sales","bills","traffic","stock","sreport","receive","transfer","shifts"],
+ka:["dash","stock","var","receive","shifts"],
+parttime:["dash","stock","var","receive","shifts"],
+logistic:["dash","logistics","sreport","receive","transfer"],
+people:["dash","shifts","report","calendar"],
+marketing:["dash","calendar"]};
+function roleChanged(){
+var WHO={admin:"Ann K.",manager:"Nira P.",supervisor:"Mai A.",logistic:"Big S.",people:"Som P.",marketing:"Fai M.",parttime:"Bas R.",ka:"Kan S."};
+S.me=WHO[S.role]||"Kan S.";
+var p=me(),a=document.getElementById("meAv");
+a.textContent=p.i;a.style.background=p.bg;a.style.color=p.fg;
+document.getElementById("meName").textContent=p.n;
+var v=visBranches();S.branch=(!isMgr()&&v.length==1)?v[0]:"All branches";
+S.scBranch=v[0];
+if(ALLOWED[S.role].indexOf(S.page)<0)S.page="dash";
+S.kpi=null;S.edit=0;S.pick=null;S.form=0;S.q="";S.done=0;S.cnt={};S.stab="count";S.cov=null;S.otPick=null;S.shTab="roster";render()}
+
+/* ---------------- events ---------------- */
+document.addEventListener("click",function(ev){
+var t=ev.target,g=function(a){var x=t.closest("["+a+"]");return x?x.getAttribute(a):null},i,j;
+if(t.closest("#mt")){document.body.classList.toggle("open");return}
+var tb=g("data-tab");if(tb){if(tb=="__more"){document.body.classList.add("open");return}
+S.page=tb;S.kpi=null;S.focus=null;S.q="";document.body.classList.remove("open");render();return}
+if(t.closest("#scrim")){document.body.classList.remove("open");return}
+var pg=g("data-pg");if(pg){S.page=pg;S.kpi=null;S.focus=null;S.q="";document.body.classList.remove("open");render();return}
+var nv=g("data-nav");if(nv){var per=(S.page=="shifts")?(S.span=="week"?"week":"month"):(S.page=="report"?"month":S.per);
+if(per=="custom")shiftCustom(+nv);else shiftDate(+nv,per);
+S.selDay=null;S.pick=null;render();return}
+var k=g("data-kpi");if(k){S.kpi=(S.kpi==k)?null:k;S.focus=null;render();return}
+if(t.closest("#kclose")){S.kpi=null;render();return}
+var pr=g("data-per");if(pr){S.per=pr;if(pr=="custom")S.cOpen=1;render();return}
+if(t.closest("#cOpen")){S.cOpen=!S.cOpen;render();return}
+var qk=g("data-quick");if(qk){var b0=new Date(S.c1+"T00:00:00"),a0=new Date(b0);
+a0.setDate(a0.getDate()-(+qk-1));S.c0=iso(a0);render();return}
+if(t.closest("#sa")){S.showAll=!S.showAll;render();return}
+var gg=g("data-g");if(gg){S.gOpen[gg]=(S.gOpen[gg]===false);render();return}
+if(t.closest("[data-npd]")){S.npd=!S.npd;render();return}
+var bb=g("data-b");if(bb){S.bOpen[bb]=(S.bOpen[bb]===false);render();return}
+var al=g("data-all");if(al){S.bOpen[al+"_all"]=!S.bOpen[al+"_all"];render();return}
+var cc=g("data-c");if(cc){S.openC[cc]=!S.openC[cc];render();return}
+var kd=g("data-kind");if(kd){S.skind=kd;S.cnt={};S.q="";S.done=0;S.stab="count";S.focus=null;render();return}
+var st=g("data-stab");if(st){S.stab=st;S.focus=null;render();return}
+if(t.closest("#subCount")){if(counted()==stkList().length){S.done=1;S.stab="move";S.focus=null;render()}return}
+if(t.closest("#again")){S.done=0;S.cnt={};S.q="";S.flagged={};S.stab="count";S.focus=null;render();return}
+var fl=g("data-flag");if(fl){S.flagged[fl]=1;S.page="var";render();return}
+var va=g("data-va");if(va){var p2=va.split("_");S.vAct=+p2[0];S.vMode=p2[1];S.tmp="";S.tmpN="";S.focus=null;render();return}
+if(t.closest("[data-vx]")){S.vAct=null;S.vMode=null;S.tmp="";S.tmpN="";render();return}
+var vs=g("data-vs");if(vs){i=+vs;if(S.tmp!==""){VAR[i].c2=+S.tmp;
+if(+S.tmp===expq(VAR[i])){VAR[i].st="explained";VAR[i].rsn="Counting error";VAR[i].note="Recount matched the system"}}
+S.vAct=null;S.vMode=null;S.tmp="";S.focus=null;render();return}
+var v2=g("data-vs2");if(v2){i=+v2;VAR[i].rsn=(S.vMode=="wh"?S.tmp:"");VAR[i].note=S.tmpN;
+VAR[i].st=(S.vMode=="wh"?"explained":"unexplained");S.vAct=null;S.vMode=null;S.tmp="";S.tmpN="";S.focus=null;render();return}
+var ap=g("data-vap");if(ap){VAR[+ap].st="approved";render();return}
+var rc=g("data-vrc");if(rc){VAR[+rc].st="open";VAR[+rc].c2=null;render();return}
+var sr=g("data-srtab");if(sr){S.srtab=sr;render();return}
+var mp=g("data-mvPer");if(mp){S.mvPer=mp;render();return}
+if(t.closest("#expInv")){var r=invRows(),rows=[["Branch","Type","Code","Product","Unit","On hand","Min","Max","Value"]];
+for(i=0;i<r.length;i++)rows.push([r[i].br,r[i].ty,r[i].c,r[i].n,r[i].un,r[i].q,r[i].mn,r[i].mx,r[i].val]);
+csv(rows,"inventory-"+iso(S.cur)+".csv");return}
+if(t.closest("#expLow")){var r=invRows().filter(function(x){return x.q<x.mn}),rows=[["Branch","Code","Product","Unit","On hand","Min","Order to max"]];
+for(i=0;i<r.length;i++)rows.push([r[i].br,r[i].c,r[i].n,r[i].un,r[i].q,r[i].mn,r[i].mx-r[i].q]);
+csv(rows,"low-stock-"+iso(S.cur)+".csv");return}
+if(t.closest("#expMov")){var v=S.branch=="All branches"?visBranches():[S.branch];
+var lg=LEDGER.filter(function(x){return v.indexOf(x.br)>=0&&(S.mvType=="All"||x.ty==S.mvType)});
+var rows=[["When","Branch","Code","Product","Unit","Type","Qty","Where","By"]];
+for(i=0;i<lg.length;i++)rows.push([lg[i].d,lg[i].br,lg[i].c,lg[i].n,lg[i].un,lg[i].ty,lg[i].q,lg[i].to,lg[i].who]);
+csv(rows,"stock-movement-"+iso(S.cur)+".csv");return}
+if(t.closest("#expPay")){var staff=PEOPLE.filter(isShopStaff);
+var rows=[["Name","Type","Days","Overtime","Commission","Part-time wages","Total"]];
+for(i=0;i<staff.length;i++){var p=staff[i],d=0;for(var bn in (p.at||{}))d+=p.at[bn];
+var pay=p.type=="part"?p.rate*p.hrs:0;
+rows.push([p.n,p.type=="part"?"Part-time":"Full-time",d,Math.round(otOf(p)),Math.round(commOf(p)),pay,Math.round(otOf(p)+commOf(p)+pay)])}
+csv(rows,"payout-"+ym(S.cur)+".csv");return}
+var sp=g("data-span");if(sp){S.span=sp;S.pick=null;S.selDay=null;render();return}
+var ms=g("data-msub");if(ms){S.msub=ms;S.pick=null;S.selDay=null;render();return}
+if(t.closest("#edit")){S.edit=1;render();return}
+if(t.closest("#shopen")){S.shEdit=1;render();return}
+if(t.closest("#shx")){S.shEdit=0;render();return}
+if(t.closest("#shSave")){S.shEdit=0;render();return}
+if(t.closest("#pub")){PUBLISHED[pubKey()]=1;S.edit=0;S.pick=null;S.draft=0;render();return}
+if(t.closest("#disc")){S.edit=0;S.pick=null;S.draft=0;render();return}
+if(t.closest("#copyPrev")||t.closest("#blankMonth")){PUBLISHED[pubKey()]=1;
+if(t.closest("#blankMonth"))for(var nkey in ROSTER)for(i=0;i<31;i++)ROSTER[nkey][i]="O";
+S.edit=1;render();return}
+if(t.closest("#pickx")){S.pick=null;render();return}
+if(t.closest("#dayx")){S.selDay=null;render();return}
+var ce=g("data-cell");if(ce){var q2=ce.split("|");S.pick={p:q2[0],d:+q2[1]};render();return}
+var se=g("data-set");if(se&&S.pick){ROSTER[S.pick.p][S.pick.d]=se;S.draft++;S.pick=null;render();return}
+var dy=g("data-day");if(dy!==null){var dv=+dy;S.selDay=(S.selDay===dv)?null:dv;render();return}
+var ra=g("data-rap");if(ra){for(i=0;i<REQS.length;i++)if(REQS[i].id==+ra){var r2=REQS[i];r2.st="approved";
+for(j=0;j<r2.days.length;j++){var x=r2.days[j];if(!x.ok)continue;
+if(r2.t=="off")ROSTER[r2.who][x.d]="L";else{var tp2=ROSTER[r2.who][x.d];ROSTER[r2.who][x.d]=ROSTER[x.w][x.d];ROSTER[x.w][x.d]=tp2}}}
+render();return}
+var rd2=g("data-rdc");if(rd2){for(i=0;i<REQS.length;i++)if(REQS[i].id==+rd2)REQS[i].st="declined";render();return}
+var ia=g("data-ia")||g("data-idc");if(ia){var acc=!!g("data-ia"),p3=ia.split("|");
+for(i=0;i<INBOX.length;i++)if(INBOX[i].id==+p3[0]){INBOX[i].days[+p3[1]].ok=acc?1:0;
+var all=INBOX[i].days.every(function(z){return z.ok!==null});
+if(all&&INBOX[i].days.some(function(z){return z.ok}))
+REQS.push({id:INBOX[i].id,t:"swap",who:INBOX[i].who,note:INBOX[i].note,st:"pending",days:INBOX[i].days})}
+render();return}
+if(t.closest("#newreq")){S.form=1;S.ft="swap";S.err="";render();return}
+if(t.closest("#fcan")){S.form=0;S.r0=null;S.r1=null;S.dmap={};S.fnote="";S.err="";S.cal2=0;render();return}
+if(t.closest("#rb")){S.cal2=!S.cal2;render();return}
+var rdd=g("data-rd");if(rdd!==null){var dv2=+rdd;
+if(S.r0===null||S.r1!==null){S.r0=dv2;S.r1=null}else{S.r1=dv2;S.cal2=0}
+S.dmap={};S.err="";render();return}
+var ftb=g("data-ft");if(ftb){S.ft=ftb;S.err="";render();return}
+if(t.closest("#fsub")){
+if(S.r0===null){S.err="Choose your dates first.";render();return}
+var lo=S.r1===null?S.r0:Math.min(S.r0,S.r1),hi=S.r1===null?S.r0:Math.max(S.r0,S.r1),dd=[];
+for(var d=lo;d<=hi;d++){var c2=ROSTER[S.me][d]||"O";if(c2=="O"||c2=="L")continue;
+if(S.ft=="swap"){if(!S.dmap[d]){S.err="Choose who covers "+(d+1)+" "+MS[S.cur.getMonth()]+".";render();return}
+dd.push({d:d,w:S.dmap[d],ok:null})}else dd.push({d:d,w:"",ok:1})}
+if(!dd.length){S.err="Every day you picked is already a day off.";render();return}
+MINE.unshift({id:Date.now(),t:S.ft,st:"waiting",days:dd});
+if(S.ft=="off")REQS.push({id:Date.now(),t:"off",who:S.me,note:S.fnote,st:"pending",days:dd});
+S.form=0;S.r0=null;S.r1=null;S.dmap={};S.fnote="";S.err="";render();return}
+var sl=g("data-salesTab");if(sl){S.salesTab=sl;S.q="";render();return}
+var bl=g("data-billsTab");if(bl){S.billsTab=bl;render();return}
+if(t.closest("#upReset")){S.uploaded=0;S.saved=0;for(i=0;i<FLDS.length;i++)S.map[FLDS[i].k]="";render();return}
+if(t.closest("#iguess")){for(i=0;i<FLDS.length;i++)S.map[FLDS[i].k]=FLDS[i].g;render();return}
+if(t.closest("#isave")){S.saved=1;render();return}
+var rt=g("data-rtab");if(rt){S.rtab=rt;render();return}
+var rp2=g("data-rp");if(rp2){S.rOpen[rp2]=!S.rOpen[rp2];render();return}
+var en=g("data-earn");if(en){var p4=en.split("|"),st2=PEOPLE.filter(isShopStaff)[+p4[0]],bn3=BR[+p4[1]].n;
+var ix=st2.earn.indexOf(bn3);if(ix>=0)st2.earn.splice(ix,1);else st2.earn.push(bn3);render();return}
+var sht=g("data-shTab");if(sht){S.shTab=sht;S.cov=null;S.otPick=null;render();return}
+var cv=g("data-cov");if(cv){var q3=cv.split("|");S.cov={b:q3[0],d:+q3[1]};render();return}
+if(t.closest("#covx")){S.cov=null;render();return}
+if(t.closest("#otNew")){S.otPick={id:0,who:rosterPeople()[0].n,d:S.cur.getDate()-1,sh:"A",from:SH.A.f,to:SH.A.t,note:"",st:"pending"};render();return}
+var oe=g("data-otedit");if(oe){for(i=0;i<OT.length;i++)if(OT[i].id==+oe)S.otPick=OT[i];render();return}
+if(t.closest("#otx")){S.otPick=null;render();return}
+if(t.closest("#otSave")){if(S.otPick&&!S.otPick.id){S.otPick.id=Date.now();OT.push(S.otPick)}S.otPick=null;render();return}
+var od=g("data-otdel");if(od){for(i=0;i<OT.length;i++)if(OT[i].id==+od){OT.splice(i,1);break}S.otPick=null;render();return}
+if(t.closest("#evNew")){S.evForm=1;S.err="";render();return}
+if(t.closest("#evCan")){S.evForm=0;S.err="";render();return}
+if(t.closest("#evSave")){if(!S.evN.trim()){S.err="Give the event a name.";render();return}
+EVENTS.push({id:Date.now(),d:S.evD,ty:S.evT,n:S.evN,br:S.evB});S.evForm=0;S.evN="";S.err="";render();return}
+var ed=g("data-evdel");if(ed){for(i=0;i<EVENTS.length;i++)if(EVENTS[i].id==+ed){EVENTS.splice(i,1);break}render();return}
+if(t.closest("#dlNew")){S.dlForm=1;S.err="";render();return}
+if(t.closest("#dlCan")){S.dlForm=0;S.err="";render();return}
+if(t.closest("#dlSave")){if(!S.dlI){S.err="How many item lines are coming?";render();return}
+DELIV.push({id:Date.now(),br:S.dlB,d:S.dlD,slot:S.dlS,items:+S.dlI,ref:"DO-"+Date.now().toString().slice(-8),st:"scheduled",by:"Big S."});
+S.dlForm=0;S.dlI="";S.err="";render();return}
+var dn=g("data-dlnext");if(dn){for(i=0;i<DELIV.length;i++)if(DELIV[i].id==+dn)DELIV[i].st=(DELIV[i].st=="scheduled"?"in transit":"delivered");render();return}
+var rv=g("data-rcv");if(rv){S.rcvId=+rv;S.rcv={};S.rrsn={};S.rnote={};render();return}
+if(t.closest("#rcvBack")){S.rcvId=0;render();return}
+if(t.closest("#rcvSave")){var dl2=null;for(i=0;i<DELIV.length;i++)if(DELIV[i].id==S.rcvId)dl2=DELIV[i];
+if(dl2){var ls=lines(dl2.id);
+for(i=0;i<ls.length;i++){var cd=ls[i][0],got=+S.rcv[cd],exp=ls[i][3];
+LEDGER.unshift({d:"8 Sep 11:20",br:dl2.br,c:cd,n:ls[i][1],un:ls[i][2],ty:"Received",q:got,who:S.me,to:"From central warehouse \u00b7 "+dl2.ref});
+if(got!==exp)SHORTS.unshift({id:Date.now()+i,dl:dl2.id,br:dl2.br,c:cd,n:ls[i][1],un:ls[i][2],exp:exp,got:got,rsn:S.rrsn[cd],note:S.rnote[cd]||"",by:S.me,d:"8 Sep 11:20",st:"open"})}
+dl2.st="received"}
+S.rcvId=0;S.rcv={};S.rrsn={};S.rnote={};render();return}
+var sc=g("data-shclose");if(sc){for(i=0;i<SHORTS.length;i++)if(SHORTS[i].id==+sc)SHORTS[i].st="closed";render();return}
+if(t.closest("#syncGo")){SYNC.running=1;render();
+setTimeout(function(){SYNC.running=0;SYNC.pulled=147;SYNC.added=3;SYNC.updated=144;SYNC.failed=SYNC.fails.length;
+SYNC.at="16 Sep 2026, "+new Date().toTimeString().slice(0,5);render()},900);return}
+if(t.closest("#xNew")){S.xForm=1;S.xq={};S.xN="";S.q="";S.err="";render();return}
+if(t.closest("#xCan")){S.xForm=0;S.xq={};S.xN="";S.err="";render();return}
+if(t.closest("#xSave")){
+if(S.xF==S.xT){S.err="From and to cannot be the same place.";render();return}
+var ls=[],tot=0;
+for(var kk in S.xq){if(!(+S.xq[kk]>0))continue;
+for(i=0;i<PROD.length;i++)if(PROD[i].c==kk){ls.push([kk,PROD[i].n,PROD[i].un,+S.xq[kk]]);tot+=+S.xq[kk]}}
+if(!ls.length){S.err="Enter a quantity for at least one product.";render();return}
+XFER.unshift({id:Date.now(),from:S.xF,to:S.xT,d:iso(TODAY),ref:"TR-"+Date.now().toString().slice(-8),st:"sent",by:S.me,lines:ls,note:S.xN});
+for(i=0;i<ls.length;i++){
+LEDGER.unshift({d:"8 Sep 12:40",br:S.xF,c:ls[i][0],n:ls[i][1],un:ls[i][2],ty:"Transfer out",q:-ls[i][3],who:S.me,to:"To "+S.xT});
+if(S.xT!="Central warehouse")LEDGER.unshift({d:"8 Sep 12:40",br:S.xT,c:ls[i][0],n:ls[i][1],un:ls[i][2],ty:"Transfer in",q:ls[i][3],who:S.me,to:"From "+S.xF})}
+S.xForm=0;S.xq={};S.xN="";S.err="";render();return}
+if(t.closest("#expWh")){var r=whStock(),rows=[["whCode","Warehouse","Branch","Product code","Product","Unit","Balance"]];
+for(i=0;i<r.length;i++)rows.push([r[i].wh,r[i].whn,r[i].br||"",r[i].c,r[i].n,r[i].un,r[i].bal]);
+csv(rows,"acccloud-warehouse-stock-"+iso(S.cur)+".csv");return}
+var se2=g("data-settab");if(se2){S.settab=se2;S.q="";S.focus=null;render();return}
+});
+document.addEventListener("input",function(ev){var t=ev.target;
+if(t.id=="q"||t.id=="sq"){S.q=t.value;S.focus=t.id;render()}
+else if(t.id=="fnote"){S.fnote=t.value}
+else if(t.id=="vt"){S.tmp=t.value.replace(/[^0-9]/g,"");S.focus="vt";render()}
+else if(t.id=="vnt"){S.tmpN=t.value}
+else if(t.hasAttribute("data-sc")){S.cnt[t.getAttribute("data-sc")]=t.value.replace(/[^0-9]/g,"");
+var c=counted(),l=stkList(),lab=document.querySelector("#main .stat .v");
+if(lab)lab.textContent=c+" / "+l.length;
+var btn=document.getElementById("subCount");if(btn)btn.disabled=(c<l.length);
+t.style.borderColor=t.value?"var(--sage)":"var(--bd)"}
+else if(t.hasAttribute("data-bq")){S.bq[t.getAttribute("data-bq")]=t.value;S.focus=t.getAttribute("data-bq");render()}
+else if(t.hasAttribute("data-mp")){S.mprod[t.getAttribute("data-mp")]=t.value.replace(/[^0-9]/g,"")}
+else if(t.hasAttribute("data-mc")){S.mctry[t.getAttribute("data-mc")]=t.value.replace(/[^0-9]/g,"")}
+else if(t.id=="evN"){S.evN=t.value}
+else if(t.id=="otN"&&S.otPick){S.otPick.note=t.value}
+else if(t.id=="dlI"){S.dlI=t.value.replace(/[^0-9]/g,"")}
+else if(t.id=="xN"){S.xN=t.value}
+else if(t.hasAttribute("data-xq")){S.xq[t.getAttribute("data-xq")]=t.value.replace(/[^0-9]/g,"");S.focus=null;render()}
+else if(t.hasAttribute("data-rc")){S.rcv[t.getAttribute("data-rc")]=t.value.replace(/[^0-9]/g,"");render()}
+else if(t.hasAttribute("data-rn")){S.rnote[t.getAttribute("data-rn")]=t.value}
+});
+document.addEventListener("change",function(ev){var t=ev.target;
+if(t.id=="roleSel"){S.role=t.value;roleChanged();return}
+if(t.id=="brSel"){S.branch=t.value;render();return}
+if(t.id=="scSel"){S.scBranch=t.value;S.cnt={};S.done=0;render();return}
+if(t.id=="upSel"){S.upBranch=t.value;S.uploaded=0;S.saved=0;render();return}
+if(t.id=="c0"&&t.value){S.c0=t.value;render();return}
+if(t.id=="c1"&&t.value){S.c1=t.value;render();return}
+if(t.id=="jump"&&t.value){var p=t.value.split("-");S.cur=new Date(+p[0],+p[1]-1,+p[2]);S.selDay=null;render();return}
+if(t.id=="mvType"){S.mvType=t.value;render();return}
+if(t.id=="vrs"){S.tmp=t.value;return}
+if(t.id=="fileA"||t.id=="fileB"){if(!S.upBranch)S.upBranch=visBranches()[0];S.uploaded=1;render();return}
+if(t.hasAttribute("data-map")){S.map[t.getAttribute("data-map")]=t.value;render();return}
+if(t.hasAttribute("data-dm")){S.dmap[t.getAttribute("data-dm")]=t.value;S.err="";return}
+if(t.id=="evD"){S.evD=t.value;return}
+if(t.id=="evT"){S.evT=t.value;return}
+if(t.id=="evB"){S.evB=t.value;return}
+if(t.id=="dlB"){S.dlB=t.value;return}
+if(t.id=="xF"){S.xF=t.value;S.err="";render();return}
+if(t.id=="xT"){S.xT=t.value;S.err="";render();return}
+if(t.id=="dlD"){S.dlD=t.value;return}
+if(t.id=="dlS"){S.dlS=t.value;return}
+if((t.id=="otF"||t.id=="otT")&&S.otPick){if(t.id=="otF")S.otPick.from=t.value;else S.otPick.to=t.value;render();return}
+if(t.hasAttribute("data-rr")){S.rrsn[t.getAttribute("data-rr")]=t.value;render();return}
+if(t.hasAttribute("data-sht")){var q=t.getAttribute("data-sht").split("|");SH[q[0]][q[1]]=t.value;return}
+});
+roleChanged();
+
+</script>
+</body>
+</html>

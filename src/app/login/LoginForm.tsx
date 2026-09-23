@@ -33,35 +33,23 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-full bg-brand-950 flex items-center justify-center px-4">
-      {/* Background pattern */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-5"
-          style={{ background: "radial-gradient(circle, white 0%, transparent 70%)" }}
-        />
-        <div
-          className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-5"
-          style={{ background: "radial-gradient(circle, white 0%, transparent 70%)" }}
-        />
-      </div>
-
+    <div className="min-h-full bg-cream flex items-center justify-center px-4 py-10">
       <div className="relative w-full max-w-md">
         {/* Card */}
-        <div className="bg-brand-900 border border-brand-700 rounded-2xl p-8 shadow-2xl">
+        <div className="bg-white border border-sand rounded-card p-7">
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
             <StoreOpsLogo size={48} showText={false} />
-            <h1 className="mt-4 text-2xl font-semibold text-white tracking-tight">
+            <h1 className="mt-4 text-xl font-medium text-ink">
               Store Operations
             </h1>
-            <p className="text-brand-400 text-sm mt-1">Mimetta</p>
+            <p className="text-muted text-sm mt-1">Mimetta</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-brand-300 mb-1.5">
+              <label htmlFor="email" className="block text-[13px] font-medium text-ink mb-1.5">
                 Company Email
               </label>
               <input
@@ -76,7 +64,7 @@ export default function LoginForm() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-brand-300 mb-1.5">
+              <label htmlFor="password" className="block text-[13px] font-medium text-ink mb-1.5">
                 Password
               </label>
               <input
@@ -91,7 +79,7 @@ export default function LoginForm() {
             </div>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg">
+              <div className="note note-r">
                 {error === "Invalid login credentials"
                   ? "Incorrect email or password. Please try again."
                   : error}
@@ -101,7 +89,7 @@ export default function LoginForm() {
             <button
               type="submit"
               disabled={isPending}
-              className="btn-primary w-full mt-2 py-3"
+              className="btn-primary w-full mt-2"
             >
               {isPending ? (
                 <span className="flex items-center justify-center gap-2">
@@ -118,15 +106,15 @@ export default function LoginForm() {
           </form>
 
           <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-brand-700" />
-            <span className="text-brand-500 text-xs">or</span>
-            <div className="flex-1 h-px bg-brand-700" />
+            <div className="flex-1 h-px bg-sand" />
+            <span className="text-subtle text-xs">or</span>
+            <div className="flex-1 h-px bg-sand" />
           </div>
 
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 bg-brand-800 border border-brand-700 text-brand-200 text-sm font-medium rounded-lg py-3 hover:bg-brand-700 hover:border-brand-600 transition-colors"
+            className="btn w-full text-sm"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -137,13 +125,13 @@ export default function LoginForm() {
             Sign in with Google
           </button>
 
-          <p className="mt-6 text-center text-brand-500 text-xs">
+          <p className="mt-6 text-center text-muted text-xs">
             Access is restricted to Mimetta staff only.<br />
             Contact your manager if you need access.
           </p>
         </div>
 
-        <p className="text-center text-brand-600 text-xs mt-6">
+        <p className="text-center text-subtle text-xs mt-5">
           © {new Date().getFullYear()} Mimetta Co., Ltd.
         </p>
       </div>

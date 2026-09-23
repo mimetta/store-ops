@@ -77,17 +77,17 @@ export default function ReviewClient({
   }
 
   return (
-    <div className="h-full overflow-y-auto pb-28">
+    <div className="h-full overflow-y-auto pb-32">
       <div className="px-4 pt-5 pb-3 md:px-6 max-w-3xl mx-auto">
-        <p className="text-xs uppercase tracking-widest text-brand-500">Differences to resolve</p>
-        <h1 className="text-xl font-semibold text-white mt-1">
+        <p className="text-xs uppercase tracking-widest text-subtle">Differences to resolve</p>
+        <h1 className="text-xl font-semibold text-ink mt-1">
           {branchName} · {whCode}
         </h1>
-        <p className="text-brand-400 text-sm mt-0.5">Count of {countDate}</p>
+        <p className="text-muted text-sm mt-0.5">Count of {countDate}</p>
       </div>
 
       {error && (
-        <div className="mx-4 md:mx-6 max-w-3xl md:mx-auto mb-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg">
+        <div className="mx-4 md:mx-6 max-w-3xl md:mx-auto mb-3 bg-red-500/10 border border-red-500/30 text-danger-70 text-sm px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
@@ -101,18 +101,18 @@ export default function ReviewClient({
           return (
             <div
               key={l.line_id}
-              className={`card p-4 ${settled ? "opacity-70" : ""}`}
+              className={`card card-pad ${settled ? "opacity-60" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-mono text-[11px] text-brand-400">{l.sku}</p>
-                  <p className="text-white text-sm leading-snug mt-0.5">{l.name}</p>
+                  <p className="font-mono text-[11px] text-muted">{l.sku}</p>
+                  <p className="text-ink text-sm leading-snug mt-0.5">{l.name}</p>
                 </div>
                 {/* The unit belongs next to the number. "-5" and "-5 SET"
                     are different facts, and a set is not a bottle. */}
                 <span
                   className={`shrink-0 text-right ${
-                    l.variance > 0 ? "text-emerald-400" : "text-red-400"
+                    l.variance > 0 ? "text-good-70" : "text-danger-70"
                   }`}
                 >
                   <span className="tabular-nums text-lg font-semibold">
@@ -135,12 +135,12 @@ export default function ReviewClient({
                   ["Should be", l.should_be_qty],
                   ["Counted", l.counted_qty],
                 ].map(([label, value]) => (
-                  <div key={label as string} className="bg-brand-900 rounded-md py-2">
-                    <dt className="text-[10px] uppercase tracking-wide text-brand-500">{label}</dt>
-                    <dd className="text-sm text-white tabular-nums mt-0.5">
+                  <div key={label as string} className="panel py-2">
+                    <dt className="text-[10px] uppercase tracking-wide text-subtle">{label}</dt>
+                    <dd className="text-sm text-ink tabular-nums mt-0.5">
                       {value === null || value === undefined ? "—" : String(value)}
                       {label === "Counted" && l.unit && (
-                        <span className="block text-[9px] text-brand-500 uppercase tracking-wide">
+                        <span className="block text-[9px] text-subtle uppercase tracking-wide">
                           {l.unit}
                         </span>
                       )}
@@ -150,24 +150,24 @@ export default function ReviewClient({
               </dl>
 
               {l.out_qty === null && l.received_qty === null && (
-                <p className="mt-1.5 text-[11px] leading-snug text-brand-500">
+                <p className="mt-1.5 text-[11px] leading-snug text-subtle">
                   Sales and deliveries are not recorded yet, so only
                   yesterday&rsquo;s count is compared.
                 </p>
               )}
 
               {l.second_count !== null && (
-                <p className="mt-2 text-xs text-brand-400">
-                  First count <span className="tabular-nums text-brand-300">{l.first_count}</span>
+                <p className="mt-2 text-xs text-muted">
+                  First count <span className="tabular-nums text-muted">{l.first_count}</span>
                   {" · "}recount{" "}
-                  <span className="tabular-nums text-white">{l.second_count}</span>
+                  <span className="tabular-nums text-ink">{l.second_count}</span>
                 </p>
               )}
 
               {settled && (
                 <p
                   className={`mt-3 text-sm ${
-                    l.explanation_state === "cannot_explain" ? "text-red-400" : "text-brand-300"
+                    l.explanation_state === "cannot_explain" ? "text-danger-70" : "text-muted"
                   }`}
                 >
                   {l.explanation_state === "cannot_explain"
@@ -177,7 +177,7 @@ export default function ReviewClient({
               )}
 
               {l.explanation_state === "recount_requested" && (
-                <p className="mt-3 text-sm text-amber-400">
+                <p className="mt-3 text-sm text-amber-70">
                   A manager has asked you to count this one again.
                 </p>
               )}
@@ -186,20 +186,20 @@ export default function ReviewClient({
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     onClick={() => { setOpenLine(l.line_id); setMode("recount"); setDraft("") }}
-                    className="min-h-[44px] rounded-lg bg-brand-700 text-white text-xs font-medium px-2 hover:bg-brand-600 transition-colors"
+                    className="btn"
                   >
                     Count again
                   </button>
                   <button
                     onClick={() => { setOpenLine(l.line_id); setMode("explain"); setDraft("") }}
-                    className="min-h-[44px] rounded-lg bg-brand-700 text-white text-xs font-medium px-2 hover:bg-brand-600 transition-colors"
+                    className="btn"
                   >
                     I know why
                   </button>
                   <button
                     onClick={() => run(() => cannotExplainLine(l.line_id))}
                     disabled={busy}
-                    className="min-h-[44px] rounded-lg border border-red-500/40 text-red-400 text-xs font-medium px-2 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                    className="btn-danger"
                   >
                     Cannot explain
                   </button>
@@ -208,7 +208,7 @@ export default function ReviewClient({
 
               {isOpen && mode === "recount" && (
                 <div className="mt-3 space-y-2">
-                  <label className="block text-xs text-brand-400" htmlFor={`rc-${l.line_id}`}>
+                  <label className="block text-xs text-muted" htmlFor={`rc-${l.line_id}`}>
                     Count it again — both numbers are kept
                   </label>
                   <input
@@ -217,20 +217,20 @@ export default function ReviewClient({
                     autoFocus
                     value={draft}
                     onChange={(e) => /^\d*$/.test(e.target.value) && setDraft(e.target.value)}
-                    className="input-field w-full text-lg text-center tabular-nums min-h-[52px]"
+                    className="input-num w-full"
                     placeholder="0"
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => { setOpenLine(null); setMode(null) }}
-                      className="min-h-[44px] rounded-lg bg-brand-800 text-brand-300 text-sm"
+                      className="btn"
                     >
                       Cancel
                     </button>
                     <button
                       disabled={busy || draft === ""}
                       onClick={() => run(() => recountLine(l.line_id, Number(draft)))}
-                      className="btn-primary min-h-[44px] text-sm"
+                      className="btn-primary"
                     >
                       Save recount
                     </button>
@@ -240,7 +240,7 @@ export default function ReviewClient({
 
               {isOpen && mode === "explain" && (
                 <div className="mt-3 space-y-2">
-                  <label className="block text-xs text-brand-400" htmlFor={`ex-${l.line_id}`}>
+                  <label className="block text-xs text-muted" htmlFor={`ex-${l.line_id}`}>
                     What happened?
                   </label>
                   <textarea
@@ -249,20 +249,20 @@ export default function ReviewClient({
                     rows={3}
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    className="input-field w-full text-base"
+                    className="input-field w-full text-base py-2.5"
                     placeholder="Broken in transit, sample given to a customer…"
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => { setOpenLine(null); setMode(null) }}
-                      className="min-h-[44px] rounded-lg bg-brand-800 text-brand-300 text-sm"
+                      className="btn"
                     >
                       Cancel
                     </button>
                     <button
                       disabled={busy || !draft.trim()}
                       onClick={() => run(() => explainLine(l.line_id, draft))}
-                      className="btn-primary min-h-[44px] text-sm"
+                      className="btn-primary"
                     >
                       Save reason
                     </button>
@@ -274,7 +274,7 @@ export default function ReviewClient({
                 <button
                   onClick={() => run(() => raiseAdjustment(l.line_id))}
                   disabled={busy}
-                  className="mt-3 w-full min-h-[44px] rounded-lg bg-brand-800 text-brand-300 text-xs hover:bg-brand-700 transition-colors disabled:opacity-50"
+                  className="btn w-full mt-3"
                 >
                   Send to manager
                 </button>
@@ -285,13 +285,13 @@ export default function ReviewClient({
       </div>
 
       {/* Sticky, because a finish button below twenty cards is unreachable. */}
-      <div className="fixed bottom-0 inset-x-0 bg-brand-950/95 backdrop-blur border-t border-brand-800 px-4 py-3">
+      <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-sand px-4 py-3">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
           <div className="text-sm">
-            <p className="text-white tabular-nums font-medium">
+            <p className="text-ink tabular-nums font-medium">
               {done} of {lines.length} resolved
             </p>
-            <p className="text-brand-500 text-xs">
+            <p className="text-subtle text-xs">
               {unresolved === 0
                 ? "Everything is resolved or with a manager."
                 : `${unresolved} still to deal with`}
@@ -300,7 +300,7 @@ export default function ReviewClient({
           <button
             disabled={unresolved > 0}
             onClick={() => router.push("/count")}
-            className="btn-primary min-h-[44px] px-5 disabled:opacity-40"
+            className="btn-primary px-5"
           >
             {unresolved > 0 ? "Not finished" : "Close the day"}
           </button>

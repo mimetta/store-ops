@@ -56,13 +56,13 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
         />
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg">
+          <div className="bg-red-500/10 border border-red-500/30 text-danger-70 text-sm px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
 
         {rows.length === 0 ? (
-          <div className="card p-12 text-center text-brand-400 text-sm">
+          <div className="card card-pad py-12 text-center text-muted text-sm">
             No adjustments are waiting for a decision.
           </div>
         ) : (
@@ -70,16 +70,16 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-brand-700">
-                    <th className="text-left px-4 py-3 text-brand-400 font-medium">Product</th>
-                    <th className="text-left px-4 py-3 text-brand-400 font-medium">Where</th>
-                    <th className="text-right px-4 py-3 text-brand-400 font-medium">Should be</th>
+                  <tr className="border-b border-sand">
+                    <th className="text-left px-4 py-3 text-muted font-medium">Product</th>
+                    <th className="text-left px-4 py-3 text-muted font-medium">Where</th>
+                    <th className="text-right px-4 py-3 text-muted font-medium">Should be</th>
                     {/* Both counts side by side — a recount that disagrees with
                         the first count is the thing a manager is here to see. */}
-                    <th className="text-right px-4 py-3 text-brand-400 font-medium">1st count</th>
-                    <th className="text-right px-4 py-3 text-brand-400 font-medium">2nd count</th>
-                    <th className="text-right px-4 py-3 text-brand-400 font-medium">Adjust by</th>
-                    <th className="text-left px-4 py-3 text-brand-400 font-medium">Counter said</th>
+                    <th className="text-right px-4 py-3 text-muted font-medium">1st count</th>
+                    <th className="text-right px-4 py-3 text-muted font-medium">2nd count</th>
+                    <th className="text-right px-4 py-3 text-muted font-medium">Adjust by</th>
+                    <th className="text-left px-4 py-3 text-muted font-medium">Counter said</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -88,37 +88,37 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
                     const cannot = r.explanationState === "cannot_explain"
                     const recounted = r.secondCount !== null
                     return (
-                      <tr key={r.id} className="border-b border-brand-800 last:border-0 align-top">
+                      <tr key={r.id} className="border-b border-sand last:border-0 align-top">
                         <td className="px-4 py-3">
-                          <p className="font-mono text-[11px] text-brand-400">
+                          <p className="font-mono text-[11px] text-muted">
                             {r.sku}
-                            {r.unit && <span className="ml-2 text-brand-500">· {r.unit}</span>}
+                            {r.unit && <span className="ml-2 text-subtle">· {r.unit}</span>}
                           </p>
-                          <p className="text-white leading-snug">{r.name}</p>
-                          <p className="text-brand-600 text-xs mt-0.5">
+                          <p className="text-ink leading-snug">{r.name}</p>
+                          <p className="text-subtle text-xs mt-0.5">
                             {r.requestedBy} · {new Date(r.requestedAt).toLocaleDateString("en-GB")}
                           </p>
                         </td>
-                        <td className="px-4 py-3 text-brand-300 whitespace-nowrap">
+                        <td className="px-4 py-3 text-muted whitespace-nowrap">
                           {r.branch}
-                          <span className="text-brand-600 text-xs block">{r.whCode}</span>
+                          <span className="text-subtle text-xs block">{r.whCode}</span>
                         </td>
-                        <td className="px-4 py-3 text-right text-brand-300 tabular-nums">
+                        <td className="px-4 py-3 text-right text-muted tabular-nums">
                           {r.shouldBe ?? "—"}
                         </td>
                         <td
                           className={`px-4 py-3 text-right tabular-nums ${
-                            recounted ? "text-brand-500 line-through" : "text-white"
+                            recounted ? "text-subtle line-through" : "text-ink"
                           }`}
                         >
                           {r.firstCount ?? "—"}
                         </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-white">
-                          {r.secondCount ?? <span className="text-brand-600">—</span>}
+                        <td className="px-4 py-3 text-right tabular-nums text-ink">
+                          {r.secondCount ?? <span className="text-subtle">—</span>}
                         </td>
                         <td
                           className={`px-4 py-3 text-right font-semibold ${
-                            r.qtyDelta > 0 ? "text-emerald-400" : "text-red-400"
+                            r.qtyDelta > 0 ? "text-good-70" : "text-danger-70"
                           }`}
                         >
                           <span className="tabular-nums">
@@ -136,15 +136,15 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
                           {cannot ? (
                             // The signal worth watching: nobody could account
                             // for this. Distinct in red, not buried in prose.
-                            <span className="inline-flex items-center gap-1.5 text-red-400 font-medium">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                            <span className="inline-flex items-center gap-1.5 text-danger-70 font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-danger-70" />
                               Cannot explain
                             </span>
                           ) : (
-                            <span className="text-brand-300">{r.reason ?? "—"}</span>
+                            <span className="text-muted">{r.reason ?? "—"}</span>
                           )}
                           {cannot && r.reason && (
-                            <p className="text-brand-500 text-xs mt-1">{r.reason}</p>
+                            <p className="text-subtle text-xs mt-1">{r.reason}</p>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -153,7 +153,7 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
                               <button
                                 disabled={busy && acting === r.id}
                                 onClick={() => run(r.id, () => askForRecount(r.lineId!))}
-                                className="btn-ghost text-xs whitespace-nowrap border border-brand-700"
+                                className="btn"
                               >
                                 Ask for recount
                               </button>
@@ -161,7 +161,7 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
                             <button
                               disabled={busy && acting === r.id}
                               onClick={() => run(r.id, () => approveAdjustment(r.id))}
-                              className="btn-primary text-xs px-3 py-1.5 whitespace-nowrap"
+                              className="btn-primary"
                             >
                               {busy && acting === r.id ? "…" : "Approve"}
                             </button>
@@ -176,7 +176,7 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
           </div>
         )}
 
-        <p className="text-brand-600 text-xs">
+        <p className="text-subtle text-xs">
           Approving writes a stock movement and updates the balance in one step.
           Nothing else moves stock — asking for a recount sends the line back to
           the shop floor and leaves the balance untouched.
