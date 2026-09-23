@@ -87,9 +87,22 @@ SET / SET    106      KG / KG       6
                       SQM / SQM     1
 ```
 
-Zero products lacked a value. D-24 dismissed `prodUniqueCode` as an
-"accounting/logistics attribute with no WMS use in v1", which is how it was
-missed — the name suggests an identifier and the value is a unit.
+Zero products lacked a value. The full sync of 772 products gives:
+
+```
+PCS 538   SET 108   GRAM 98   UNIT 13   BOX 12
+KG 6      CENTIMETER 5        PACK 2    SQM 1
+```
+
+**D-24's dismissal is wrong for this tenant, and it nearly cost us a feature.**
+It files `prodUniqueCode` as an "accounting/logistics attribute with no WMS use
+in v1", so nobody looked at the value. The field name reads like an identifier
+while the value is a unit — and on that basis we were within a step of
+designing a manual unit-entry screen for a problem that did not exist.
+
+The lesson generalises: a field dismissed in another system's integration notes
+has been dismissed *for that system's purposes*. Read the values before
+inheriting the judgement.
 
 **What is genuinely absent is a conversion factor.** No endpoint returns
 `prodConvFactor` or anything like it, so multi-pack arithmetic — 1 `BOX` = how
@@ -114,12 +127,13 @@ prodCode BAG-KRAFT-GR-15X20
 product key would create duplicates — exactly the failure D-24 warned about,
 arriving from the opposite direction.
 
-**Live defect this creates.** `products.acccloud_master_id` is currently
-populated from `getProductRemain.masterId` by the Phase 1 sync, so every row
-holds a stock-row id rather than a product id, and the unique index on it is
-meaningless. No collision occurred because each product kept the first
-`masterId` seen, but the values are wrong and must not be used to match
-anything. Fix pending review.
+**Fixed 2026-09-23** (`022`). `products.acccloud_master_id` had been populated
+from `getProductRemain.masterId`, so every row held a stock-row id and the
+unique index on it was meaningless — worse, it would eventually have rejected a
+legitimate product. Nothing joined on the column, verified against code, views,
+constraints and foreign keys. The index is now non-unique, the wrong values were
+cleared, and all 735 rows carry a real `productMaster1Id`, 735 of them
+distinct.
 
 ---
 
@@ -156,5 +170,31 @@ Phase 1 runs against `getProductRemain` alone: 735 products, 201 stock levels
 (128 `SONG`, 73 `TALADNOI`). `erp_import_rows` holds only in-scope warehouses,
 so no KOL or transport balance is stored anywhere.
 
-`products.unit` is NULL for all 735 — populated from `getByProdValue` once that
-sync is built.
+All 735 products now carry `unit`, `unit_name` and a correct
+`acccloud_master_id`, synced from `getByProdValue`.
+
+### Paging that works
+
+`getByProdValue` caps at 100 and `prodValue` matches code *and* Thai name, so
+prefix pages overlap and a sweep cannot prove its own completeness. The sync
+pairs the sweep with a known universe — `getProductRemain` returns every product
+code in one call — then fills any gap by exact code:
+
+```
+seed prefixes        46   (first segment of every known code)
+capped, deepened      4   ET, GE, RM, STK
+exact-code fallbacks  7
+API calls           313
+coverage        772/772
+```
+
+Completeness is demonstrated, not assumed.
+
+### Rate limiting
+
+Roughly 300 sequential calls drew a transient HTTP 500 partway through on
+2026-09-23; the same request succeeded first time a moment later. The client now
+retries transient failures with exponential backoff, and the sweep paces itself
+at 60ms between calls. Note that AccCloud signals this failure **in band** — a
+JSON object carrying `status: 500` where an array is expected — so the retry
+logic has to cover both that shape and the HTTP status.

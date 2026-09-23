@@ -68,7 +68,27 @@ function credentials() {
   return { apiKey: apiKey!, secretKey: secretKey!, companyCode: companyCode! }
 }
 
-async function post<T>(path: string, body: Record<string, unknown>): Promise<T> {
+/** Transient failures deserve a retry; a rejected key does not. */
+function isTransient(status: number): boolean {
+  return status >= 500 || status === 429 || status === 408
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * @param attempt 0-based retry counter, used internally.
+ *
+ * The item-master sweep makes ~300 calls in a row. Observed 2026-09-23: a run
+ * of that size drew an HTTP 500 partway through, and a moment later the same
+ * request succeeded first time — transient, and almost certainly rate
+ * limiting. Without a retry, one blip discards three hundred good calls.
+ */
+async function post<T>(
+  path: string,
+  body: Record<string, unknown>,
+  attempt = 0
+): Promise<T> {
+  const MAX_ATTEMPTS = 4
   const { apiKey, secretKey, companyCode } = credentials()
 
   const res = await fetch(BASE + path, {
@@ -93,11 +113,18 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T> 
     )
   }
 
+  if (!res.ok && isTransient(res.status) && attempt < MAX_ATTEMPTS - 1) {
+    await sleep(500 * 2 ** attempt)      // 0.5s, 1s, 2s
+    return post<T>(path, body, attempt + 1)
+  }
+
   const text = await res.text()
 
   if (!res.ok) {
     throw new Error(
-      `AccCloud ${path} returned HTTP ${res.status}: ${text.slice(0, 300)}`
+      `AccCloud ${path} returned HTTP ${res.status}` +
+        (attempt > 0 ? ` after ${attempt + 1} attempts` : "") +
+        `: ${text.slice(0, 300)}`
     )
   }
 
@@ -116,8 +143,18 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T> 
   if (json && !Array.isArray(json) && typeof json === "object") {
     const o = json as Record<string, unknown>
     if ("status" in o && o.status !== "000") {
+      // AccCloud also signals failure in-band, with a numeric status on an
+      // object where an array is expected. Same retry logic: the 500 seen on
+      // 2026-09-23 arrived this way, not as an HTTP status.
+      const code = Number(o.status)
+      if (Number.isFinite(code) && isTransient(code) && attempt < MAX_ATTEMPTS - 1) {
+        await sleep(500 * 2 ** attempt)
+        return post<T>(path, body, attempt + 1)
+      }
       throw new Error(
-        `AccCloud ${path} reported status ${JSON.stringify(o.status)}: ${String(o.message ?? "")}`
+        `AccCloud ${path} reported status ${JSON.stringify(o.status)}` +
+          (attempt > 0 ? ` after ${attempt + 1} attempts` : "") +
+          `: ${String(o.message ?? "")}`
       )
     }
     if ("data" in o) return o.data as T
@@ -186,4 +223,58 @@ export async function listProductGroupCodes(): Promise<string[]> {
   const codes = new Set<string>()
   for (const r of rows) if (r.productGroupCode) codes.add(r.productGroupCode)
   return Array.from(codes).sort()
+}
+
+/**
+ * One row of the item master.
+ *
+ * `prodUniqueCode` / `prodUniqueName` ARE the unit of measure, despite D-24
+ * filing prodUniqueCode as an accounting attribute with no use. Across 772
+ * products every one carries a value and there are nine distinct ones —
+ * repetition is what separates a unit from an identifier.
+ *
+ * `productMaster1Id` identifies the PRODUCT. It is not getProductRemain's
+ * `masterId`, which identifies a product-in-a-warehouse stock row; one product
+ * has several of those.
+ */
+export interface ItemMasterRow {
+  productMaster1Id: number
+  prodCode: string
+  /** The clean name. `prodName` is a concatenated `code || name` display string. */
+  prodTName: string
+  prodName: string
+  prodVat: string | null
+  warehouseId: number | null
+  accountCodeIncome: number | null
+  /** Unit of measure code — PCS, SET, GRAM, BOX, UNIT, KG, CENTIMETER, PACK, SQM. */
+  prodUniqueCode: string | null
+  /** Unit display name, often Thai — PCS is ชิ้น. */
+  prodUniqueName: string | null
+  weight: number | null
+  prodBalOnHand: number | null
+}
+
+/** The item-master row cap. `searchAll` does NOT lift it, unlike getProductRemain. */
+export const ITEM_MASTER_ROW_CAP = 100
+
+/**
+ * One page of the item master.
+ *
+ * `prodValue` is a search term matching the code AND the Thai name, not a
+ * prefix filter — so pages overlap and a sweep cannot prove its own
+ * completeness. The caller checks coverage against a known set; see
+ * sync-item-master.ts.
+ *
+ * Deliberately does NOT throw at the cap. Unlike getProductRemain, hitting 100
+ * here is the expected signal to search more narrowly, not a failure.
+ */
+export async function getItemMasterPage(prodValue: string): Promise<ItemMasterRow[]> {
+  const rows = await post<ItemMasterRow[]>("/ProductMaster1/getByProdValue", { prodValue })
+  if (!Array.isArray(rows)) {
+    throw new Error(
+      `AccCloud getByProdValue returned ${typeof rows}, expected an array. ` +
+        `See docs/acccloud-findings.md.`
+    )
+  }
+  return rows
 }
