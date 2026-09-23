@@ -176,95 +176,162 @@ export default function CountEntry({
             once stock levels are populated.
           </div>
         ) : (
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-sand">
-                    <th className="text-left px-4 py-3 text-muted font-medium">Code</th>
-                    <th className="text-left px-4 py-3 text-muted font-medium">Product</th>
-                    <th className="text-left px-4 py-3 text-muted font-medium">Unit</th>
-                    {seesSystemQty && (
-                      <th className="text-right px-4 py-3 text-muted font-medium">System</th>
-                    )}
-                    <th className="text-right px-4 py-3 text-muted font-medium">Counted</th>
-                    {seesSystemQty && (
-                      <th className="text-right px-4 py-3 text-muted font-medium">Variance</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((l) => {
-                    const raw = counts[l.productId] ?? ""
-                    const counted = raw === "" ? null : Number(raw)
-                    const variance =
-                      seesSystemQty && counted !== null && l.systemQty !== undefined
-                        ? counted - l.systemQty
-                        : null
+          <>
+            {/* ── narrow: one stacked row per product ──────────────────────
+                Not the table with horizontal scroll: at 375px a six-column
+                grid pushes the input off-screen, and a counter cannot key a
+                number they have to scroll sideways to reach. Code and name on
+                one line, unit and the field on the next — the demo's shape.
 
-                    return (
-                      <tr key={l.productId} className="border-b border-sand last:border-0">
-                        <td className="px-4 py-2.5 font-mono text-xs text-muted whitespace-nowrap">
-                          {l.sku}
-                        </td>
-                        <td className="px-4 py-2.5 text-ink">{l.name}</td>
-                        <td className="px-4 py-2.5 text-subtle text-xs">
-                          {/* No endpoint returns a unit. Blank, never invented. */}
-                          {l.unit ?? "—"}
-                        </td>
-                        {seesSystemQty && (
-                          <td className="px-4 py-2.5 text-right text-muted tabular-nums">
-                            {l.systemQty}
-                          </td>
-                        )}
-                        <td className="px-4 py-2.5 text-right">
-                          <input
-                            inputMode="numeric"
-                            value={raw}
-                            onChange={(e) => setCount(l.productId, e.target.value)}
-                            placeholder="—"
-                            aria-label={`Counted quantity for ${l.sku}`}
-                            className="input-num"
-                          />
-                        </td>
-                        {seesSystemQty && (
-                          <td
-                            className={`px-4 py-2.5 text-right tabular-nums ${
-                              variance === null
-                                ? "text-subtle"
-                                : variance === 0
-                                  ? "text-muted"
-                                  : variance > 0
-                                    ? "text-good-70"
-                                    : "text-danger-70"
-                            }`}
-                          >
-                            {variance === null ? "—" : variance > 0 ? `+${variance}` : variance}
-                          </td>
-                        )}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                The SAME data as the table below. seesSystemQty gates both
+                identically; nothing here is revealed or hidden by width. */}
+            <div className="card divide-y divide-sand md:hidden">
+              {visible.map((l) => {
+                const raw = counts[l.productId] ?? ""
+                const counted = raw === "" ? null : Number(raw)
+                const variance =
+                  seesSystemQty && counted !== null && l.systemQty !== undefined
+                    ? counted - l.systemQty
+                    : null
+
+                return (
+                  <div key={l.productId} className="px-4 py-3">
+                    <p className="font-mono text-[11px] text-muted">{l.sku}</p>
+                    <p className="text-ink leading-snug mt-0.5">{l.name}</p>
+
+                    <div className="flex items-center gap-3 mt-2.5">
+                      <span className="text-xs text-subtle uppercase tracking-wide min-w-[46px]">
+                        {l.unit ?? "—"}
+                      </span>
+
+                      {seesSystemQty && (
+                        <span className="text-xs text-muted num-c">
+                          system <span className="text-ink">{l.systemQty}</span>
+                        </span>
+                      )}
+
+                      <span className="flex-1" />
+
+                      {seesSystemQty && variance !== null && (
+                        <span
+                          className={`text-xs num-c font-medium ${
+                            variance === 0
+                              ? "text-muted"
+                              : variance > 0
+                                ? "text-good-70"
+                                : "text-danger-70"
+                          }`}
+                        >
+                          {variance > 0 ? `+${variance}` : variance}
+                        </span>
+                      )}
+
+                      <input
+                        inputMode="numeric"
+                        value={raw}
+                        onChange={(e) => setCount(l.productId, e.target.value)}
+                        placeholder="—"
+                        aria-label={`Counted quantity for ${l.sku}`}
+                        className="input-num shrink-0"
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+
+              {visible.length === 0 && (
+                <p className="px-4 py-10 text-center text-subtle text-sm">
+                  Nothing matches that filter.
+                </p>
+              )}
             </div>
 
-            {visible.length === 0 && (
-              <p className="px-4 py-10 text-center text-subtle text-sm">
-                Nothing matches that filter.
-              </p>
-            )}
-          </div>
+            {/* ── wide: the table ──────────────────────────────────────── */}
+            <div className="card overflow-hidden hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-sand">
+                      <th className="text-left px-4 py-3 text-muted font-medium">Code</th>
+                      <th className="text-left px-4 py-3 text-muted font-medium">Product</th>
+                      <th className="text-left px-4 py-3 text-muted font-medium">Unit</th>
+                      {seesSystemQty && (
+                        <th className="text-right px-4 py-3 text-muted font-medium">System</th>
+                      )}
+                      <th className="text-right px-4 py-3 text-muted font-medium">Counted</th>
+                      {seesSystemQty && (
+                        <th className="text-right px-4 py-3 text-muted font-medium">Variance</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((l) => {
+                      const raw = counts[l.productId] ?? ""
+                      const counted = raw === "" ? null : Number(raw)
+                      const variance =
+                        seesSystemQty && counted !== null && l.systemQty !== undefined
+                          ? counted - l.systemQty
+                          : null
+
+                      return (
+                        <tr key={l.productId} className="border-b border-sand last:border-0">
+                          <td className="px-4 py-2.5 font-mono text-xs text-muted whitespace-nowrap">
+                            {l.sku}
+                          </td>
+                          <td className="px-4 py-2.5 text-ink">{l.name}</td>
+                          <td className="px-4 py-2.5 text-subtle text-xs uppercase">
+                            {l.unit ?? "—"}
+                          </td>
+                          {seesSystemQty && (
+                            <td className="px-4 py-2.5 text-right text-muted num-c">
+                              {l.systemQty}
+                            </td>
+                          )}
+                          <td className="px-4 py-2.5 text-right">
+                            <input
+                              inputMode="numeric"
+                              value={raw}
+                              onChange={(e) => setCount(l.productId, e.target.value)}
+                              placeholder="—"
+                              aria-label={`Counted quantity for ${l.sku}`}
+                              className="input-num"
+                            />
+                          </td>
+                          {seesSystemQty && (
+                            <td
+                              className={`px-4 py-2.5 text-right num-c ${
+                                variance === null
+                                  ? "text-subtle"
+                                  : variance === 0
+                                    ? "text-muted"
+                                    : variance > 0
+                                      ? "text-good-70"
+                                      : "text-danger-70"
+                              }`}
+                            >
+                              {variance === null ? "—" : variance > 0 ? `+${variance}` : variance}
+                            </td>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {visible.length === 0 && (
+                <p className="px-4 py-10 text-center text-subtle text-sm">
+                  Nothing matches that filter.
+                </p>
+              )}
+            </div>
+          </>
         )}
 
         {message && (
           <div
             role="status"
-            className={`text-sm px-4 py-3 rounded-lg border ${
-              message.ok
-                ? "bg-emerald-500/10 border-emerald-500/30 text-good-70"
-                : "bg-red-500/10 border-red-500/30 text-danger-70"
-            }`}
+            className={`note ${message.ok ? "note-g" : "note-r"}`}
           >
             {message.text}
           </div>
