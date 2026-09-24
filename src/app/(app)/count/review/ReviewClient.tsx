@@ -7,6 +7,8 @@ import {
   explainLine,
   cannotExplainLine,
   raiseAdjustment,
+  countMissedLine,
+  skipLine,
 } from "../variance-actions"
 
 /**
@@ -39,13 +41,25 @@ export interface ChainLine {
   variance_reason: string | null
 }
 
+/** A line nobody reached. NULL, not zero — and it holds the day open. */
+export interface MissedLine {
+  lineId: string
+  sku: string
+  name: string
+  unit: string | null
+  skipped: boolean
+  skipReason: string | null
+}
+
 export default function ReviewClient({
   lines,
+  missed,
   countDate,
   branchName,
   whCode,
 }: {
   lines: ChainLine[]
+  missed: MissedLine[]
   countDate: string
   branchName: string
   whCode: string
@@ -57,10 +71,14 @@ export default function ReviewClient({
   const [draft, setDraft] = useState("")
   const [error, setError] = useState<string | null>(null)
 
-  const unresolved = lines.filter(
+  const unresolvedDiffs = lines.filter(
     (l) => l.explanation_state === "pending" || l.explanation_state === "recount_requested"
   ).length
-  const done = lines.length - unresolved
+  // A line neither counted nor skipped also holds the day open.
+  const outstanding = missed.filter((m) => !m.skipped).length
+  const unresolved = unresolvedDiffs + outstanding
+  const total = lines.length + missed.length
+  const done = total - unresolved
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null)
@@ -79,7 +97,7 @@ export default function ReviewClient({
   return (
     <div className="h-full overflow-y-auto pb-32">
       <div className="px-4 pt-5 pb-3 md:px-6 max-w-3xl mx-auto">
-        <p className="text-xs uppercase tracking-widest text-subtle">Differences to resolve</p>
+        <p className="text-[11px] text-subtle">Differences to check</p>
         <h1 className="text-xl font-semibold text-ink mt-1">
           {branchName} · {whCode}
         </h1>
@@ -284,6 +302,101 @@ export default function ReviewClient({
         })}
       </div>
 
+      {missed.length > 0 && (
+        <div className="px-4 md:px-6 max-w-3xl mx-auto mt-5">
+          <h2 className="text-[15px] font-medium mb-1">Not yet counted</h2>
+          <p className="text-xs text-muted mb-3">
+            Submitting a partial count is fine. The day stays open until each of
+            these is counted or skipped with a reason.
+          </p>
+
+          <div className="space-y-3">
+            {missed.map((m) => {
+              const isOpen = openLine === m.lineId
+              return (
+                <div key={m.lineId} className={`card card-pad ${m.skipped ? "opacity-60" : ""}`}>
+                  <p className="font-mono text-[11px] text-muted">{m.sku}</p>
+                  <p className="text-ink text-sm leading-snug mt-0.5">{m.name}</p>
+                  <p className="text-[11px] text-subtle mt-0.5 uppercase">{m.unit ?? "—"}</p>
+
+                  {m.skipped ? (
+                    <p className="mt-3 text-sm text-amber-70">
+                      Skipped — {m.skipReason}
+                    </p>
+                  ) : !isOpen ? (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => { setOpenLine(m.lineId); setMode("recount"); setDraft("") }}
+                        className="btn"
+                      >
+                        Count it now
+                      </button>
+                      <button
+                        onClick={() => { setOpenLine(m.lineId); setMode("explain"); setDraft("") }}
+                        className="btn"
+                      >
+                        Cannot count it
+                      </button>
+                    </div>
+                  ) : mode === "recount" ? (
+                    <div className="mt-3 space-y-2">
+                      <input
+                        inputMode="numeric"
+                        autoFocus
+                        value={draft}
+                        onChange={(e) => /^\d*$/.test(e.target.value) && setDraft(e.target.value)}
+                        className="input-num w-full"
+                        placeholder="0"
+                        aria-label={`Count ${m.name} in ${m.unit ?? "units"}`}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => { setOpenLine(null); setMode(null) }} className="btn">
+                          Cancel
+                        </button>
+                        <button
+                          disabled={busy || draft === ""}
+                          onClick={() => run(() => countMissedLine(m.lineId, Number(draft)))}
+                          className="btn-primary"
+                        >
+                          Save count
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      <label className="block text-xs text-muted" htmlFor={`sk-${m.lineId}`}>
+                        Why could it not be counted?
+                      </label>
+                      <textarea
+                        id={`sk-${m.lineId}`}
+                        autoFocus
+                        rows={2}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        className="input-field w-full text-base py-2.5"
+                        placeholder="Shelf blocked by a delivery, stock room locked…"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => { setOpenLine(null); setMode(null) }} className="btn">
+                          Cancel
+                        </button>
+                        <button
+                          disabled={busy || !draft.trim()}
+                          onClick={() => run(() => skipLine(m.lineId, draft))}
+                          className="btn-primary"
+                        >
+                          Skip this line
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Sticky, because a finish button below twenty cards is unreachable. */}
       <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-sand px-4 py-3">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
@@ -294,7 +407,10 @@ export default function ReviewClient({
             <p className="text-subtle text-xs">
               {unresolved === 0
                 ? "Everything is resolved or with a manager."
-                : `${unresolved} still to deal with`}
+                : [
+                    unresolvedDiffs ? `${unresolvedDiffs} difference${unresolvedDiffs === 1 ? "" : "s"}` : null,
+                    outstanding ? `${outstanding} not yet counted` : null,
+                  ].filter(Boolean).join(" · ")}
             </p>
           </div>
           <button

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { submitCount } from "./actions"
 
@@ -53,7 +53,37 @@ export default function CountEntry({
   cycle: "daily" | "weekly"
 }) {
   const router = useRouter()
+
+  // Keyed by what the count is OF, so switching branch or cycle does not
+  // resurrect the wrong numbers, and a new day starts clean.
+  const draftKey = `count-draft:${warehouseId}:${cycle}:${new Date().toISOString().slice(0, 10)}`
+
   const [counts, setCounts] = useState<Record<string, string>>({})
+  const loaded = useRef(false)
+
+  // Restore on mount. A KA interrupted mid-count closes the app and comes
+  // back to the numbers they had, rather than starting the shelf again.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(draftKey)
+      if (saved) setCounts(JSON.parse(saved))
+    } catch {
+      // A corrupt draft should cost the draft, not the screen.
+    }
+    loaded.current = true
+  }, [draftKey])
+
+  // Persist on every keystroke. Skipped until the restore has run, or the
+  // empty initial state would overwrite the draft before it is read.
+  useEffect(() => {
+    if (!loaded.current) return
+    try {
+      window.localStorage.setItem(draftKey, JSON.stringify(counts))
+    } catch {
+      // Private mode, or the quota is full — entry still works, it just is
+      // not durable, and silently degrading beats blocking the count.
+    }
+  }, [counts, draftKey])
   const [query, setQuery] = useState("")
   const [saving, startSaving] = useTransition()
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
@@ -82,8 +112,17 @@ export default function CountEntry({
     startSaving(async () => {
       const r = await submitCount({ branchId: selectedBranchId, warehouseId, cycle, counts: entries })
       if (r.ok) {
-        setMessage({ ok: true, text: `Count saved — ${r.linesSaved} line(s) submitted for review.` })
+        const out = r.linesOutstanding ?? 0
+        setMessage({
+          ok: true,
+          text:
+            out === 0
+              ? `Count saved — all ${r.linesSaved} lines submitted for review.`
+              : `Count saved — ${r.linesSaved} counted, ${out} left uncounted. ` +
+                `The day stays open until every line is counted or skipped.`,
+        })
         setCounts({})
+        try { window.localStorage.removeItem(draftKey) } catch {}
       } else {
         setMessage({ ok: false, text: r.error ?? "Could not save the count." })
       }
@@ -154,7 +193,7 @@ export default function CountEntry({
             {entered} / {lines.length}
           </div>
           <div className="text-[11px] text-muted mt-1">
-            {allCounted ? "All done" : `${remaining} left`}
+            {allCounted ? "All done" : `${remaining} not yet counted`}
           </div>
         </div>
         <div className="stat flex-1 min-w-[132px]">
@@ -258,19 +297,26 @@ export default function CountEntry({
         <div className="card card-pad mt-3">
           <p className="text-xs text-muted mb-2.5">
             Yesterday&rsquo;s figures unlock once you submit. Count what you see first.
+            Your entries are kept on this device as you go.
           </p>
           <button
             onClick={save}
-            disabled={saving || !allCounted}
+            disabled={saving || entered === 0}
             className="btn-primary w-full"
           >
-            {saving ? "Saving…" : "Submit count"}
+            {saving ? "Saving…" : allCounted ? "Submit count" : "Submit partial count"}
           </button>
-          {!allCounted && (
-            <p className="text-xs text-muted text-center mt-2">
-              Count every item before submitting.
-            </p>
-          )}
+          {/* Submitting a partial count is allowed on purpose. Requiring all
+              43 lines meant an interrupted counter lost everything, and the
+              realistic response is to invent the rest — gaps are better than
+              plausible fiction. Closing the day is what needs completeness. */}
+          <p className="text-xs text-muted text-center mt-2">
+            {entered === 0
+              ? "Enter at least one count."
+              : allCounted
+                ? "Every line counted."
+                : `${remaining} not yet counted — you can submit now and finish later.`}
+          </p>
         </div>
       )}
     </div>

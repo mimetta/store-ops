@@ -118,6 +118,73 @@ export async function cannotExplainLine(lineId: string, note?: string): Promise<
   return { ok: true }
 }
 
+/**
+ * Count a line that was left out of the original submission.
+ *
+ * Writes counted_qty rather than recounted_qty: this line was never counted,
+ * so there is no first count to preserve. Only permitted while the line is
+ * still NULL — a counted line changes through a recount, which keeps both.
+ */
+export async function countMissedLine(lineId: string, qty: number): Promise<ActionResult> {
+  const { supabase, user, profile } = await actor()
+  if (!user) return { ok: false, error: "Not signed in." }
+  if (!can(profile, "stock.count")) {
+    return { ok: false, error: "You do not have permission to count." }
+  }
+  if (!Number.isInteger(qty) || qty < 0) {
+    return { ok: false, error: "Enter a whole number of units." }
+  }
+
+  const { error } = await supabase
+    .from("stock_count_lines")
+    .update({ counted_qty: qty, skipped: false, skip_reason: null, skipped_by: null, skipped_at: null })
+    .eq("id", lineId)
+    .is("counted_qty", null)
+
+  if (error) {
+    return {
+      ok: false,
+      error: error.message.includes("cannot be changed")
+        ? "This line already has a count. Use “Count again” instead."
+        : error.message,
+    }
+  }
+  revalidatePath("/count/review")
+  return { ok: true }
+}
+
+/**
+ * Skip a line deliberately.
+ *
+ * Distinct from leaving it NULL: a skip names who decided and why, which is
+ * what lets the day close with a line uncounted. "The shelf was blocked" is a
+ * fact a manager can act on; an empty field is not.
+ */
+export async function skipLine(lineId: string, reason: string): Promise<ActionResult> {
+  const { supabase, user, profile } = await actor()
+  if (!user) return { ok: false, error: "Not signed in." }
+  if (!can(profile, "stock.count")) {
+    return { ok: false, error: "You do not have permission to act on this count." }
+  }
+  const text = reason.trim()
+  if (!text) return { ok: false, error: "Say why it could not be counted." }
+
+  const { error } = await supabase
+    .from("stock_count_lines")
+    .update({
+      skipped: true,
+      skip_reason: text,
+      skipped_by: user.id,
+      skipped_at: new Date().toISOString(),
+    })
+    .eq("id", lineId)
+    .is("counted_qty", null)
+
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/count/review")
+  return { ok: true }
+}
+
 /** Raise an adjustment for a line's variance, for a manager to decide. */
 export async function raiseAdjustment(lineId: string): Promise<ActionResult> {
   const { supabase, user, profile } = await actor()

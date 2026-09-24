@@ -24,6 +24,10 @@ export interface QueueRow {
   out: number | null
   received: number | null
   explanationState: "pending" | "explained" | "cannot_explain" | "recount_requested"
+  /** Completeness of the count this adjustment came from. */
+  countTotal: number | null
+  countCounted: number | null
+  countOutstanding: number | null
 }
 
 export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
@@ -102,6 +106,14 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
                         <td className="px-4 py-3 text-muted whitespace-nowrap">
                           {r.branch}
                           <span className="text-subtle text-xs block">{r.whCode}</span>
+                          {/* A partial count is stated, not inferred from a gap.
+                              Missing lines are NULL, never variances — but a
+                              manager should know the shelves were not all walked. */}
+                          {r.countOutstanding !== null && r.countOutstanding > 0 && (
+                            <span className="badge bg-amber-50 text-amber-70 mt-1 inline-block">
+                              partial · {r.countCounted}/{r.countTotal}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right text-muted tabular-nums">
                           {r.shouldBe ?? "—"}
@@ -179,7 +191,10 @@ export default function AdjustmentQueue({ rows }: { rows: QueueRow[] }) {
         <p className="text-subtle text-xs">
           Approving writes a stock movement and updates the balance in one step.
           Nothing else moves stock — asking for a recount sends the line back to
-          the shop floor and leaves the balance untouched.
+          the shop floor and leaves the balance untouched. A count marked
+          <span className="badge bg-amber-50 text-amber-70 mx-1">partial</span>
+          had lines nobody reached; those are recorded as uncounted, not as
+          differences.
         </p>
       </div>
     </div>

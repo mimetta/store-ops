@@ -8,12 +8,20 @@ import type { Profile } from "@/types/database"
 export interface SubmitResult {
   ok: boolean
   countId?: string
+  /** How many lines carry a number. */
   linesSaved?: number
+  /** How many were submitted uncounted — NULL, not zero. */
+  linesOutstanding?: number
   error?: string
 }
 
 /**
  * Save a count.
+ *
+ * A PARTIAL COUNT IS ALLOWED. Requiring all 43 daily lines before submitting
+ * meant a KA interrupted by a customer lost the lot, and the realistic
+ * response is to rush the remainder with plausible numbers — which makes the
+ * count worse than useless, because the gaps at least show.
  *
  * `system_qty` is read HERE, on the server, at save time — never accepted from
  * the client. A blind counter does not have the number, so a client-supplied
@@ -44,9 +52,38 @@ export async function submitCount(input: {
     return { ok: false, error: "You do not have permission to record a count." }
   }
 
-  const productIds = Object.keys(input.counts)
+  const countedIds = Object.keys(input.counts)
+  if (countedIds.length === 0) {
+    return { ok: false, error: "Enter at least one count before submitting." }
+  }
+
+  // The full line set is derived HERE, not sent by the client. A submitted
+  // count carries a line for every product in scope — counted ones with a
+  // number, the rest NULL — so "nobody reached this shelf" is recorded rather
+  // than being an absence somebody has to notice.
+  const { data: policyRows } = await supabase
+    .from("product_count_policy")
+    .select("product_id")
+    .eq("count_frequency", input.cycle)
+  const cycleIds = new Set((policyRows ?? []).map((r) => r.product_id))
+
+  const { data: inScope, error: scopeErr } = await supabase
+    .from("stock_levels")
+    .select("product_id, products!inner(active)")
+    .eq("warehouse_id", input.warehouseId)
+  if (scopeErr) {
+    return { ok: false, error: `Could not read the product list: ${scopeErr.message}` }
+  }
+
+  const productIds = (inScope ?? [])
+    .filter((r) => {
+      const p = (r as unknown as { products: { active: boolean } | null }).products
+      return p?.active && cycleIds.has(r.product_id)
+    })
+    .map((r) => r.product_id)
+
   if (productIds.length === 0) {
-    return { ok: false, error: "Nothing was counted." }
+    return { ok: false, error: "There is nothing to count in this warehouse." }
   }
 
   // The snapshot. Read now, stored on the line, and never re-read at approval:
@@ -93,11 +130,14 @@ export async function submitCount(input: {
     return { ok: false, error: `Could not start the count: ${countErr.message}` }
   }
 
+  // NULL where nothing was counted. The schema already distinguishes that
+  // from a counted zero, and `variance` stays NULL rather than reading as a
+  // shortfall of the whole shelf.
   const lines = productIds.map((productId) => ({
     count_id: count.id,
     product_id: productId,
     system_qty: systemQty.get(productId) ?? 0,
-    counted_qty: input.counts[productId],
+    counted_qty: productId in input.counts ? input.counts[productId] : null,
   }))
 
   const { error: lineErr } = await supabase.from("stock_count_lines").insert(lines)
@@ -109,5 +149,11 @@ export async function submitCount(input: {
   }
 
   revalidatePath("/count")
-  return { ok: true, countId: count.id, linesSaved: lines.length }
+  revalidatePath("/count/review")
+  return {
+    ok: true,
+    countId: count.id,
+    linesSaved: countedIds.length,
+    linesOutstanding: lines.length - countedIds.length,
+  }
 }

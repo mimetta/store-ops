@@ -66,12 +66,13 @@ export default async function AdjustmentsPage() {
   const { data: lineRows } = lineIds.length
     ? await supabase
         .from("stock_count_line_chain")
-        .select("line_id, first_count, second_count, should_be_qty, yesterday_qty, out_qty, received_qty, explanation_state, variance_reason")
+        .select("line_id, count_id, first_count, second_count, should_be_qty, yesterday_qty, out_qty, received_qty, explanation_state, variance_reason")
         .in("line_id", lineIds)
     : { data: [] }
 
   type LineChain = {
     line_id: string
+    count_id: string
     first_count: number | null
     second_count: number | null
     should_be_qty: number
@@ -83,6 +84,31 @@ export default async function AdjustmentsPage() {
   }
   const byLine = new Map(
     ((lineRows ?? []) as unknown as LineChain[]).map((l) => [l.line_id, l])
+  )
+
+  // How complete the parent count is. Without this a partial count's missing
+  // lines are invisible here, and a manager approving three adjustments has no
+  // way to know the other forty shelves were never walked.
+  const countIds = Array.from(
+    new Set(((lineRows ?? []) as unknown as LineChain[]).map((l) => l.count_id))
+  )
+  const { data: progressRows } = countIds.length
+    ? await supabase
+        .from("stock_count_progress")
+        .select("count_id, total_lines, counted_lines, skipped_lines, outstanding_lines, is_complete")
+        .in("count_id", countIds)
+    : { data: [] }
+
+  type Progress = {
+    count_id: string
+    total_lines: number
+    counted_lines: number
+    skipped_lines: number
+    outstanding_lines: number
+    is_complete: boolean
+  }
+  const byCount = new Map(
+    ((progressRows ?? []) as unknown as Progress[]).map((p) => [p.count_id, p])
   )
 
   const rows: QueueRow[] = raws.map((r) => {
@@ -106,6 +132,9 @@ export default async function AdjustmentsPage() {
       out: l?.out_qty ?? null,
       received: l?.received_qty ?? null,
       explanationState: (l?.explanation_state ?? "pending") as QueueRow["explanationState"],
+      countTotal: l ? byCount.get(l.count_id)?.total_lines ?? null : null,
+      countCounted: l ? byCount.get(l.count_id)?.counted_lines ?? null : null,
+      countOutstanding: l ? byCount.get(l.count_id)?.outstanding_lines ?? null : null,
     }
   })
 

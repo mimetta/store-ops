@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { can } from "@/lib/permissions"
 import type { Profile } from "@/types/database"
-import ReviewClient, { type ChainLine } from "./ReviewClient"
+import ReviewClient, { type ChainLine, type MissedLine } from "./ReviewClient"
 
 /**
  * KA explain view — shown AFTER a count is submitted.
@@ -75,11 +75,37 @@ export default async function ReviewPage() {
 
   const lines = (chain ?? []) as unknown as ChainLine[]
 
-  if (lines.length === 0) {
+  // Lines nobody reached. They carry a NULL variance, so the query above
+  // excludes them — but the day cannot close while any remain, so they belong
+  // on this screen with their own actions.
+  const { data: missedRows } = await supabase
+    .from("stock_count_lines")
+    .select("id, product_id, skipped, skip_reason, products!inner(sku, name, unit)")
+    .eq("count_id", count.id)
+    .is("counted_qty", null)
+
+  type MissedRow = {
+    id: string
+    skipped: boolean
+    skip_reason: string | null
+    products: { sku: string; name: string; unit: string | null } | null
+  }
+  const missed: MissedLine[] = ((missedRows ?? []) as unknown as MissedRow[])
+    .map((m) => ({
+      lineId: m.id,
+      sku: m.products?.sku ?? "—",
+      name: m.products?.name ?? "—",
+      unit: m.products?.unit ?? null,
+      skipped: m.skipped,
+      skipReason: m.skip_reason,
+    }))
+    .sort((a, b) => a.sku.localeCompare(b.sku))
+
+  if (lines.length === 0 && missed.length === 0) {
     return (
       <Empty
         title="No differences"
-        body={`Your count on ${count.count_date} matched the system on every line. Nothing needs explaining.`}
+        body={`Your count on ${count.count_date} matched the system on every line, and nothing was left uncounted.`}
       />
     )
   }
@@ -87,6 +113,7 @@ export default async function ReviewPage() {
   return (
     <ReviewClient
       lines={lines}
+      missed={missed}
       countDate={count.count_date}
       branchName={count.branches?.name ?? ""}
       whCode={count.warehouses?.wh_code ?? ""}
