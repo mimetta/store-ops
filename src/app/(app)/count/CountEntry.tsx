@@ -2,10 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import PageHeader from "@/components/retail/PageHeader"
 import { submitCount } from "./actions"
 
 /**
+ * Stock count entry, matching docs/store-operations-demo.html.
+ *
  * `systemQty` is OPTIONAL on purpose. For a counter the key is absent from the
  * payload entirely, so there is nothing in the browser to reveal — see the
  * comment in page.tsx. Do not give it a default.
@@ -24,6 +25,12 @@ interface BranchOption {
   branchName: string
   warehouseId: string
   whCode: string
+}
+
+/** "24 Sep 2026" — the demo's day label. */
+function dayLabel(d = new Date()) {
+  const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+  return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`
 }
 
 export default function CountEntry({
@@ -47,18 +54,30 @@ export default function CountEntry({
 }) {
   const router = useRouter()
   const [counts, setCounts] = useState<Record<string, string>>({})
-  const [filter, setFilter] = useState("")
-  const [group, setGroup] = useState("")
+  const [query, setQuery] = useState("")
   const [saving, startSaving] = useTransition()
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return lines
+    return lines.filter(
+      (l) => l.sku.toLowerCase().includes(q) || l.name.toLowerCase().includes(q)
+    )
+  }, [lines, query])
+
+  const entered = Object.values(counts).filter((v) => v !== "").length
+  const remaining = lines.length - entered
+  const allCounted = lines.length > 0 && remaining === 0
+
+  function setCount(productId: string, raw: string) {
+    if (raw !== "" && !/^\d+$/.test(raw)) return
+    setCounts((prev) => ({ ...prev, [productId]: raw }))
+  }
 
   function save() {
     const entries: Record<string, number> = {}
     for (const [id, v] of Object.entries(counts)) if (v !== "") entries[id] = Number(v)
-    if (Object.keys(entries).length === 0) {
-      setMessage({ ok: false, text: "Enter at least one count before saving." })
-      return
-    }
     setMessage(null)
     startSaving(async () => {
       const r = await submitCount({ branchId: selectedBranchId, warehouseId, cycle, counts: entries })
@@ -71,284 +90,189 @@ export default function CountEntry({
     })
   }
 
-  const groups = useMemo(() => {
-    const g = new Set<string>()
-    for (const l of lines) if (l.groupCode) g.add(l.groupCode)
-    return Array.from(g).sort()
-  }, [lines])
-
-  const visible = useMemo(() => {
-    const q = filter.trim().toLowerCase()
-    return lines.filter((l) => {
-      if (group && l.groupCode !== group) return false
-      if (!q) return true
-      return l.sku.toLowerCase().includes(q) || l.name.toLowerCase().includes(q)
-    })
-  }, [lines, filter, group])
-
-  const entered = Object.values(counts).filter((v) => v !== "").length
-  const remaining = lines.length - entered
-
-  function setCount(productId: string, raw: string) {
-    if (raw !== "" && !/^\d+$/.test(raw)) return
-    setCounts((prev) => ({ ...prev, [productId]: raw }))
-  }
+  const go = (c: "daily" | "weekly") =>
+    router.push(`/count?branch=${selectedBranchId}&cycle=${c}`)
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
-        <PageHeader
-          title="Stock Count"
-          subtitle={`${branchName} · warehouse ${whCode}`}
-          actions={
-            <div className="flex items-center gap-2">
-              <div className="flex rounded-lg overflow-hidden border border-sand bg-white">
-                {(["daily", "weekly"] as const).map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => router.push(`/count?branch=${selectedBranchId}&cycle=${c}`)}
-                    className={`px-3.5 min-h-[40px] text-xs capitalize transition-colors ${
-                      cycle === c ? "bg-brown text-white" : "text-muted hover:bg-panel"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            {branchOptions.length > 1 ? (
-              <select
-                value={selectedBranchId}
-                onChange={(e) => router.push(`/count?branch=${e.target.value}`)}
-                className="input-field w-auto pr-8"
-                aria-label="Branch"
-              >
-                {branchOptions.map((o) => (
-                  <option key={o.branchId} value={o.branchId}>
-                    {o.branchName}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-            </div>
-          }
-        />
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      {/* ── pagebar ──────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <h1 className="text-[22px] font-medium mr-auto">Stock count</h1>
 
-        {/* There is no warehouse selector, deliberately: a count is of one
-            warehouse, resolved from the branch. */}
+        <label className="pill">
+          <span className="text-xs text-muted">Counting at</span>
+          <select
+            value={selectedBranchId}
+            onChange={(e) => router.push(`/count?branch=${e.target.value}&cycle=${cycle}`)}
+            aria-label="Branch"
+            disabled={branchOptions.length <= 1}
+            className="bg-transparent text-xs text-ink outline-none"
+          >
+            {(branchOptions.length
+              ? branchOptions
+              : [{ branchId: selectedBranchId, branchName }]
+            ).map((o) => (
+              <option key={o.branchId} value={o.branchId}>
+                {o.branchName}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="search"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Find by code or name"
-            className="input-field w-auto flex-1 min-w-[200px]"
-          />
-          {groups.length > 1 && (
-            <select
-              value={group}
-              onChange={(e) => setGroup(e.target.value)}
-              className="input-field w-auto pr-8"
-              aria-label="Product group"
+        <span className="pill text-muted">{dayLabel()}</span>
+      </div>
+
+      {/* ── which cycle — two tappable cards, as the demo does it ────────── */}
+      <div className="flex gap-2.5 mb-3.5 flex-wrap">
+        {([
+          { key: "daily",  title: "Finished goods", when: "Every day · due today" },
+          { key: "weekly", title: "Consumables",    when: "Every week" },
+        ] as const).map((k) => {
+          const on = cycle === k.key
+          return (
+            <button
+              key={k.key}
+              onClick={() => go(k.key)}
+              aria-pressed={on}
+              className={`stat flex-1 min-w-[160px] bg-white text-left transition-colors
+                          ${on ? "border-2 border-brown" : "border border-sand"}`}
             >
-              <option value="">All groups</option>
-              {groups.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
-          )}
-          <span className="text-muted text-sm tabular-nums">
-            {entered} counted · {remaining} left
-          </span>
+              <div className="font-medium text-ink">{k.title}</div>
+              <div className={`text-[11px] mt-0.5 ${on ? "text-good-70" : "text-subtle"}`}>
+                {k.when}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── progress ─────────────────────────────────────────────────────── */}
+      <div className="flex gap-2.5 mb-3.5 flex-wrap">
+        <div className="stat flex-1 min-w-[132px]">
+          <div className="text-[11px] text-subtle mb-1">Counted</div>
+          <div className="text-xl font-medium leading-none num-c">
+            {entered} / {lines.length}
+          </div>
+          <div className="text-[11px] text-muted mt-1">
+            {allCounted ? "All done" : `${remaining} left`}
+          </div>
+        </div>
+        <div className="stat flex-1 min-w-[132px]">
+          <div className="text-[11px] text-subtle mb-1">Branch</div>
+          <div className="text-xl font-medium leading-none">{branchName}</div>
+          <div className="text-[11px] text-muted mt-1">Shop floor · {whCode}</div>
+        </div>
+      </div>
+
+      {message && (
+        <div className={`note ${message.ok ? "note-g" : "note-r"} mb-3`}>{message.text}</div>
+      )}
+
+      {/* ── the list ─────────────────────────────────────────────────────── */}
+      <div className="card card-pad">
+        <div className="flex items-baseline gap-2.5 mb-3 flex-wrap">
+          <h2 className="text-[15px] font-medium flex-1 min-w-0">Count what is on the shelf</h2>
+          <span className="text-xs text-muted">Enter the real quantity</span>
         </div>
 
-        {!seesSystemQty && (
-          <p className="text-subtle text-xs">
-            Count what is on the shelf. The expected quantity is not shown —
-            that is deliberate, so the count reflects the shelf rather than the
-            system.
-          </p>
-        )}
-
-        {lines.length === 0 ? (
-          <div className="card card-pad py-10 text-center text-muted text-sm">
-            No stock records exist for this warehouse yet. Products appear here
-            once stock levels are populated.
-          </div>
-        ) : (
-          <>
-            {/* ── narrow: one stacked row per product ──────────────────────
-                Not the table with horizontal scroll: at 375px a six-column
-                grid pushes the input off-screen, and a counter cannot key a
-                number they have to scroll sideways to reach. Code and name on
-                one line, unit and the field on the next — the demo's shape.
-
-                The SAME data as the table below. seesSystemQty gates both
-                identically; nothing here is revealed or hidden by width. */}
-            <div className="card divide-y divide-sand md:hidden">
-              {visible.map((l) => {
-                const raw = counts[l.productId] ?? ""
-                const counted = raw === "" ? null : Number(raw)
-                const variance =
-                  seesSystemQty && counted !== null && l.systemQty !== undefined
-                    ? counted - l.systemQty
-                    : null
-
-                return (
-                  <div key={l.productId} className="px-4 py-3">
-                    <p className="font-mono text-[11px] text-muted">{l.sku}</p>
-                    <p className="text-ink leading-snug mt-0.5">{l.name}</p>
-
-                    <div className="flex items-center gap-3 mt-2.5">
-                      <span className="text-xs text-subtle uppercase tracking-wide min-w-[46px]">
-                        {l.unit ?? "—"}
-                      </span>
-
-                      {seesSystemQty && (
-                        <span className="text-xs text-muted num-c">
-                          system <span className="text-ink">{l.systemQty}</span>
-                        </span>
-                      )}
-
-                      <span className="flex-1" />
-
-                      {seesSystemQty && variance !== null && (
-                        <span
-                          className={`text-xs num-c font-medium ${
-                            variance === 0
-                              ? "text-muted"
-                              : variance > 0
-                                ? "text-good-70"
-                                : "text-danger-70"
-                          }`}
-                        >
-                          {variance > 0 ? `+${variance}` : variance}
-                        </span>
-                      )}
-
-                      <input
-                        inputMode="numeric"
-                        value={raw}
-                        onChange={(e) => setCount(l.productId, e.target.value)}
-                        placeholder="—"
-                        aria-label={`Counted quantity for ${l.sku}`}
-                        className="input-num shrink-0"
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-
-              {visible.length === 0 && (
-                <p className="px-4 py-10 text-center text-subtle text-sm">
-                  Nothing matches that filter.
-                </p>
-              )}
-            </div>
-
-            {/* ── wide: the table ──────────────────────────────────────── */}
-            <div className="card overflow-hidden hidden md:block">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-sand">
-                      <th className="text-left px-4 py-3 text-muted font-medium">Code</th>
-                      <th className="text-left px-4 py-3 text-muted font-medium">Product</th>
-                      <th className="text-left px-4 py-3 text-muted font-medium">Unit</th>
-                      {seesSystemQty && (
-                        <th className="text-right px-4 py-3 text-muted font-medium">System</th>
-                      )}
-                      <th className="text-right px-4 py-3 text-muted font-medium">Counted</th>
-                      {seesSystemQty && (
-                        <th className="text-right px-4 py-3 text-muted font-medium">Variance</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visible.map((l) => {
-                      const raw = counts[l.productId] ?? ""
-                      const counted = raw === "" ? null : Number(raw)
-                      const variance =
-                        seesSystemQty && counted !== null && l.systemQty !== undefined
-                          ? counted - l.systemQty
-                          : null
-
-                      return (
-                        <tr key={l.productId} className="border-b border-sand last:border-0">
-                          <td className="px-4 py-2.5 font-mono text-xs text-muted whitespace-nowrap">
-                            {l.sku}
-                          </td>
-                          <td className="px-4 py-2.5 text-ink">{l.name}</td>
-                          <td className="px-4 py-2.5 text-subtle text-xs uppercase">
-                            {l.unit ?? "—"}
-                          </td>
-                          {seesSystemQty && (
-                            <td className="px-4 py-2.5 text-right text-muted num-c">
-                              {l.systemQty}
-                            </td>
-                          )}
-                          <td className="px-4 py-2.5 text-right">
-                            <input
-                              inputMode="numeric"
-                              value={raw}
-                              onChange={(e) => setCount(l.productId, e.target.value)}
-                              placeholder="—"
-                              aria-label={`Counted quantity for ${l.sku}`}
-                              className="input-num"
-                            />
-                          </td>
-                          {seesSystemQty && (
-                            <td
-                              className={`px-4 py-2.5 text-right num-c ${
-                                variance === null
-                                  ? "text-subtle"
-                                  : variance === 0
-                                    ? "text-muted"
-                                    : variance > 0
-                                      ? "text-good-70"
-                                      : "text-danger-70"
-                              }`}
-                            >
-                              {variance === null ? "—" : variance > 0 ? `+${variance}` : variance}
-                            </td>
-                          )}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {visible.length === 0 && (
-                <p className="px-4 py-10 text-center text-subtle text-sm">
-                  Nothing matches that filter.
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
-        {message && (
-          <div
-            role="status"
-            className={`note ${message.ok ? "note-g" : "note-r"}`}
+        <div className="relative mb-2 max-w-[280px]">
+          <span
+            aria-hidden="true"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-[17px] text-center text-muted pointer-events-none"
           >
-            {message.text}
-          </div>
-        )}
+            ⌕
+          </span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search product or code"
+            className="input-field pl-8"
+          />
+        </div>
 
-        {lines.length > 0 && (
-          <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom))] lg:bottom-0 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-cream/95 backdrop-blur border-t border-sand flex items-center justify-between gap-4">
-            <p className="text-subtle text-xs">
-              Only the lines you have entered are saved. Leave a product blank
-              if you have not counted it.
-            </p>
-            <button onClick={save} disabled={saving || entered === 0} className="btn-primary px-5 py-2.5">
-              {saving ? "Saving…" : `Submit ${entered} line${entered === 1 ? "" : "s"}`}
-            </button>
-          </div>
+        {visible.length === 0 ? (
+          <p className="text-center py-6 px-4 text-muted text-[13px]">
+            {lines.length === 0
+              ? "No stock records exist for this warehouse yet."
+              : "No product matches that search."}
+          </p>
+        ) : (
+          visible.map((l) => {
+            const raw = counts[l.productId] ?? ""
+            const has = raw !== ""
+            const counted = has ? Number(raw) : null
+            const variance =
+              seesSystemQty && counted !== null && l.systemQty !== undefined
+                ? counted - l.systemQty
+                : null
+
+            return (
+              <div
+                key={l.productId}
+                className="flex items-center gap-2.5 py-2.5 border-t border-sand"
+              >
+                {/* Name first, code beneath — the demo's order. The name is
+                    what a counter matches against the shelf; the code is the
+                    tiebreaker when two names look alike. */}
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate text-ink">{l.name}</span>
+                  <span className="font-mono text-[11px] text-subtle">{l.sku}</span>
+                </span>
+
+                {seesSystemQty && (
+                  <span className="text-xs text-muted num-c whitespace-nowrap">
+                    {l.systemQty}
+                    {variance !== null && variance !== 0 && (
+                      <span
+                        className={`ml-1.5 ${variance > 0 ? "text-good-70" : "text-danger-70"}`}
+                      >
+                        {variance > 0 ? `+${variance}` : variance}
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                <span className="text-[12px] text-muted w-[52px] text-right shrink-0">
+                  {l.unit ?? "—"}
+                </span>
+
+                {/* A sage border marks a line already counted — the only
+                    progress signal on a list you scroll through twice. */}
+                <input
+                  inputMode="numeric"
+                  value={raw}
+                  onChange={(e) => setCount(l.productId, e.target.value)}
+                  placeholder="—"
+                  aria-label={`Count ${l.name} in ${l.unit ?? "units"}`}
+                  className={`input-num shrink-0 ${has ? "border-sage" : ""}`}
+                />
+              </div>
+            )
+          })
         )}
       </div>
+
+      {/* ── submit ───────────────────────────────────────────────────────── */}
+      {lines.length > 0 && (
+        <div className="card card-pad mt-3">
+          <p className="text-xs text-muted mb-2.5">
+            Yesterday&rsquo;s figures unlock once you submit. Count what you see first.
+          </p>
+          <button
+            onClick={save}
+            disabled={saving || !allCounted}
+            className="btn-primary w-full"
+          >
+            {saving ? "Saving…" : "Submit count"}
+          </button>
+          {!allCounted && (
+            <p className="text-xs text-muted text-center mt-2">
+              Count every item before submitting.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

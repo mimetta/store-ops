@@ -32,6 +32,7 @@ function Icon({ d }: { d: string }) {
 }
 
 const HOME_ICON       = "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10"
+const DIFF_ICON       = "M12 9v4 M12 17h.01 M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
 const ADJUST_ICON     = "M12 20h9 M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"
 const COUNT_ICON      = "M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"
 const STOCK_ICON      = "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"
@@ -47,43 +48,38 @@ const TRAINING_ICON   = "M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 9 3 12 0v-5"
 const SETTINGS_ICON   = "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
 const HISTORY_ICON    = "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
 
-// ── Daily operations — every store user sees these ───────────────────────────
-
-const DAILY_ITEMS: NavItem[] = [
-  { label: "Stock Count",   href: "/count",       icon: <Icon d={COUNT_ICON} />,       needs: ["stock.count"] },
-  { label: "Adjustments",   href: "/adjustments", icon: <Icon d={ADJUST_ICON} />,      needs: ["stock.adjustment.approve"] },
-  { label: "FG Stock",      href: "/stock",       icon: <Icon d={STOCK_ICON} />,       needs: ["stock.count"] },
-  { label: "Sales Record",  href: "/sales",       icon: <Icon d={SALES_ICON} />,       needs: ["sales.manual", "sales.import"] },
-  { label: "POS Money",     href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["pos.money"] },
-  // consumables: not in the capability spec — closest fit is stock.count
-  { label: "Consumables",   href: "/consumables", icon: <Icon d={CONSUMABLE_ICON} />,  needs: ["stock.count"] },
-  { label: "Shop Traffic",  href: "/traffic",     icon: <Icon d={TRAFFIC_ICON} />,     needs: ["traffic"] },
-  { label: "Reports",       href: "/reports",     icon: <Icon d={REPORTS_ICON} />,     needs: ["stock.reports"] },
+const SALES_ITEMS: NavItem[] = [
+  { label: "Sales",          href: "/sales",       icon: <Icon d={SALES_ICON} />,       needs: ["sales.manual", "sales.import"] },
+  { label: "POS Money",      href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["pos.money"] },
+  { label: "Store traffic",  href: "/traffic",     icon: <Icon d={TRAFFIC_ICON} />,     needs: ["traffic"] },
 ]
 
-// ── People & scheduling ──────────────────────────────────────────────────────
+const STOCK_ITEMS: NavItem[] = [
+  { label: "Stock count",          href: "/count",        icon: <Icon d={COUNT_ICON} />,   needs: ["stock.count"] },
+  { label: "Differences to check", href: "/count/review", icon: <Icon d={DIFF_ICON} />,    needs: ["stock.count"] },
+  { label: "Stock adjustments",    href: "/adjustments",  icon: <Icon d={ADJUST_ICON} />,  needs: ["stock.adjustment.approve"] },
+  { label: "Stock reports",        href: "/reports",      icon: <Icon d={REPORTS_ICON} />, needs: ["stock.reports"] },
+  { label: "FG Stock",             href: "/stock",        icon: <Icon d={STOCK_ICON} />,   needs: ["stock.count"] },
+  { label: "Consumables",          href: "/consumables",  icon: <Icon d={CONSUMABLE_ICON} />, needs: ["stock.count"] },
+]
 
 const PEOPLE_ITEMS: NavItem[] = [
-  { label: "Calendar",      href: "/calendar",    icon: <Icon d={CALENDAR_ICON} />, needs: ["calendar.manage"] },
-  // Leave and Training are gated on the "everyone" half of their split
-  // capability, never left ungated. The pages gate the deciding half inside.
-  { label: "Leave",         href: "/leave",       icon: <Icon d={LEAVE_ICON} />,    needs: ["leave.request"] },
-  { label: "Work Schedule", href: "/schedule",    icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
-  { label: "Training",      href: "/training",    icon: <Icon d={TRAINING_ICON} />, needs: ["training.view"] },
+  { label: "Shifts",   href: "/schedule", icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
+  { label: "Leave",    href: "/leave",    icon: <Icon d={LEAVE_ICON} />,    needs: ["leave.request"] },
+  { label: "Training", href: "/training", icon: <Icon d={TRAINING_ICON} />, needs: ["training.view"] },
 ]
 
-// ── Manage ───────────────────────────────────────────────────────────────────
-
-const MANAGER_ITEMS: NavItem[] = [
-  { label: "Settings",      href: "/settings",    icon: <Icon d={SETTINGS_ICON} />, needs: ["settings"] },
-  // activity: not in the capability spec — closest fit is settings
-  { label: "Activity Log",  href: "/activity",    icon: <Icon d={HISTORY_ICON} />,  needs: ["settings"] },
+const MANAGE_ITEMS: NavItem[] = [
+  { label: "Calendar & events", href: "/calendar", icon: <Icon d={CALENDAR_ICON} />, needs: ["calendar.manage"] },
+  { label: "Settings",          href: "/settings", icon: <Icon d={SETTINGS_ICON} />, needs: ["settings"] },
+  { label: "Activity log",      href: "/activity", icon: <Icon d={HISTORY_ICON} />,  needs: ["settings"] },
 ]
 
 const SECTIONS: { label: string; items: NavItem[] }[] = [
-  { label: "Daily Ops", items: DAILY_ITEMS },
-  { label: "People",    items: PEOPLE_ITEMS },
-  { label: "Manage",    items: MANAGER_ITEMS },
+  { label: "Sales",  items: SALES_ITEMS },
+  { label: "Stock",  items: STOCK_ITEMS },
+  { label: "People", items: PEOPLE_ITEMS },
+  { label: "Manage", items: MANAGE_ITEMS },
 ]
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

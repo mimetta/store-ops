@@ -25,9 +25,9 @@ interface Tab {
 
 const TABS: Tab[] = [
   { label: "Home",    href: "/",            d: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10" },
-  { label: "Count",   href: "/count",       d: "M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11", needs: ["stock.count"] },
-  { label: "Review",  href: "/count/review", d: "M9 12h6 M9 16h4 M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6", needs: ["stock.count"] },
-  { label: "Approve", href: "/adjustments", d: "M12 20h9 M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z", needs: ["stock.adjustment.approve"] },
+  { label: "Stock",   href: "/count",       d: "M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11", needs: ["stock.count"] },
+  { label: "Differences", href: "/count/review", d: "M9 12h6 M9 16h4 M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6", needs: ["stock.count"] },
+  { label: "Adjust",  href: "/adjustments", d: "M12 20h9 M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z", needs: ["stock.adjustment.approve"] },
   { label: "Sales",   href: "/sales",       d: "M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3 M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2 M9 12h6", needs: ["sales.manual", "sales.import"] },
 ]
 
