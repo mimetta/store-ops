@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { confirmReceipt } from "../actions"
@@ -63,27 +63,33 @@ export default function ReceiveLines({
   }, [lines])
 
   const [entries, setEntries] = useState<Record<string, Entry>>(initial)
-  const loaded = useRef(false)
+  const [restored, setRestored] = useState(false)
   const draftKey = `receive-draft:${deliveryId}`
 
   // A delivery is checked at the door on a phone, one-handed, often while the
   // driver waits. Losing half a pallet's worth of entry to a dropped call is
   // the difference between the system being used and being worked around.
   useEffect(() => {
-    if (done) { loaded.current = true; return }
+    if (done) { setRestored(true); return }
     try {
       const saved = window.localStorage.getItem(draftKey)
       if (saved) setEntries((prev) => ({ ...prev, ...JSON.parse(saved) }))
     } catch {
       // A corrupt draft should cost the draft, not the screen.
     }
-    loaded.current = true
+    setRestored(true)
   }, [draftKey, done])
 
+  // Gated on STATE, not a ref. A ref set inside the restore effect is already
+  // true when this effect runs in the SAME commit, and `entries` in that
+  // closure is still the pre-restore value — so it wrote blanks over the good
+  // draft, and React's double-invoked mount in development then read those
+  // blanks back as the draft. State is correct per render: this cannot run
+  // until a render has actually seen the restored values.
   useEffect(() => {
-    if (!loaded.current || done) return
+    if (!restored || done) return
     try { window.localStorage.setItem(draftKey, JSON.stringify(entries)) } catch {}
-  }, [entries, draftKey, done])
+  }, [entries, draftKey, done, restored])
 
   const [saving, startSaving] = useTransition()
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { submitCount } from "./actions"
 import { bangkokToday, BUSINESS_TZ } from "@/lib/day"
@@ -95,7 +95,7 @@ export default function CountEntry({
   const draftKey = `count-draft:${warehouseId}:${cycle}:${bangkokToday()}`
 
   const [counts, setCounts] = useState<Record<string, string>>({})
-  const loaded = useRef(false)
+  const [restored, setRestored] = useState(false)
 
   // Restore on mount. A KA interrupted mid-count closes the app and comes
   // back to the numbers they had, rather than starting the shelf again.
@@ -113,20 +113,26 @@ export default function CountEntry({
     } catch {
       // A corrupt draft should cost the draft, not the screen.
     }
-    loaded.current = true
+    setRestored(true)
   }, [draftKey, locked])
 
   // Persist on every keystroke. Skipped until the restore has run, or the
   // empty initial state would overwrite the draft before it is read.
+  // Gated on STATE, not a ref. A ref set inside the restore effect is already
+  // true when this effect runs in the SAME commit, and `entries` in that
+  // closure is still the pre-restore value — so it wrote blanks over the good
+  // draft, and React's double-invoked mount in development then read those
+  // blanks back as the draft. State is correct per render: this cannot run
+  // until a render has actually seen the restored values.
   useEffect(() => {
-    if (!loaded.current) return
+    if (!restored) return
     try {
       window.localStorage.setItem(draftKey, JSON.stringify(counts))
     } catch {
       // Private mode, or the quota is full — entry still works, it just is
       // not durable, and silently degrading beats blocking the count.
     }
-  }, [counts, draftKey])
+  }, [counts, draftKey, restored])
 
   const [query, setQuery] = useState("")
   // Coming back to finish, the 33 left are the job; the 10 done are reference.
