@@ -134,18 +134,61 @@ export default async function CountPage({
     } | null
   }
 
+  // What today has already recorded. A KA who submitted 10 of 43 and came
+  // back must see those 10 as done — otherwise the screen invites them to
+  // count the same shelf twice, and the numbers they type are silently
+  // discarded because a counted line cannot be changed.
+  //
+  // "Today" comes from the database, not from Node: see today_count_id().
+  const { data: todayCountId } = await supabase.rpc("today_count_id", {
+    p_warehouse: selected.warehouseId,
+  })
+
+  type RecordedRow = {
+    product_id: string
+    counted_qty: number | null
+    skipped: boolean
+    skip_reason: string | null
+    counted_at: string | null
+  }
+  const recorded = new Map<string, RecordedRow>()
+  let submittedAt: string | null = null
+
+  if (todayCountId) {
+    const { data: head } = await supabase
+      .from("stock_counts")
+      .select("submitted_at")
+      .eq("id", todayCountId)
+      .maybeSingle()
+    submittedAt = (head as { submitted_at: string | null } | null)?.submitted_at ?? null
+
+    const { data: rows } = await supabase
+      .from("stock_count_lines")
+      .select("product_id, counted_qty, skipped, skip_reason, counted_at")
+      .eq("count_id", todayCountId)
+    for (const r of (rows ?? []) as RecordedRow[]) recorded.set(r.product_id, r)
+  }
+
   const lines: CountLine[] = ((levels ?? []) as unknown as LevelRow[])
     .filter((l) => l.products?.active)
-    .map((l) => ({
-      productId: l.products!.id,
-      sku: l.products!.sku,
-      name: l.products!.name,
-      unit: l.products!.unit,
-      groupCode: l.products!.group_code,
-      // The blind half. Present for an approver, absent — not null, absent —
-      // for a counter.
-      ...(seesSystemQty ? { systemQty: l.quantity } : {}),
-    }))
+    .map((l) => {
+      const done = recorded.get(l.products!.id)
+      return {
+        productId: l.products!.id,
+        sku: l.products!.sku,
+        name: l.products!.name,
+        unit: l.products!.unit,
+        groupCode: l.products!.group_code,
+        // Their own entry, so there is nothing to keep back — this is what
+        // they typed, not what the system believes.
+        countedQty: done?.counted_qty ?? null,
+        skipped: done?.skipped ?? false,
+        skipReason: done?.skip_reason ?? null,
+        // The blind half. Present for an approver, absent — not null, absent —
+        // for a counter.
+        ...(seesSystemQty ? { systemQty: l.quantity } : {}),
+      }
+    })
     .sort((a, b) => a.sku.localeCompare(b.sku))
 
   return (
@@ -158,6 +201,7 @@ export default async function CountPage({
       branchName={selected.branchName}
       whCode={selected.whCode}
       cycle={cycle}
+      openedAt={submittedAt}
     />
   )
 }

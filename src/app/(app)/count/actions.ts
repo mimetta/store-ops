@@ -8,25 +8,33 @@ import type { Profile } from "@/types/database"
 export interface SubmitResult {
   ok: boolean
   countId?: string
-  /** How many lines carry a number. */
+  /** How many lines this submission recorded a number for. */
   linesSaved?: number
-  /** How many were submitted uncounted — NULL, not zero. */
+  /** How many of this cycle's lines are still neither counted nor skipped. */
   linesOutstanding?: number
+  /** True when this added to a count that already existed today. */
+  resumed?: boolean
   error?: string
 }
 
 /**
- * Save a count.
+ * Record counts against today's count for a warehouse.
  *
- * A PARTIAL COUNT IS ALLOWED. Requiring all 43 daily lines before submitting
- * meant a KA interrupted by a customer lost the lot, and the realistic
- * response is to rush the remainder with plausible numbers — which makes the
- * count worse than useless, because the gaps at least show.
+ * SUBMITTING IS NOT THE END OF THE DAY. A KA can submit 10 of 43, serve a
+ * customer, and come back to count the other 33 — this action handles both,
+ * because they are the same operation: adding lines to today's count.
  *
- * `system_qty` is read HERE, on the server, at save time — never accepted from
- * the client. A blind counter does not have the number, so a client-supplied
- * one could only have been guessed or tampered with, and the variance would be
- * computed against a figure nobody stood in front of a shelf with.
+ * What it will NOT do is change a line that already has a number. The review
+ * screen shows variances the moment a count is submitted, so an edit path here
+ * would let someone see a difference and then adjust the count to erase it.
+ * Filling a NULL line is the first count of that line; changing a counted one
+ * is a revision, and only the first is allowed. The database enforces the same
+ * rule in stock_count_lines_immutable() — this is the readable error, not the
+ * boundary.
+ *
+ * `system_qty` is read HERE, on the server, and never accepted from the
+ * client. A blind counter does not have the number, so a client-supplied one
+ * could only have been guessed or tampered with.
  */
 export async function submitCount(input: {
   branchId: string
@@ -52,15 +60,8 @@ export async function submitCount(input: {
     return { ok: false, error: "You do not have permission to record a count." }
   }
 
-  const countedIds = Object.keys(input.counts)
-  if (countedIds.length === 0) {
-    return { ok: false, error: "Enter at least one count before submitting." }
-  }
-
-  // The full line set is derived HERE, not sent by the client. A submitted
-  // count carries a line for every product in scope — counted ones with a
-  // number, the rest NULL — so "nobody reached this shelf" is recorded rather
-  // than being an absence somebody has to notice.
+  // Which products this cycle covers, resolved from the database rather than
+  // sent by the client, so the screen cannot disagree about what is countable.
   const { data: policyRows } = await supabase
     .from("product_count_policy")
     .select("product_id")
@@ -69,91 +70,139 @@ export async function submitCount(input: {
 
   const { data: inScope, error: scopeErr } = await supabase
     .from("stock_levels")
-    .select("product_id, products!inner(active)")
+    .select("product_id, quantity, products!inner(active)")
     .eq("warehouse_id", input.warehouseId)
   if (scopeErr) {
     return { ok: false, error: `Could not read the product list: ${scopeErr.message}` }
   }
 
-  const productIds = (inScope ?? [])
-    .filter((r) => {
-      const p = (r as unknown as { products: { active: boolean } | null }).products
-      return p?.active && cycleIds.has(r.product_id)
-    })
-    .map((r) => r.product_id)
+  type ScopeRow = { product_id: string; quantity: number; products: { active: boolean } | null }
+  const scoped = ((inScope ?? []) as unknown as ScopeRow[]).filter(
+    (r) => r.products?.active && cycleIds.has(r.product_id)
+  )
+  const productIds = scoped.map((r) => r.product_id)
+  // The snapshot: what the system believed when this line was opened. Stored
+  // on the line and never re-read, so a variance is always against the figure
+  // the count was taken against.
+  const systemQty = new Map(scoped.map((r) => [r.product_id, r.quantity]))
 
   if (productIds.length === 0) {
     return { ok: false, error: "There is nothing to count in this warehouse." }
   }
 
-  // The snapshot. Read now, stored on the line, and never re-read at approval:
-  // a variance must be against what the counter was working from, not a figure
-  // that moved while the count sat waiting for a manager.
-  const { data: levels, error: levelErr } = await supabase
-    .from("stock_levels")
-    .select("product_id, quantity")
-    .eq("warehouse_id", input.warehouseId)
+  // Ignore anything the client sent that is not in scope for this cycle.
+  const offered = new Map<string, number>()
+  for (const [id, qty] of Object.entries(input.counts)) {
+    if (systemQty.has(id) && Number.isInteger(qty) && qty >= 0) offered.set(id, qty)
+  }
+  if (offered.size === 0) {
+    return { ok: false, error: "Enter at least one count before submitting." }
+  }
+
+  // Find-or-create today's count. A function rather than two statements: two
+  // KAs submitting at the same moment would otherwise race the one-per-
+  // warehouse-per-day constraint and one of them would see a duplicate-key
+  // error instead of joining the count in progress.
+  const { data: countId, error: openErr } = await supabase.rpc("open_count_for_today", {
+    p_branch: input.branchId,
+    p_warehouse: input.warehouseId,
+  })
+  if (openErr || !countId) {
+    return { ok: false, error: openErr?.message ?? "Could not open today's count." }
+  }
+
+  const { data: existingRows, error: existErr } = await supabase
+    .from("stock_count_lines")
+    .select("id, product_id, counted_qty")
+    .eq("count_id", countId)
     .in("product_id", productIds)
-  if (levelErr) {
-    return { ok: false, error: `Could not read stock levels: ${levelErr.message}` }
+  if (existErr) {
+    return { ok: false, error: `Could not read today's count: ${existErr.message}` }
   }
-  const systemQty = new Map((levels ?? []).map((l) => [l.product_id, l.quantity]))
+  type ExistRow = { id: string; product_id: string; counted_qty: number | null }
+  const existing = new Map(
+    ((existingRows ?? []) as ExistRow[]).map((r) => [r.product_id, r])
+  )
+  const resumed = existing.size > 0
 
-  // RLS re-checks the capability and the branch scope on this insert; the
-  // check above is the readable error, not the security boundary.
-  const { data: count, error: countErr } = await supabase
-    .from("stock_counts")
-    .insert({
-      branch_id: input.branchId,
-      warehouse_id: input.warehouseId,
-      count_date: new Date().toISOString().slice(0, 10),
-      status: "submitted",
-      counted_by: user.id,
-      submitted_at: new Date().toISOString(),
-      notes: `${input.cycle} cycle`,
-    })
-    .select("id")
-    .single()
+  const now = new Date().toISOString()
 
-  if (countErr) {
-    // The one-count-per-warehouse-per-day constraint is the likely cause, and
-    // "duplicate key value violates unique constraint" tells a shop assistant
-    // nothing actionable.
-    if (countErr.code === "23505") {
-      return {
-        ok: false,
-        error:
-          "A count for this warehouse already exists today. Ask a manager to " +
-          "reopen or reject it before counting again.",
-      }
+  // Lines this cycle has never had. A line for EVERY product in scope, NULL
+  // where nothing was counted, so "nobody reached this shelf" is recorded
+  // rather than being an absence somebody has to notice.
+  const toInsert = productIds
+    .filter((id) => !existing.has(id))
+    .map((id) => ({
+      count_id: countId,
+      product_id: id,
+      system_qty: systemQty.get(id) ?? 0,
+      counted_qty: offered.has(id) ? offered.get(id)! : null,
+      counted_by: offered.has(id) ? user.id : null,
+      counted_at: offered.has(id) ? now : null,
+    }))
+
+  if (toInsert.length > 0) {
+    const { error } = await supabase.from("stock_count_lines").insert(toInsert)
+    if (error) {
+      return { ok: false, error: `Could not save the count lines: ${error.message}` }
     }
-    return { ok: false, error: `Could not start the count: ${countErr.message}` }
   }
 
-  // NULL where nothing was counted. The schema already distinguishes that
-  // from a counted zero, and `variance` stays NULL rather than reading as a
-  // shortfall of the whole shelf.
-  const lines = productIds.map((productId) => ({
-    count_id: count.id,
-    product_id: productId,
-    system_qty: systemQty.get(productId) ?? 0,
-    counted_qty: productId in input.counts ? input.counts[productId] : null,
-  }))
+  // Lines that exist but were never counted. Filled one at a time rather than
+  // in an upsert: the row filter is what stops a counted line being touched,
+  // and an upsert would write over it.
+  const toFill = Array.from(offered.keys())
+    .map((id) => ({ id, row: existing.get(id), qty: offered.get(id)! }))
+    .filter((x) => x.row !== undefined && x.row.counted_qty === null)
 
-  const { error: lineErr } = await supabase.from("stock_count_lines").insert(lines)
-  if (lineErr) {
-    // Without this the header survives with no lines, and the unique
-    // constraint then blocks a retry for the rest of the day.
-    await supabase.from("stock_counts").delete().eq("id", count.id)
-    return { ok: false, error: `Could not save the count lines: ${lineErr.message}` }
+  let filled = 0
+  const refused: string[] = []
+  for (const x of toFill) {
+    const { error } = await supabase
+      .from("stock_count_lines")
+      .update({
+        counted_qty: x.qty,
+        counted_by: user.id,
+        counted_at: now,
+        // Counting something that had been skipped is a correction to the
+        // skip, not to a count — the shelf was blocked earlier and is not now.
+        skipped: false,
+        skip_reason: null,
+        skipped_by: null,
+        skipped_at: null,
+      })
+      .eq("id", x.row!.id)
+      .is("counted_qty", null)
+    if (error) refused.push(x.id)
+    else filled++
   }
+
+  if (refused.length > 0 && filled === 0 && toInsert.length === 0) {
+    return {
+      ok: false,
+      error: "Those lines have already been counted today and cannot be changed.",
+    }
+  }
+
+  // What is still outstanding across this cycle, read back rather than
+  // inferred: another KA may have counted some of it while this one was busy.
+  const { data: after } = await supabase
+    .from("stock_count_lines")
+    .select("product_id, counted_qty, skipped")
+    .eq("count_id", countId)
+    .in("product_id", productIds)
+  const outstanding = ((after ?? []) as { counted_qty: number | null; skipped: boolean }[]).filter(
+    (l) => l.counted_qty === null && !l.skipped
+  ).length
 
   revalidatePath("/count")
   revalidatePath("/count/review")
+  revalidatePath("/adjustments")
   return {
     ok: true,
-    countId: count.id,
-    linesSaved: countedIds.length,
-    linesOutstanding: lines.length - countedIds.length,
+    countId: countId as string,
+    linesSaved: filled + toInsert.filter((l) => l.counted_qty !== null).length,
+    linesOutstanding: outstanding,
+    resumed,
   }
 }

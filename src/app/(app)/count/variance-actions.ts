@@ -137,18 +137,27 @@ export async function countMissedLine(lineId: string, qty: number): Promise<Acti
 
   const { error } = await supabase
     .from("stock_count_lines")
-    .update({ counted_qty: qty, skipped: false, skip_reason: null, skipped_by: null, skipped_at: null })
+    .update({
+      counted_qty: qty,
+      counted_by: user.id,
+      counted_at: new Date().toISOString(),
+      skipped: false,
+      skip_reason: null,
+      skipped_by: null,
+      skipped_at: null,
+    })
     .eq("id", lineId)
     .is("counted_qty", null)
 
   if (error) {
     return {
       ok: false,
-      error: error.message.includes("cannot be changed")
-        ? "This line already has a count. Use “Count again” instead."
+      error: error.message.includes("already been counted")
+        ? "This line already has a count. Ask a manager for a recount instead."
         : error.message,
     }
   }
+  revalidatePath("/count")
   revalidatePath("/count/review")
   return { ok: true }
 }
