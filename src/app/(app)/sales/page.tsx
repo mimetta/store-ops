@@ -6,6 +6,7 @@ import { SHOP_STORE_TYPES } from "@/lib/branches"
 import { useProfile } from "@/lib/hooks"
 import { can } from "@/lib/permissions"
 import type { RetailBranch, Product } from "@/types/retail"
+import { bangkokToday } from "@/lib/day"
 
 // ── Payment methods ───────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ export default function SalesPage() {
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
-  const [date, setDate]                     = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate]                     = useState(bangkokToday())
   const [rows, setRows]                     = useState<SalesRow[]>([])
   const [loading, setLoading]               = useState(true)
   const [saving, setSaving]                 = useState(false)

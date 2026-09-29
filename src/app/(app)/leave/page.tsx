@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity"
 import PageHeader from "@/components/retail/PageHeader"
 import Drawer from "@/components/retail/Drawer"
 import type { LeaveRequest, LeaveType, LeaveStatus, RetailBranch } from "@/types/retail"
+import { bangkokToday } from "@/lib/day"
 
 const ANNUAL_DAYS = 10
 const SICK_DAYS = 30
@@ -34,8 +35,8 @@ interface NewLeaveForm {
 const EMPTY_FORM: NewLeaveForm = {
   leave_type: "annual",
   branch_id: "",
-  start_date: new Date().toISOString().slice(0, 10),
-  end_date: new Date().toISOString().slice(0, 10),
+  start_date: bangkokToday(),
+  end_date: bangkokToday(),
   reason: "",
 }
 
@@ -69,11 +70,10 @@ export default function LeavePage() {
   const canRequestLeave = can(profile, "leave.request")
   const canApproveLeave = can(profile, "leave.approve")
 
-  const now = new Date()
   const [tab, setTab] = useState<"requests" | "hr">("requests")
   const [branches, setBranches] = useState<RetailBranch[]>([])
   const [hrBranch, setHrBranch] = useState("")
-  const [monthYear, setMonthYear] = useState(now.toISOString().slice(0, 7))
+  const [monthYear, setMonthYear] = useState(bangkokToday().slice(0, 7))
 
   const [requests, setRequests] = useState<LeaveRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -162,8 +162,11 @@ export default function LeavePage() {
 
   useEffect(() => { if (tab === "hr") loadHRSummary() }, [tab, loadHRSummary])
 
-  const thisYear = new Date().getFullYear()
-  const thisMonth = new Date().getMonth()
+  // From the Bangkok day, not the host's: this renders on a UTC server and
+  // hydrates in Bangkok, so for seven hours either side of a month boundary
+  // the two disagree about which month "this month" is.
+  const thisYear = Number(bangkokToday().slice(0, 4))
+  const thisMonth = Number(bangkokToday().slice(5, 7)) - 1
   const ownRequests = requests.filter((r) => r.staff_id === profile?.id)
   const approvedThisYear = ownRequests.filter((r) => r.status === "approved" && new Date(r.start_date).getFullYear() === thisYear)
   const annualUsed = approvedThisYear.filter((r) => r.leave_type === "annual").reduce((s, r) => s + (r.total_days ?? 0), 0)

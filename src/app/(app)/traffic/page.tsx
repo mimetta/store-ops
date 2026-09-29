@@ -7,15 +7,13 @@ import { useProfile } from "@/lib/hooks"
 import PageHeader from "@/components/retail/PageHeader"
 import BranchSelect from "@/components/retail/BranchSelect"
 import type { RetailBranch, ShopTraffic } from "@/types/retail"
+import { bangkokToday, addDaysISO } from "@/lib/day"
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => bangkokToday()
 
 function getLast7Days(): string[] {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    return d.toISOString().slice(0, 10)
-  })
+  const end = bangkokToday()
+  return Array.from({ length: 7 }, (_, i) => addDaysISO(end, i - 6))
 }
 
 function formatDay(dateStr: string): string {

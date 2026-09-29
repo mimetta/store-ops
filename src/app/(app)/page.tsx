@@ -6,6 +6,7 @@ import { SHOP_STORE_TYPES } from "@/lib/branches"
 import { useProfile } from "@/lib/hooks"
 import { branchScope } from "@/lib/permissions"
 import type { RetailBranch } from "@/types/retail"
+import { bangkokToday } from "@/lib/day"
 
 const PAYMENT_METHODS = [
   { key: "pay_cash"     as const, label: "Cash",     color: "bg-blue-500" },
@@ -51,7 +52,7 @@ export default function RetailDashboard() {
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
-  const [date, setDate]                     = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate]                     = useState(bangkokToday())
 
   const [summary, setSummary]                     = useState<DailySummary | null>(null)
   const [unitsTotal, setUnitsTotal]               = useState(0)

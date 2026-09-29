@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activity"
 import Drawer from "@/components/retail/Drawer"
 import type { RetailBranch, ShiftType, WorkSchedule } from "@/types/retail"
 import type { Profile } from "@/types/database"
+import { ymd } from "@/lib/day"
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,10 @@ function addDays(d: Date, n: number): Date {
   return r
 }
 
-function toISO(d: Date): string { return d.toISOString().slice(0, 10) }
+// These Dates are calendar days built from local parts (new Date(y, m, d)),
+// so they are read back from local parts. Going via toISOString() moved every
+// month cell back one day, permanently — not just before 07:00.
+const toISO = ymd
 
 function formatWeekDay(d: Date): string {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric" })

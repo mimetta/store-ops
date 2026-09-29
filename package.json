@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "check:permissions": "node scripts/check-permission-drift.mjs",
-    "uat:sql": "node scripts/uat/run-sql.mjs"
+    "uat:sql": "node scripts/uat/run-sql.mjs",
+    "test:day": "tsx tests/day.test.ts",
+    "test:guard": "NODE_ENV=development tsx tests/guard.test.ts && NODE_ENV=production tsx tests/guard.test.ts",
+    "test": "npm run test:day && npm run test:guard && node scripts/check-permission-drift.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -27,6 +30,7 @@
     "pg": "^8.23.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

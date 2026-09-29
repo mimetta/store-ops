@@ -10,6 +10,7 @@ import PageHeader from "@/components/retail/PageHeader"
 import BranchSelect from "@/components/retail/BranchSelect"
 import Drawer from "@/components/retail/Drawer"
 import type { RetailBranch, CalendarEvent, EventType } from "@/types/retail"
+import { bangkokToday } from "@/lib/day"
 
 const EVENT_COLORS: Record<EventType, { bg: string; text: string; label: string }> = {
   ma_visit:    { bg: "bg-purple-500/20", text: "text-purple-300", label: "MA Visit" },
@@ -43,7 +44,7 @@ interface EventForm {
 
 const EMPTY_EVENT: EventForm = {
   title: "", event_type: "internal", branch_id: "",
-  start_date: new Date().toISOString().slice(0, 10),
+  start_date: bangkokToday(),
   end_date: "", start_time: "", end_time: "", description: "",
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { submitCount } from "./actions"
+import { bangkokToday, BUSINESS_TZ } from "@/lib/day"
 
 /**
  * Stock count entry, matching docs/store-operations-demo.html.
@@ -35,16 +36,26 @@ interface BranchOption {
   whCode: string
 }
 
-/** "24 Sep 2026" — the demo's day label. */
-function dayLabel(d = new Date()) {
+/**
+ * "24 Sep 2026" — the demo's day label.
+ *
+ * Both of these pin the timezone rather than reading the host's. This renders
+ * on the server, which runs UTC, and then hydrates in the browser, which is in
+ * Bangkok: before 07:00 an unpinned version would render one day on the server
+ * and another in the browser — the wrong date, and a hydration mismatch.
+ */
+function dayLabel(iso = bangkokToday()) {
   const M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-  return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`
+  const [y, m, d] = iso.split("-").map(Number)
+  return `${d} ${M[m - 1]} ${y}`
 }
 
+const CLOCK = new Intl.DateTimeFormat("en-GB", {
+  timeZone: BUSINESS_TZ, hour: "2-digit", minute: "2-digit", hour12: false,
+})
+
 function timeLabel(iso: string | null) {
-  if (!iso) return null
-  const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+  return iso ? CLOCK.format(new Date(iso)) : null
 }
 
 export default function CountEntry({
@@ -81,7 +92,7 @@ export default function CountEntry({
 
   // Keyed by what the count is OF, so switching branch or cycle does not
   // resurrect the wrong numbers, and a new day starts clean.
-  const draftKey = `count-draft:${warehouseId}:${cycle}:${new Date().toISOString().slice(0, 10)}`
+  const draftKey = `count-draft:${warehouseId}:${cycle}:${bangkokToday()}`
 
   const [counts, setCounts] = useState<Record<string, string>>({})
   const loaded = useRef(false)

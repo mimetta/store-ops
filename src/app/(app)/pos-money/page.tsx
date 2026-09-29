@@ -6,6 +6,7 @@ import { SHOP_STORE_TYPES } from "@/lib/branches"
 import { useProfile } from "@/lib/hooks"
 import { can } from "@/lib/permissions"
 import type { RetailBranch } from "@/types/retail"
+import { bangkokToday } from "@/lib/day"
 
 const DENOMS = [1, 5, 10, 20, 50, 100, 500, 1000] as const
 type Denom = (typeof DENOMS)[number]
@@ -38,7 +39,7 @@ export default function PosMoneyPage() {
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
-  const [date, setDate]                     = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate]                     = useState(bangkokToday())
   const [counts, setCounts]                 = useState<DenomCounts>(emptyDenoms())
   const [savedRecord, setSavedRecord]       = useState<{ total_amount: number } | null>(null)
   const [history, setHistory]               = useState<HistoryRow[]>([])

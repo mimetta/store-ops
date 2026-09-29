@@ -7,6 +7,7 @@ import { useProfile } from "@/lib/hooks"
 import { can } from "@/lib/permissions"
 import { logActivity } from "@/lib/activity"
 import type { RetailBranch, Product } from "@/types/retail"
+import { bangkokToday } from "@/lib/day"
 
 // ── Print styles ──────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export default function ConsumablesPage() {
 
   const [branches, setBranches]             = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
-  const [date, setDate]                     = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate]                     = useState(bangkokToday())
   const [rows, setRows]                     = useState<CountRow[]>([])
   const [loading, setLoading]               = useState(true)
   const [saving, setSaving]                 = useState(false)

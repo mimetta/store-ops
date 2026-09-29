@@ -7,6 +7,7 @@ import { useProfile } from "@/lib/hooks"
 import { can } from "@/lib/permissions"
 import PageHeader from "@/components/retail/PageHeader"
 import type { RetailBranch } from "@/types/retail"
+import { bangkokToday, startOfMonthISO } from "@/lib/day"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,6 @@ export default function ActivityPage() {
   // 'settings' is the closest fit — confirm or correct.
   const canViewActivity = can(profile, "settings")
 
-  const now = new Date()
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
   const [branches, setBranches] = useState<RetailBranch[]>([])
@@ -79,11 +79,11 @@ export default function ActivityPage() {
   const [moduleFilter, setModuleFilter] = useState("")
   const [userFilter, setUserFilter] = useState("")
   const [branchFilter, setBranchFilter] = useState("")
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date(now.getFullYear(), now.getMonth(), 1)
-    return d.toISOString().slice(0, 10)
-  })
-  const [endDate, setEndDate] = useState(now.toISOString().slice(0, 10))
+  // Built from the Bangkok day, not from a local-midnight Date: the latter
+  // serialises back a day and the filter opens on the last day of the
+  // previous month.
+  const [startDate, setStartDate] = useState(() => startOfMonthISO(bangkokToday()))
+  const [endDate, setEndDate] = useState(() => bangkokToday())
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   useEffect(() => {
