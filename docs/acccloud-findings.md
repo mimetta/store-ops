@@ -206,6 +206,36 @@ it rather than failing on an unknown warehouse.
 The API is the source of truth for `wh_code`: `RDWAREHOUSE`, not the
 CSV-derived `RD Warehouse`.
 
+### ⚠ Warehouse `00` cannot hold a stock level, and that is deliberate
+
+`00` (central) is in scope for *reading* balances, but it maps to no branch.
+The `check_warehouse_matches_branch()` trigger on `stock_levels` **raises** for
+any warehouse with no branch:
+
+```
+warehouse 00 is not mapped to any branch and cannot hold branch stock
+```
+
+That is the intended boundary, not a gap: store-ops manages shop-floor stock,
+and central stock belongs to AccCloud. Nothing here should ever try to move it.
+
+**Expect to hit this when the delivery-order import lands.** Central is where
+deliveries originate, so the obvious shape — "a DO moves stock from central to
+the shop" — is half unimplementable by design. The import must:
+
+- create the `deliveries` row and its `delivery_lines` from the DO, and
+- stop there. The shop side is raised by `receive_delivery()` when the KA
+  checks the box in, which writes only the receiving warehouse.
+- **never** write a `stock_levels` row for `00` to decrement central.
+
+The outgoing leg of a branch-to-branch transfer is the same boundary in the
+other direction: the sending shop *is* mapped, so that one is writable; a
+transfer from central is not.
+
+`stock_levels.warehouse_id` is `NOT NULL` as of migration `030`, so there is
+no "leave the warehouse blank" escape hatch either — a level belongs to a
+warehouse or it does not exist.
+
 ---
 
 ## Sync state
