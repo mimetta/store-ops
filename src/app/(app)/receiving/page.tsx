@@ -27,6 +27,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 }
 
 interface DeliveryRow {
+  href?: string
   id: string
   reference: string
   delivery_date: string
@@ -59,30 +60,96 @@ export default async function ReceivingPage() {
     .not("status", "in", "(received,cancelled)")
     .order("delivery_date", { ascending: true })
 
+  // One queue. 031 renamed delivery_shortages to stock_discrepancies and gave
+  // it transfer lines too, because a shortfall is the same question whichever
+  // direction the stock was moving.
   const { data: shortages } = await supabase
-    .from("delivery_shortages")
+    .from("stock_discrepancies")
     .select(`id, status, raised_at,
-             delivery_lines!inner(expected_qty, received_qty, difference, note,
+             delivery_lines(expected_qty, received_qty, difference, note,
                delivery_difference_reasons(label),
-               products!inner(sku, name, unit),
-               deliveries!inner(reference, branches(name)))`)
+               products(sku, name, unit),
+               deliveries(reference, branches(name))),
+             transfer_lines(sent_qty, received_qty, difference, note,
+               delivery_difference_reasons(label),
+               products(sku, name, unit),
+               transfers(reference, branches!transfers_from_branch_id_fkey(name)))`)
     .eq("status", "open")
     .order("raised_at", { ascending: false })
 
-  const deliveries = (open ?? []) as unknown as DeliveryRow[]
+  // Incoming transfers from other shops arrive at the same door and are
+  // confirmed the same way, so they belong in the same list rather than behind
+  // a second menu item nobody checks.
+  const { data: incoming } = await supabase
+    .from("transfers")
+    .select(`id, reference, transfer_date, status,
+             from_branch:branches!transfers_from_branch_id_fkey(name),
+             transfer_lines(count)`)
+    .eq("status", "sent")
+    .not("to_branch_id", "is", null)
+    .order("transfer_date", { ascending: true })
+
+  type IncomingRow = {
+    id: string; reference: string; transfer_date: string; status: string
+    from_branch: { name: string } | null
+    transfer_lines: { count: number }[]
+  }
+  const transfers = ((incoming ?? []) as unknown as IncomingRow[]).map((t) => ({
+    id: t.id,
+    reference: t.reference,
+    delivery_date: t.transfer_date,
+    slot: "transfer",
+    status: "in_transit",
+    branches: { name: `from ${t.from_branch?.name ?? "another shop"}` },
+    delivery_lines: t.transfer_lines,
+    href: `/receiving/transfer/${t.id}`,
+  }))
+
+  const deliveries = [
+    ...((open ?? []) as unknown as DeliveryRow[]).map((d) => ({ ...d, href: `/receiving/${d.id}` })),
+    ...transfers,
+  ].sort((a, b) => a.delivery_date.localeCompare(b.delivery_date))
   const arrivingToday = deliveries.filter((d) => d.delivery_date === today).length
 
-  type ShortRow = {
+  type LineSide = {
+    expected: number; received: number | null; difference: number | null; note: string | null
+    reason: string | null; sku: string; name: string; unit: string | null
+    reference: string; branch: string | null; kind: "Delivery" | "Transfer"
+  }
+  type RawRow = {
     id: string
     raised_at: string
-    delivery_lines: {
+    delivery_lines: null | {
       expected_qty: number; received_qty: number | null; difference: number | null; note: string | null
       delivery_difference_reasons: { label: string } | null
       products: { sku: string; name: string; unit: string | null }
       deliveries: { reference: string; branches: { name: string } | null }
     }
+    transfer_lines: null | {
+      sent_qty: number; received_qty: number | null; difference: number | null; note: string | null
+      delivery_difference_reasons: { label: string } | null
+      products: { sku: string; name: string; unit: string | null }
+      transfers: { reference: string; branches: { name: string } | null }
+    }
   }
-  const shorts = (shortages ?? []) as unknown as ShortRow[]
+  const shorts = ((shortages ?? []) as unknown as RawRow[]).flatMap((r) => {
+    const d = r.delivery_lines
+    const t = r.transfer_lines
+    const side: LineSide | null = d
+      ? { expected: d.expected_qty, received: d.received_qty, difference: d.difference,
+          note: d.note, reason: d.delivery_difference_reasons?.label ?? null,
+          sku: d.products.sku, name: d.products.name, unit: d.products.unit,
+          reference: d.deliveries.reference, branch: d.deliveries.branches?.name ?? null,
+          kind: "Delivery" }
+      : t
+        ? { expected: t.sent_qty, received: t.received_qty, difference: t.difference,
+            note: t.note, reason: t.delivery_difference_reasons?.label ?? null,
+            sku: t.products.sku, name: t.products.name, unit: t.products.unit,
+            reference: t.transfers.reference, branch: t.transfers.branches?.name ?? null,
+            kind: "Transfer" }
+        : null
+    return side ? [{ id: r.id, ...side }] : []
+  })
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -92,7 +159,8 @@ export default async function ReceivingPage() {
       </div>
 
       <div className="flex gap-2.5 mb-3.5 flex-wrap">
-        <Stat label="To receive" value={String(deliveries.length)} hint="on the way" />
+        <Stat label="To receive" value={String(deliveries.length)}
+              hint={transfers.length ? `${transfers.length} from other shops` : "on the way"} />
         <Stat label="Arriving today" value={String(arrivingToday)} hint={arrivingToday ? "check at the door" : "none today"} />
         <Stat label="Open shortages" value={String(shorts.length)} hint="with logistics"
               tone={shorts.length ? "text-danger-70" : undefined} />
@@ -100,8 +168,8 @@ export default async function ReceivingPage() {
 
       <div className="card card-pad">
         <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
-          <h2 className="text-[15px] font-medium flex-1 min-w-0">Deliveries on the way</h2>
-          <span className="text-xs text-muted">Scheduled by logistics</span>
+          <h2 className="text-[15px] font-medium flex-1 min-w-0">Arriving</h2>
+          <span className="text-xs text-muted">Deliveries and transfers in</span>
         </div>
 
         {deliveries.length === 0 ? (
@@ -114,7 +182,7 @@ export default async function ReceivingPage() {
             return (
               <Link
                 key={d.id}
-                href={`/receiving/${d.id}`}
+                href={d.href ?? `/receiving/${d.id}`}
                 className="flex items-center gap-2.5 py-3 border-t border-sand min-h-[56px]"
               >
                 <span className="shrink-0 w-[42px] rounded-lg bg-panel border border-sand text-center py-1">
@@ -125,7 +193,9 @@ export default async function ReceivingPage() {
                 <span className="flex-1 min-w-0">
                   <span className="block truncate text-ink">
                     <b className="font-medium">{d.branches?.name ?? "—"}</b>{" "}
-                    <span className="text-xs text-muted">{d.slot === "afternoon" ? "Afternoon" : "Morning"}</span>
+                    <span className="text-xs text-muted">
+                      {d.slot === "transfer" ? "Transfer" : d.slot === "afternoon" ? "Afternoon" : "Morning"}
+                    </span>
                   </span>
                   <span className="font-mono text-[11px] text-subtle">
                     {d.reference} · {lines} {lines === 1 ? "line" : "lines"}
@@ -146,22 +216,21 @@ export default async function ReceivingPage() {
 
       <div className="card card-pad mt-3">
         <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
-          <h2 className="text-[15px] font-medium flex-1 min-w-0">Shortages raised</h2>
-          <span className="text-xs text-muted">Sent to logistics</span>
+          <h2 className="text-[15px] font-medium flex-1 min-w-0">Discrepancies raised</h2>
+          <span className="text-xs text-muted">Deliveries and transfers</span>
         </div>
 
         {shorts.length === 0 ? (
           <p className="text-center py-6 px-4 text-muted text-[13px]">No shortages outstanding.</p>
         ) : (
-          shorts.map((s) => {
-            const l = s.delivery_lines
+          shorts.map((l) => {
             const over = (l.difference ?? 0) > 0
             return (
-              <div key={s.id} className="flex items-center gap-2.5 py-2.5 border-t border-sand flex-wrap">
+              <div key={l.id} className="flex items-center gap-2.5 py-2.5 border-t border-sand flex-wrap">
                 <span className="flex-1 min-w-[150px]">
-                  <span className="block truncate text-ink">{l.products.name}</span>
+                  <span className="block truncate text-ink">{l.name}</span>
                   <span className="font-mono text-[11px] text-subtle">
-                    {l.products.sku} · {l.deliveries.branches?.name} · {l.deliveries.reference}
+                    {l.sku} · {l.kind} · {l.branch} · {l.reference}
                   </span>
                   {/* Wraps rather than truncates. Logistics is the intended
                       reader of this note and was getting the worst view of it:
@@ -174,10 +243,10 @@ export default async function ReceivingPage() {
                   )}
                 </span>
                 <span className="text-[11px] px-2 py-0.5 rounded-full border bg-amber-50 text-amber-70 border-amber-60 shrink-0">
-                  {l.delivery_difference_reasons?.label ?? "Difference"}
+                  {l.reason ?? "Difference"}
                 </span>
                 <span className={`num-c text-xs w-[70px] text-right shrink-0 ${over ? "text-good-70" : "text-danger-70"}`}>
-                  {l.received_qty} / {l.expected_qty}
+                  {l.received} / {l.expected}
                 </span>
               </div>
             )

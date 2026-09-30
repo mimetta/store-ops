@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { confirmReceipt } from "../actions"
+import { confirmTransfer } from "../../transfers/actions"
 
 export interface ReceiveLine {
   lineId: string
@@ -34,9 +35,19 @@ function fmtDay(iso: string) {
   return `${d} ${MONTHS[m - 1]} ${y}`
 }
 
+/**
+ * Also serves incoming TRANSFERS. Confirming what arrived from another shop is
+ * the same job as confirming what arrived from central — same counting, same
+ * reasons, same one discrepancy queue — so it is the same screen rather than a
+ * near-copy that drifts.
+ */
 export default function ReceiveLines({
   deliveryId, reference, branchName, deliveryDate, slot, status, receivedAt, lines, reasons,
+  kind = "delivery", fromName,
 }: {
+  kind?: "delivery" | "transfer"
+  /** For a transfer: which shop sent it. */
+  fromName?: string
   deliveryId: string
   reference: string
   branchName: string
@@ -49,6 +60,8 @@ export default function ReceiveLines({
 }) {
   const router = useRouter()
   const done = status === "received"
+  const isTransfer = kind === "transfer"
+  const expectedLabel = isTransfer ? "Sent" : "Note says"
 
   const initial = useMemo(() => {
     const m: Record<string, Entry> = {}
@@ -64,7 +77,7 @@ export default function ReceiveLines({
 
   const [entries, setEntries] = useState<Record<string, Entry>>(initial)
   const [restored, setRestored] = useState(false)
-  const draftKey = `receive-draft:${deliveryId}`
+  const draftKey = `${kind}-receive-draft:${deliveryId}`
 
   // A delivery is checked at the door on a phone, one-handed, often while the
   // driver waits. Losing half a pallet's worth of entry to a dropped call is
@@ -124,14 +137,22 @@ export default function ReceiveLines({
           note: e.note.trim() || null,
         }
       })
-      const r = await confirmReceipt({ deliveryId, lines: payload })
+      const r = isTransfer
+        ? await confirmTransfer({ transferId: deliveryId, lines: payload })
+        : await confirmReceipt({ deliveryId, lines: payload })
+      // Both results carry a count of what was raised, under the name each
+      // flow uses for it.
+      const raised =
+        ("shortagesRaised" in r ? r.shortagesRaised : undefined) ??
+        ("discrepanciesRaised" in r ? r.discrepanciesRaised : undefined) ??
+        0
       if (r.ok) {
         try { window.localStorage.removeItem(draftKey) } catch {}
         setMessage({
           ok: true,
           text:
             `Received — ${r.unitsAdded} units added to stock` +
-            (r.shortagesRaised ? `, ${r.shortagesRaised} difference${r.shortagesRaised > 1 ? "s" : ""} sent to logistics.` : "."),
+            (raised ? `, ${raised} difference${raised > 1 ? "s" : ""} raised.` : "."),
         })
         router.refresh()
       } else {
@@ -143,7 +164,9 @@ export default function ReceiveLines({
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <Link href="/receiving" className="pill text-muted min-h-[44px] flex items-center">‹ Deliveries</Link>
+        <Link href="/receiving" className="pill text-muted min-h-[44px] flex items-center">
+          ‹ {isTransfer ? "Arrivals" : "Deliveries"}
+        </Link>
         <h1 className="text-[22px] font-medium font-mono">{reference}</h1>
       </div>
 
@@ -151,8 +174,9 @@ export default function ReceiveLines({
         <div className="note note-i mb-3">
           <span aria-hidden="true">i</span>
           <span>
-            Count what is in the box against the delivery note. Short lines are still
-            received — you take what arrived and raise the difference.
+            {isTransfer
+              ? `Count what is in the box against what ${fromName ?? "the other shop"} sent. Short lines are still received — you take what arrived and raise the difference.`
+              : "Count what is in the box against the delivery note. Short lines are still received — you take what arrived and raise the difference."}
           </span>
         </div>
       )}
@@ -173,7 +197,9 @@ export default function ReceiveLines({
           <div className="text-[11px] text-subtle mb-1">Branch</div>
           <div className="text-xl font-medium leading-none">{branchName}</div>
           <div className="text-[11px] text-muted mt-1">
-            {slot === "afternoon" ? "Afternoon" : "Morning"} · {fmtDay(deliveryDate)}
+            {isTransfer
+              ? `From ${fromName ?? "another shop"} · ${fmtDay(deliveryDate)}`
+              : `${slot === "afternoon" ? "Afternoon" : "Morning"} · ${fmtDay(deliveryDate)}`}
           </div>
         </div>
         <div className="stat flex-1 min-w-[132px]">
@@ -191,7 +217,9 @@ export default function ReceiveLines({
 
       <div className="card card-pad">
         <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
-          <h2 className="text-[15px] font-medium flex-1 min-w-0">Delivery note</h2>
+          <h2 className="text-[15px] font-medium flex-1 min-w-0">
+            {isTransfer ? "What was sent" : "Delivery note"}
+          </h2>
           <span className="text-xs text-muted">Expected vs arrived</span>
         </div>
 
@@ -211,7 +239,7 @@ export default function ReceiveLines({
 
               {/* The delivery note figure — shown on purpose. */}
               <span className="text-center shrink-0 px-2 py-1 rounded-lg bg-panel border border-sand">
-                <span className="block text-[10px] text-subtle leading-none">Note says</span>
+                <span className="block text-[10px] text-subtle leading-none">{expectedLabel}</span>
                 <b className="block text-[15px] num-c text-ink leading-tight">{l.expectedQty}</b>
               </span>
 
@@ -238,10 +266,10 @@ export default function ReceiveLines({
               <div className="note note-a mt-2.5 flex-col items-stretch">
                 <p className="m-0 mb-2">
                   {diff < 0
-                    ? `${Math.abs(diff)} fewer than the note says.`
-                    : `${diff} more than the note says.`}{" "}
+                    ? `${Math.abs(diff)} fewer than ${isTransfer ? "were sent" : "the note says"}.`
+                    : `${diff} more than ${isTransfer ? "were sent" : "the note says"}.`}{" "}
                   This line is received as <b className="font-medium">{got}</b> and the
-                  difference is sent to logistics.
+                  difference is raised{isTransfer ? "" : " to logistics"}.
                 </p>
                 <select
                   value={e.reason}
@@ -267,7 +295,9 @@ export default function ReceiveLines({
             )}
 
             {has && diff === 0 && !e.note.trim() && (
-              <p className="text-xs text-good-70 mt-2 mb-0">Matches the note.</p>
+              <p className="text-xs text-good-70 mt-2 mb-0">
+                {isTransfer ? "Matches what was sent." : "Matches the note."}
+              </p>
             )}
 
             {/* Their note is about to be dropped. Losing someone's typing
@@ -306,8 +336,8 @@ export default function ReceiveLines({
             </div>
           )}
           <p className="text-xs text-muted mb-2.5">
-            Confirming adds the arrived quantities to stock and raises a shortage for
-            every difference. Nothing is held back or rejected.
+            Confirming adds the arrived quantities to stock and raises a discrepancy
+            for every difference. Nothing is held back or rejected.
           </p>
           <button onClick={save} disabled={saving || !canConfirm} className="btn-primary w-full">
             {saving ? "Confirming…" : "Confirm receipt"}

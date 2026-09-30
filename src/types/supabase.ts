@@ -544,61 +544,6 @@ export type Database = {
           },
         ]
       }
-      delivery_shortages: {
-        Row: {
-          delivery_line_id: string
-          id: string
-          raised_at: string
-          raised_by: string | null
-          resolution_note: string | null
-          resolved_at: string | null
-          resolved_by: string | null
-          status: string
-        }
-        Insert: {
-          delivery_line_id: string
-          id?: string
-          raised_at?: string
-          raised_by?: string | null
-          resolution_note?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-        }
-        Update: {
-          delivery_line_id?: string
-          id?: string
-          raised_at?: string
-          raised_by?: string | null
-          resolution_note?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "delivery_shortages_delivery_line_id_fkey"
-            columns: ["delivery_line_id"]
-            isOneToOne: true
-            referencedRelation: "delivery_lines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "delivery_shortages_raised_by_fkey"
-            columns: ["raised_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "delivery_shortages_resolved_by_fkey"
-            columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       departments: {
         Row: {
           created_at: string | null
@@ -2009,6 +1954,71 @@ export type Database = {
           },
         ]
       }
+      stock_discrepancies: {
+        Row: {
+          delivery_line_id: string | null
+          id: string
+          raised_at: string
+          raised_by: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          transfer_line_id: string | null
+        }
+        Insert: {
+          delivery_line_id?: string | null
+          id?: string
+          raised_at?: string
+          raised_by?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          transfer_line_id?: string | null
+        }
+        Update: {
+          delivery_line_id?: string | null
+          id?: string
+          raised_at?: string
+          raised_by?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          transfer_line_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_shortages_delivery_line_id_fkey"
+            columns: ["delivery_line_id"]
+            isOneToOne: true
+            referencedRelation: "delivery_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_discrepancies_transfer_line_id_fkey"
+            columns: ["transfer_line_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_levels: {
         Row: {
           branch_id: string | null
@@ -2256,6 +2266,165 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_lines: {
+        Row: {
+          created_at: string
+          difference: number | null
+          id: string
+          note: string | null
+          product_id: string
+          reason_code: string | null
+          received_qty: number | null
+          sent_qty: number
+          transfer_id: string
+        }
+        Insert: {
+          created_at?: string
+          difference?: number | null
+          id?: string
+          note?: string | null
+          product_id: string
+          reason_code?: string | null
+          received_qty?: number | null
+          sent_qty: number
+          transfer_id: string
+        }
+        Update: {
+          created_at?: string
+          difference?: number | null
+          id?: string
+          note?: string | null
+          product_id?: string
+          reason_code?: string | null
+          received_qty?: number | null
+          sent_qty?: number
+          transfer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_count_policy"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "transfer_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_lines_reason_code_fkey"
+            columns: ["reason_code"]
+            isOneToOne: false
+            referencedRelation: "delivery_difference_reasons"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "transfer_lines_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfers: {
+        Row: {
+          created_at: string
+          from_branch_id: string
+          from_warehouse_id: string
+          id: string
+          note: string | null
+          received_at: string | null
+          received_by: string | null
+          reference: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          to_branch_id: string | null
+          to_warehouse_id: string
+          transfer_date: string
+        }
+        Insert: {
+          created_at?: string
+          from_branch_id: string
+          from_warehouse_id: string
+          id?: string
+          note?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          reference: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          to_branch_id?: string | null
+          to_warehouse_id: string
+          transfer_date?: string
+        }
+        Update: {
+          created_at?: string
+          from_branch_id?: string
+          from_warehouse_id?: string
+          id?: string
+          note?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          reference?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          to_branch_id?: string | null
+          to_warehouse_id?: string
+          transfer_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfers_from_branch_id_fkey"
+            columns: ["from_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_from_warehouse_id_fkey"
+            columns: ["from_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_to_branch_id_fkey"
+            columns: ["to_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_to_warehouse_id_fkey"
+            columns: ["to_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -2633,6 +2802,7 @@ export type Database = {
       }
       has_capability: { Args: { cap: string }; Returns: boolean }
       lapse_expired_shift_swap_days: { Args: never; Returns: number }
+      next_transfer_reference: { Args: never; Returns: string }
       open_count_for_today: {
         Args: { p_branch: string; p_warehouse: string }
         Returns: string
@@ -2652,6 +2822,14 @@ export type Database = {
           units_added: number
         }[]
       }
+      receive_transfer: {
+        Args: { p_transfer: string }
+        Returns: {
+          discrepancies_raised: number
+          lines_received: number
+          units_added: number
+        }[]
+      }
       reject_stock_adjustment: {
         Args: { p_adjustment: string; p_reason?: string }
         Returns: undefined
@@ -2662,6 +2840,14 @@ export type Database = {
         Returns: undefined
       }
       sees_all_branches: { Args: never; Returns: boolean }
+      send_transfer: {
+        Args: { p_transfer: string }
+        Returns: {
+          lines_sent: number
+          terminal: boolean
+          units_sent: number
+        }[]
+      }
       shift_swap_day_is_lapsed: {
         Args: { d: Database["public"]["Tables"]["shift_swap_days"]["Row"] }
         Returns: boolean

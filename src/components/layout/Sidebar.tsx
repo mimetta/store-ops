@@ -34,6 +34,7 @@ function Icon({ d }: { d: string }) {
 const HOME_ICON       = "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10"
 const DIFF_ICON       = "M12 9v4 M12 17h.01 M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
 const ADJUST_ICON     = "M12 20h9 M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"
+const TRANSFER_ICON    = "M7 16V4m0 0L3 8m4-4l4 4 M17 8v12m0 0l4-4m-4 4l-4-4"
 const RECEIVE_ICON     = "M21 8v13H3V8 M1 3h22v5H1z M10 12h4"
 const COUNT_ICON      = "M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"
 const STOCK_ICON      = "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"
@@ -59,6 +60,7 @@ const SALES_ITEMS: NavItem[] = [
 
 const STOCK_ITEMS: NavItem[] = [
   { label: "Receiving",            href: "/receiving",    icon: <Icon d={RECEIVE_ICON} />, needs: ["receiving", "delivery.schedule"] },
+  { label: "Transfers",            href: "/transfers",    icon: <Icon d={TRANSFER_ICON} />, needs: ["transfers"] },
   { label: "Stock count",          href: "/count",        icon: <Icon d={COUNT_ICON} />,   needs: ["stock.count"] },
   { label: "Differences to check", href: "/count/review", icon: <Icon d={DIFF_ICON} />,    needs: ["stock.count"] },
   { label: "Stock adjustments",    href: "/adjustments",  icon: <Icon d={ADJUST_ICON} />,  needs: ["stock.adjustment.approve"] },
