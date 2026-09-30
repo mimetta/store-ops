@@ -266,8 +266,29 @@ export default function ReceiveLines({
               </div>
             )}
 
-            {has && diff === 0 && (
+            {has && diff === 0 && !e.note.trim() && (
               <p className="text-xs text-good-70 mt-2 mb-0">Matches the note.</p>
+            )}
+
+            {/* Their note is about to be dropped. Losing someone's typing
+                without a word teaches them the system is unreliable, so say
+                it plainly and show the text back while they can still copy
+                it or re-check the quantity. */}
+            {has && diff === 0 && !!e.note.trim() && (
+              <div className="note note-a mt-2.5 flex-col items-stretch">
+                <p className="m-0 mb-1.5">
+                  This line matches now, so it raises no shortage — and your note
+                  goes to logistics <em>with</em> a difference. It will not be saved.
+                </p>
+                <p className="m-0 mb-2 text-ink break-words">&ldquo;{e.note.trim()}&rdquo;</p>
+                <button
+                  type="button"
+                  onClick={() => set(l.lineId, { note: "" })}
+                  className="pill min-h-[38px] self-start text-muted"
+                >
+                  Discard it
+                </button>
+              </div>
             )}
           </div>
         ))}

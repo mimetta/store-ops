@@ -83,7 +83,11 @@ export async function confirmReceipt(input: {
       .update({
         received_qty: l.receivedQty,
         reason_code: l.receivedQty !== null && l.receivedQty !== expected ? l.reasonCode : null,
-        note: l.note,
+        // Dropped with the reason when the line ends up matching. The field is
+        // "Note for logistics", and a line that matches raises no shortage, so
+        // the note would reach nobody — stored and rendered nowhere is worse
+        // than not collecting it. The screen warns before this happens.
+        note: l.receivedQty !== null && l.receivedQty !== expected ? l.note : null,
       })
       .eq("id", l.lineId)
       .eq("delivery_id", input.deliveryId)

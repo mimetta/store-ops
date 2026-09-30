@@ -163,7 +163,15 @@ export default async function ReceivingPage() {
                   <span className="font-mono text-[11px] text-subtle">
                     {l.products.sku} · {l.deliveries.branches?.name} · {l.deliveries.reference}
                   </span>
-                  {l.note && <span className="block text-[11px] text-muted truncate">{l.note}</span>}
+                  {/* Wraps rather than truncates. Logistics is the intended
+                      reader of this note and was getting the worst view of it:
+                      one clipped line here, full text only on the delivery
+                      screen they have no reason to open. */}
+                  {l.note && (
+                    <span className="block text-[11px] text-muted mt-0.5 break-words whitespace-pre-line">
+                      {l.note}
+                    </span>
+                  )}
                 </span>
                 <span className="text-[11px] px-2 py-0.5 rounded-full border bg-amber-50 text-amber-70 border-amber-60 shrink-0">
                   {l.delivery_difference_reasons?.label ?? "Difference"}
