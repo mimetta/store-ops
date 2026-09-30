@@ -7,6 +7,7 @@ import { useProfile } from "@/lib/hooks"
 import { can } from "@/lib/permissions"
 import type { RetailBranch, Product } from "@/types/retail"
 import { bangkokToday } from "@/lib/day"
+import { warehouseForBranch, NO_WAREHOUSE_MESSAGE } from "@/lib/warehouse"
 
 // ── Payment methods ───────────────────────────────────────────────────────────
 
@@ -149,6 +150,10 @@ export default function SalesPage() {
     if (!profile || !selectedBranch) return
     setSaving(true)
     const sb = createClient()
+    // Since 014 a stock level belongs to a warehouse, not a branch. A branch
+    // with no warehouse holds no stock of ours, so there is nothing to move.
+    const warehouseId = await warehouseForBranch(sb, selectedBranch)
+    if (!warehouseId) { showToast(NO_WAREHOUSE_MESSAGE); setSaving(false); return }
     const toSave = rows.filter((r) => r.changed && r.unitsSold !== "")
     const errors: string[] = []
 
@@ -175,8 +180,8 @@ export default function SalesPage() {
         .eq("product_id", r.product.id).eq("branch_id", selectedBranch).maybeSingle()
       const current = sl?.quantity ?? 0
       await sb.from("stock_levels").upsert(
-        { product_id: r.product.id, branch_id: selectedBranch, quantity: Math.max(0, current - delta) },
-        { onConflict: "product_id,branch_id" }
+        { product_id: r.product.id, warehouse_id: warehouseId, quantity: Math.max(0, current - delta) },
+        { onConflict: "product_id,warehouse_id" }
       )
     }))
 
@@ -193,6 +198,8 @@ export default function SalesPage() {
     if (!profile || !selectedBranch || !row.savedUnits) return
     setReversing(row.product.id)
     const sb = createClient()
+    const warehouseId = await warehouseForBranch(sb, selectedBranch)
+    if (!warehouseId) { showToast(NO_WAREHOUSE_MESSAGE); return }
 
     const { data: sl } = await sb.from("stock_levels").select("quantity")
       .eq("product_id", row.product.id).eq("branch_id", selectedBranch).maybeSingle()
@@ -200,8 +207,8 @@ export default function SalesPage() {
 
     const [r1, r2] = await Promise.all([
       sb.from("stock_levels").upsert(
-        { product_id: row.product.id, branch_id: selectedBranch, quantity: current + row.savedUnits },
-        { onConflict: "product_id,branch_id" }
+        { product_id: row.product.id, warehouse_id: warehouseId, quantity: current + row.savedUnits },
+        { onConflict: "product_id,warehouse_id" }
       ),
       sb.from("sales_records").upsert(
         { branch_id: selectedBranch, product_id: row.product.id, sale_date: date, units_sold: 0, recorded_by: profile.id },

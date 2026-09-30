@@ -178,39 +178,57 @@ export default function ReportsPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const totalTraffic = traffic.reduce((s, t) => s + t.thai_count + t.foreigner_count, 0)
-  const totalThai = traffic.reduce((s, t) => s + t.thai_count, 0)
-  const totalForeign = traffic.reduce((s, t) => s + t.foreigner_count, 0)
-  const avgPerDay = traffic.length > 0 ? Math.round(totalTraffic / traffic.length) : 0
+  // 010 turned shop_traffic into one row per nationality. "Thai" is the row
+  // named thai; everything else is foreign, so a nationality added later
+  // (chinese, japanese) counts as foreign without this needing to know it.
+  const isThai = (t: ShopTraffic) => t.nationality === "thai"
+  const totalTraffic = traffic.reduce((s, t) => s + t.visitor_count, 0)
+  const totalThai = traffic.reduce((s, t) => s + (isThai(t) ? t.visitor_count : 0), 0)
+  const totalForeign = totalTraffic - totalThai
+  // A day is several rows now, so "recorded days" must count distinct dates
+  // rather than rows, or the average is divided by the number of nationalities.
+  const recordedDays = new Set(traffic.map((t) => t.date)).size
+  const avgPerDay = recordedDays > 0 ? Math.round(totalTraffic / recordedDays) : 0
   const foreignPct = totalTraffic > 0 ? Math.round((totalForeign / totalTraffic) * 100) : 0
 
   const stats: StatCard[] = [
     { label: "Total Visitors", value: totalTraffic.toLocaleString(), sub: "This period", color: "text-white" },
-    { label: "Avg / Day", value: String(avgPerDay), sub: `Over ${traffic.length} recorded days`, color: "text-blue-400" },
+    { label: "Avg / Day", value: String(avgPerDay), sub: `Over ${recordedDays} recorded days`, color: "text-blue-400" },
     { label: "Foreign Visitors", value: `${foreignPct}%`, sub: `${totalForeign.toLocaleString()} total`, color: "text-emerald-400" },
     { label: "Thai Visitors", value: `${totalThai.toLocaleString()}`, sub: `${100 - foreignPct}% of total`, color: "text-amber-400" },
   ]
 
   const dailyData = last7.map((d) => {
     const rows = traffic.filter((t) => t.date === d)
-    return { date: d, total: rows.reduce((s, t) => s + t.thai_count + t.foreigner_count, 0) }
+    return { date: d, total: rows.reduce((s, t) => s + t.visitor_count, 0) }
   })
   const dailyMax = Math.max(...dailyData.map((d) => d.total), 1)
 
   const branchData = branches.map((b) => {
     const rows = traffic.filter((t) => t.branch_id === b.id)
-    const thai = rows.reduce((s, t) => s + t.thai_count, 0)
-    const foreign = rows.reduce((s, t) => s + t.foreigner_count, 0)
+    const thai = rows.reduce((s, t) => s + (isThai(t) ? t.visitor_count : 0), 0)
+    const foreign = rows.reduce((s, t) => s + (isThai(t) ? 0 : t.visitor_count), 0)
     return { name: b.name, thai, foreign, total: thai + foreign }
   }).filter((b) => b.total > 0).sort((a, z) => z.total - a.total)
   const branchMax = Math.max(...branchData.map((b) => b.total), 1)
 
   function exportCSV() {
+    // One line per branch-day, summed across the nationality rows, so the
+    // export keeps the shape people already read rather than exposing the
+    // storage change to a spreadsheet.
     const header = "Date,Branch,Thai,Foreign,Total"
-    const rows = traffic.map((t) => {
+    const byDay = new Map<string, { date: string; branch: string; thai: number; foreign: number }>()
+    for (const t of traffic) {
       const branch = branches.find((b) => b.id === t.branch_id)?.name ?? t.branch_id
-      return `${t.date},${branch},${t.thai_count},${t.foreigner_count},${t.thai_count + t.foreigner_count}`
-    })
+      const key = `${t.date}|${branch}`
+      const row = byDay.get(key) ?? { date: t.date, branch, thai: 0, foreign: 0 }
+      if (isThai(t)) row.thai += t.visitor_count
+      else row.foreign += t.visitor_count
+      byDay.set(key, row)
+    }
+    const rows = Array.from(byDay.values())
+      .sort((a, z) => (a.date === z.date ? a.branch.localeCompare(z.branch) : a.date.localeCompare(z.date)))
+      .map((r) => `${r.date},${r.branch},${r.thai},${r.foreign},${r.thai + r.foreign}`)
     const csv = [header, ...rows].join("\n")
     const a = document.createElement("a")
     a.href = "data:text/csv," + encodeURIComponent(csv)

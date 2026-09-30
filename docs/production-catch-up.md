@@ -123,15 +123,23 @@ they scope by `warehouse_id` and never use that conflict target.
 
 Options, in the order I would consider them:
 
-1. **Retire the affected screens first.** All seven kcp-portal sites are under
-   `/retail/*`, which store-ops replaces. If store-ops is live for those
-   functions, fix only store-ops' seven and let kcp-portal's retail section be
-   switched off in the same window.
-2. **Fix both apps' write sites before `014`.** Each upsert gains a
-   `warehouse_id` and targets `(product_id, warehouse_id)`. kcp-portal changes
-   go via a pull request.
-3. Do not sequence `014` before one of the above. There is no ordering of the
-   migrations alone that avoids this.
+**store-ops' side is fixed.** All seven now resolve the branch's default
+in-scope warehouse and target `(product_id, warehouse_id)`; a branch with no
+warehouse gets a plain message instead of a failed write. The paired
+`stock_movements` inserts now carry `warehouse_id` too, which they never did —
+without it those movements were invisible to the chain, which filters on it.
+
+**kcp-portal's seven are deliberately NOT fixed, and that blocks `014`.** They
+are all under `/retail/*`, which store-ops replaces, so fixing screens intended
+for retirement may be wasted work. The decision is the retirement timing, not
+the code. Until one of these is true, `014` cannot go to production:
+
+1. **kcp-portal's retail section is switched off**, in or before the same
+   window — the preferred route, since the work is thrown away otherwise; or
+2. **kcp-portal's seven write sites are fixed** by pull request, gaining a
+   `warehouse_id` and the new conflict target.
+
+There is no ordering of the migrations alone that avoids this.
 
 `014` also adds `warehouse_id` as nullable **and does not backfill it**, so
 every pre-existing production row gets `NULL`. That is what `030` then has to

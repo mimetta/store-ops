@@ -59,12 +59,20 @@ export interface StockMovement {
   created_at: string
 }
 
+/**
+ * One row per branch, per day, PER NATIONALITY — reshaped by migration 010.
+ *
+ * This interface still described the old two-column shape long after the table
+ * changed, which is why the compiler was happy to let the traffic screen read
+ * `thai_count` from a row that has no such column. A type that lies about the
+ * schema is worse than no type: it converts a loud failure into a silent one.
+ */
 export interface ShopTraffic {
   id: string
   branch_id: string
   date: string
-  thai_count: number
-  foreigner_count: number
+  nationality: string
+  visitor_count: number
   notes: string | null
   submitted_by: string | null
   created_at: string

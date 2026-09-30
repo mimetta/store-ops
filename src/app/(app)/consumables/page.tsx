@@ -8,6 +8,7 @@ import { can } from "@/lib/permissions"
 import { logActivity } from "@/lib/activity"
 import type { RetailBranch, Product } from "@/types/retail"
 import { bangkokToday } from "@/lib/day"
+import { warehouseForBranch, NO_WAREHOUSE_MESSAGE } from "@/lib/warehouse"
 
 // ── Print styles ──────────────────────────────────────────────────────────────
 
@@ -120,6 +121,10 @@ export default function ConsumablesPage() {
   async function handleSave() {
     if (!profile || !selectedBranch) return
     setSaving(true)
+    // A branch with no warehouse cannot hold stock of ours, and since 014 the
+    // database will refuse the row rather than store it loosely.
+    const warehouseId = await warehouseForBranch(supabase, selectedBranch)
+    if (!warehouseId) { showToast(NO_WAREHOUSE_MESSAGE); setSaving(false); return }
     const toSave = rows.filter((r) => r.changed && r.todayQty !== "")
     await Promise.all(toSave.map(async (r) => {
       const qty = parseInt(r.todayQty)
@@ -128,6 +133,7 @@ export default function ConsumablesPage() {
         supabase.from("stock_movements").insert({
           product_id: r.product.id,
           branch_id: selectedBranch,
+          warehouse_id: warehouseId,
           movement_type: "adjustment",
           quantity: qty,
           reference: `Count sheet ${date}`,
@@ -136,10 +142,10 @@ export default function ConsumablesPage() {
         }),
         supabase.from("stock_levels").upsert({
           product_id: r.product.id,
-          branch_id: selectedBranch,
+          warehouse_id: warehouseId,
           quantity: qty,
           updated_at: new Date().toISOString(),
-        }, { onConflict: "product_id,branch_id" }),
+        }, { onConflict: "product_id,warehouse_id" }),
       ])
     }))
     void logActivity({

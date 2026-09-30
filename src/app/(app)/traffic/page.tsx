@@ -11,6 +11,11 @@ import { bangkokToday, addDaysISO } from "@/lib/day"
 
 const today = () => bangkokToday()
 
+// The two buckets this screen records. shop_traffic can hold any nationality —
+// 010 seeds thai/chinese/other — but the door count is only ever these two.
+const THAI = "thai"
+const FOREIGN = "foreign"
+
 function getLast7Days(): string[] {
   const end = bangkokToday()
   return Array.from({ length: 7 }, (_, i) => addDaysISO(end, i - 6))
@@ -69,20 +74,15 @@ export default function TrafficPage() {
     if (!selectedBranch || !date) return
     supabase
       .from("shop_traffic")
-      .select("*")
+      .select("nationality, visitor_count, notes")
       .eq("branch_id", selectedBranch)
       .eq("date", date)
-      .single()
       .then(({ data }) => {
-        if (data) {
-          setThaiCount(String(data.thai_count))
-          setForeignCount(String(data.foreigner_count))
-          setNotes(data.notes ?? "")
-        } else {
-          setThaiCount("")
-          setForeignCount("")
-          setNotes("")
-        }
+        const rows = (data ?? []) as { nationality: string; visitor_count: number; notes: string | null }[]
+        const of = (n: string) => rows.find((r) => r.nationality === n)
+        setThaiCount(of(THAI) ? String(of(THAI)!.visitor_count) : "")
+        setForeignCount(of(FOREIGN) ? String(of(FOREIGN)!.visitor_count) : "")
+        setNotes(rows.find((r) => r.notes)?.notes ?? "")
       })
   }, [selectedBranch, date])
 
@@ -91,14 +91,26 @@ export default function TrafficPage() {
     if (!selectedBranch) { setSubmitMsg({ type: "err", text: "Please select a branch." }); return }
     setSubmitting(true)
     setSubmitMsg(null)
-    const { error } = await supabase.from("shop_traffic").upsert({
-      branch_id: selectedBranch,
-      date,
-      thai_count: thai,
-      foreigner_count: foreign,
-      notes: notes || null,
-      submitted_by: profile?.id,
-    }, { onConflict: "branch_id,date" })
+    // Two rows, not two columns. Traffic is Thai versus foreign only — country
+    // detail is collected on bills, where the customer is at the counter.
+    const { error } = await supabase.from("shop_traffic").upsert([
+      {
+        branch_id: selectedBranch,
+        date,
+        nationality: THAI,
+        visitor_count: thai,
+        notes: notes || null,
+        submitted_by: profile?.id,
+      },
+      {
+        branch_id: selectedBranch,
+        date,
+        nationality: FOREIGN,
+        visitor_count: foreign,
+        notes: null,
+        submitted_by: profile?.id,
+      },
+    ], { onConflict: "branch_id,date,nationality" })
     if (error) {
       setSubmitMsg({ type: "err", text: error.message })
     } else {
@@ -109,10 +121,14 @@ export default function TrafficPage() {
   }
 
   // Build summary: branch × day grid
-  const trafficMap: Record<string, Record<string, ShopTraffic>> = {}
+  // 010 turned shop_traffic into one row per nationality, so a branch-day is
+  // now several rows and its total is their sum — not a single row's two
+  // columns, which no longer exist.
+  const trafficMap: Record<string, Record<string, number>> = {}
   weeklyData.forEach((t) => {
     if (!trafficMap[t.branch_id]) trafficMap[t.branch_id] = {}
-    trafficMap[t.branch_id][t.date] = t
+    const day = trafficMap[t.branch_id]
+    day[t.date] = (day[t.date] ?? 0) + (t.visitor_count ?? 0)
   })
 
   return (
@@ -215,16 +231,12 @@ export default function TrafficPage() {
                 <tbody>
                   {branches.map((branch) => {
                     const bData = trafficMap[branch.id] ?? {}
-                    const rowTotal = last7.reduce((sum, d) => {
-                      const t = bData[d]
-                      return sum + (t ? t.thai_count + t.foreigner_count : 0)
-                    }, 0)
+                    const rowTotal = last7.reduce((sum, d) => sum + (bData[d] ?? 0), 0)
                     return (
                       <tr key={branch.id} className="border-b border-brand-800 hover:bg-brand-800/40 transition-colors">
                         <td className="px-4 py-2.5 text-white font-medium">{branch.name}</td>
                         {last7.map((d) => {
-                          const t = bData[d]
-                          const dayTotal = t ? t.thai_count + t.foreigner_count : null
+                          const dayTotal = bData[d] ?? null
                           return (
                             <td key={d} className="text-center px-2 py-2.5">
                               {dayTotal !== null ? (

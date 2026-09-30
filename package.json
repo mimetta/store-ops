@@ -11,7 +11,8 @@
     "uat:sql": "node scripts/uat/run-sql.mjs",
     "test:day": "tsx tests/day.test.ts",
     "test:guard": "NODE_ENV=development tsx tests/guard.test.ts && NODE_ENV=production tsx tests/guard.test.ts",
-    "test": "npm run test:day && npm run test:guard && node scripts/check-permission-drift.mjs"
+    "test": "npm run test:day && npm run test:guard && node scripts/check-permission-drift.mjs && npm run check:write-paths",
+    "check:write-paths": "node scripts/uat/check-write-paths.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

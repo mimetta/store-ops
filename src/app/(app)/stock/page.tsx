@@ -8,6 +8,7 @@ import { can } from "@/lib/permissions"
 import { logActivity } from "@/lib/activity"
 import type { RetailBranch, Product } from "@/types/retail"
 import { bangkokToday } from "@/lib/day"
+import { warehouseForBranch, NO_WAREHOUSE_MESSAGE } from "@/lib/warehouse"
 
 // ── Print styles ──────────────────────────────────────────────────────────────
 
@@ -293,6 +294,10 @@ export default function StockPage() {
     if (!profile || !selectedBranch) return
     setSaving(true)
     const sb = createClient()
+    // A branch with no warehouse cannot hold stock of ours, and since 014 the
+    // database will refuse the row rather than store it loosely.
+    const warehouseId = await warehouseForBranch(sb, selectedBranch)
+    if (!warehouseId) { showToast(NO_WAREHOUSE_MESSAGE, "warn"); setSaving(false); return }
     const toSave = rows.filter((r) => r.changed && r.todayQty !== "")
     await Promise.all(toSave.map(async (r) => {
       const qty = parseInt(r.todayQty)
@@ -301,6 +306,7 @@ export default function StockPage() {
         sb.from("stock_movements").insert({
           product_id: r.product.id,
           branch_id: selectedBranch,
+          warehouse_id: warehouseId,
           movement_type: "adjustment",
           quantity: qty,
           reference: `Count sheet ${date}`,
@@ -309,10 +315,10 @@ export default function StockPage() {
         }),
         sb.from("stock_levels").upsert({
           product_id: r.product.id,
-          branch_id: selectedBranch,
+          warehouse_id: warehouseId,
           quantity: qty,
           updated_at: new Date().toISOString(),
-        }, { onConflict: "product_id,branch_id" }),
+        }, { onConflict: "product_id,warehouse_id" }),
       ])
     }))
     void logActivity({
@@ -363,6 +369,8 @@ export default function StockPage() {
   }
 
   async function handleApprove(w: WithdrawalRow) {
+    const warehouseId = await warehouseForBranch(createClient(), selectedBranch)
+    if (!warehouseId) { showToast(NO_WAREHOUSE_MESSAGE, "warn"); return }
     if (!profile) return
     const sb = createClient()
     const { data: sl } = await sb.from("stock_levels").select("quantity").eq("product_id", w.product_id).eq("branch_id", selectedBranch).maybeSingle()
@@ -370,8 +378,8 @@ export default function StockPage() {
     const [r1] = await Promise.all([
       sb.from("fg_stock_withdrawals").update({ status: "approved", approved_by: profile.id }).eq("id", w.id),
       sb.from("stock_levels").upsert(
-        { product_id: w.product_id, branch_id: selectedBranch, quantity: Math.max(0, current - w.quantity) },
-        { onConflict: "product_id,branch_id" }
+        { product_id: w.product_id, warehouse_id: warehouseId, quantity: Math.max(0, current - w.quantity) },
+        { onConflict: "product_id,warehouse_id" }
       ),
       sb.from("stock_movements").insert({
         product_id: w.product_id,

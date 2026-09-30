@@ -9,6 +9,7 @@ import PageHeader from "@/components/retail/PageHeader"
 import Drawer from "@/components/retail/Drawer"
 import { logActivity } from "@/lib/activity"
 import type { RetailBranch, Product, Supplier } from "@/types/retail"
+import { warehousesByBranch, NO_WAREHOUSE_MESSAGE } from "@/lib/warehouse"
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 
@@ -570,8 +571,25 @@ function StockLevelsTab({ toast }: { toast: (t: "ok" | "err", m: string) => void
         }
       })
     })
-    const { error } = await supabase.from("stock_levels").upsert(upserts, { onConflict: "product_id,branch_id" })
-    if (error) { toast("err", error.message) } else { toast("ok", `Saved ${upserts.length} stock level entries.`) }
+    // Rows for branches with no warehouse are dropped rather than sent: the
+    // database refuses them, and one such row would fail the whole batch.
+    const whMap = await warehousesByBranch(supabase)
+    const writable = upserts.flatMap((u) => {
+      const warehouseId = whMap.get(u.branch_id)
+      if (!warehouseId) return []
+      // branch_id is dropped: the consistency trigger derives it from the
+      // warehouse, and sending both invites them to disagree.
+      const { branch_id: _drop, ...rest } = u
+      void _drop
+      return [{ ...rest, warehouse_id: warehouseId }]
+    })
+    const dropped = upserts.length - writable.length
+    if (writable.length === 0) { toast("err", NO_WAREHOUSE_MESSAGE); setSaving(false); return }
+    const { error } = await supabase.from("stock_levels").upsert(writable, { onConflict: "product_id,warehouse_id" })
+    if (error) { toast("err", error.message) } else {
+      toast("ok", `Saved ${writable.length} stock level entries.` +
+        (dropped ? ` ${dropped} skipped — those branches hold no stock of ours.` : ""))
+    }
     setSaving(false)
   }
 
@@ -623,11 +641,24 @@ function StockLevelsTab({ toast }: { toast: (t: "ok" | "err", m: string) => void
       minimum_override: r.minimum !== "" ? parseInt(r.minimum) || null : null,
       updated_at: new Date().toISOString(),
     }))
-    const { error } = await supabase.from("stock_levels").upsert(upserts, { onConflict: "product_id,branch_id" })
+    const whMap = await warehousesByBranch(supabase)
+    const writable = upserts.flatMap((u) => {
+      const warehouseId = whMap.get(u.branch_id)
+      if (!warehouseId) return []
+      // branch_id is dropped: the consistency trigger derives it from the
+      // warehouse, and sending both invites them to disagree.
+      const { branch_id: _drop, ...rest } = u
+      void _drop
+      return [{ ...rest, warehouse_id: warehouseId }]
+    })
+    const noWarehouse = upserts.length - writable.length
+    if (writable.length === 0) { toast("err", NO_WAREHOUSE_MESSAGE); setImporting(false); return }
+    const { error } = await supabase.from("stock_levels").upsert(writable, { onConflict: "product_id,warehouse_id" })
     if (error) {
       toast("err", error.message)
     } else {
-      toast("ok", `Imported ${valid.length} rows.${skipped > 0 ? ` ${skipped} skipped (not found).` : ""}`)
+      toast("ok", `Imported ${writable.length} rows.${skipped > 0 ? ` ${skipped} skipped (not found).` : ""}` +
+        (noWarehouse ? ` ${noWarehouse} skipped — branch holds no stock of ours.` : ""))
       setImportResult({ ok: valid.length, skipped })
       setCsvPreview(null)
       setLoadKey((k) => k + 1)
