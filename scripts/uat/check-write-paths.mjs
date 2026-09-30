@@ -281,9 +281,16 @@ console.log(
 );
 
 if (unverifiable.length) {
-  console.log(`\n${unverifiable.length} not fully verifiable (dynamic payloads):`);
-  for (const u of unverifiable.slice(0, 10)) console.log(`  · ${u}`);
-  if (unverifiable.length > 10) console.log(`  · …and ${unverifiable.length - 10} more`);
+  // Listed in full, never truncated. A count tells you how much is uncovered;
+  // only the list tells you WHICH screens have no coverage, which is the thing
+  // worth knowing when a schema change lands.
+  console.log(`\n${unverifiable.length} write path(s) NOT covered — payload assembled at runtime:`);
+  for (const u of unverifiable) console.log(`  · ${u}`);
+  console.log(
+    "\n  These are checked for table and onConflict only. Their columns cannot be\n" +
+    "  read statically, so a rename or a dropped column in one of these tables\n" +
+    "  would not be caught here."
+  );
 }
 
 if (problems.length) {

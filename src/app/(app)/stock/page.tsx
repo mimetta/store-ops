@@ -217,9 +217,16 @@ export default function StockPage() {
     if (!trimmed) return
     setScanValue("")
 
-    const found = rowsRef.current.find((r) => r.product.barcode === trimmed)
+    // Barcodes are not recorded anywhere yet — `products` has no such column,
+    // and the Product type claimed one for long enough that this scanner has
+    // always failed to match while reporting "not found", which reads as bad
+    // data rather than a missing feature. Match on the product code instead,
+    // which IS stored and is what most scanners read off these labels.
+    const found = rowsRef.current.find(
+      (r) => r.product.sku.toLowerCase() === trimmed.toLowerCase()
+    )
     if (!found) {
-      showToast(`⚠️ Barcode not found: ${trimmed}`, "warn")
+      showToast(`⚠️ No product with code ${trimmed}`, "warn")
       setTimeout(() => scanInputRef.current?.focus(), 50)
       return
     }
@@ -657,7 +664,7 @@ export default function StockPage() {
                   <td className="px-4 py-2.5 font-mono text-xs text-brand-400 whitespace-nowrap">{r.product.sku}</td>
                   {showBarcode && (
                     <td className="px-4 py-2.5 font-mono text-xs text-brand-500 whitespace-nowrap">
-                      {r.product.barcode ?? <span className="text-brand-700">—</span>}
+                      {r.product.sku}
                     </td>
                   )}
                   <td className="px-4 py-2.5 text-white font-medium">{r.product.name}</td>

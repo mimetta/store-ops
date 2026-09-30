@@ -1,4 +1,9 @@
-export type PortalRole = 'superadmin' | 'admin' | 'manager' | 'staff' | 'inactive'
+// Must match the profiles.portal_role check constraint — verified by
+// scripts/uat/check-type-drift.mjs. `staff` is retained because 003 kept it
+// for rows that predate 005's migration to `ka`; it grants nothing.
+export type PortalRole =
+  | 'superadmin' | 'admin' | 'manager' | 'supervisor' | 'ka'
+  | 'logistics' | 'people' | 'marketing' | 'staff' | 'inactive'
 export type EmploymentType = 'full_time' | 'part_time' | 'contract' | 'intern'
 export type ServiceStatus = 'active' | 'building' | 'planned' | 'maintenance'
 export type ServiceOpenIn = 'iframe' | 'link' | 'native'

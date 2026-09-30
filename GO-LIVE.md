@@ -34,6 +34,8 @@ UAT is **store-ops-uat** (`jgijsurgbciuopicqceo`).
 | D4 | **Set the real store types** | `011` set them from the confirmed list, `012` added `office`. Verify against the business before commission reads `store_type` — a consignment branch weighted as an own store is wrong in a way that first appears in a payslip. | ☐ |
 | D5 | **Phase 2 reconciliation covers Song Wat and Talat Noi only** | The consignment branches hold no AccCloud warehouse because the partner holds the stock. `branch_has_erp_balance()` answers this per branch; a variance report that assumes otherwise reports four branches as 100% variant and buries the two where a variance means something. | ☐ |
 
+| D6 | **The stock screen's barcode scanner matched a column that never existed** | `Product` declared `barcode`; `products` has no such column, so every scan reported "Barcode not found" — which reads as bad data rather than a missing feature. The scanner now matches on `sku`, which is stored and is what these labels carry. If real barcodes are wanted they are ours to own, like units: a column, a way to enter them, and a decision about what happens to the ~770 products that have none. | ☐ |
+
 ## 3. Security
 
 | # | Item | Why | Status |

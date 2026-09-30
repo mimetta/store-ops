@@ -23,7 +23,10 @@ export interface Product {
   id: string
   sku: string
   name: string
-  barcode: string | null
+  // `barcode` used to be declared here. There is no such column on products —
+  // barcodes are ours to own and have never been built — so every read of it
+  // returned undefined and the stock screen's scanner could never match.
+  // See GO-LIVE D6.
   category: string | null
   unit: string
   type: ProductType | null
@@ -37,6 +40,9 @@ export interface Product {
 }
 
 export interface StockLevel {
+  /** Since 014 this, not branch_id, is what a level belongs to. */
+  warehouse_id: string
+  minimum_override: number | null
   id: string
   product_id: string
   branch_id: string
@@ -48,6 +54,8 @@ export interface StockLevel {
 
 export type MovementType = 'in' | 'out' | 'adjustment'
 export interface StockMovement {
+  /** Since 014. The movement chain filters on it and skips a NULL silently. */
+  warehouse_id: string | null
   id: string
   product_id: string
   branch_id: string
