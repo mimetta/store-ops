@@ -11,11 +11,13 @@
     "uat:sql": "node scripts/uat/run-sql.mjs",
     "test:day": "tsx tests/day.test.ts",
     "test:guard": "NODE_ENV=development tsx tests/guard.test.ts && NODE_ENV=production tsx tests/guard.test.ts",
-    "test": "npm run test:day && npm run test:guard && npm run test:import && node scripts/check-permission-drift.mjs && npm run check:write-paths && npm run check:types",
+    "test": "npm run test:day && npm run test:guard && npm run test:import && npm run test:adapos && npm run test:filename && node scripts/check-permission-drift.mjs && npm run check:write-paths && npm run check:types",
     "check:write-paths": "node scripts/uat/check-write-paths.mjs",
     "types:generate": "scripts/uat/gen-types.sh",
     "check:types": "scripts/uat/gen-types.sh --check && node scripts/uat/check-type-drift.mjs",
-    "test:import": "NODE_OPTIONS=--conditions=react-server tsx tests/sales-import.test.ts"
+    "test:import": "NODE_OPTIONS=--conditions=react-server tsx tests/sales-import.test.ts",
+    "test:adapos": "NODE_OPTIONS=--conditions=react-server tsx tests/adapos.test.ts",
+    "test:filename": "NODE_OPTIONS=--conditions=react-server tsx tests/filename.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

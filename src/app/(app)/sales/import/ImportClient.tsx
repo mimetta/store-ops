@@ -44,13 +44,18 @@ export default function ImportClient({
   const [result, setResult] = useState<ImportResult | null>(null)
   const [busy, start] = useTransition()
   const [dragging, setDragging] = useState(false)
+  const [confirmBranch, setConfirmBranch] = useState(false)
 
   const branch = branches.find((b) => b.id === branchId)!
-  const missing = FIELDS.filter((f) => f.required && !mapping[f.key])
-  const ready = analysis?.ok && missing.length === 0
+  const isAdapos = !!analysis?.adapos
+  // AdaPOS needs no mapping at all — the layout is known.
+  const missing = isAdapos ? [] : FIELDS.filter((f) => f.required && !mapping[f.key])
+  const ready =
+    analysis?.ok && missing.length === 0 &&
+    (!analysis.needsBranchCodeConfirm || confirmBranch)
 
   function reset() {
-    setFile(null); setAnalysis(null); setResult(null); setMapping({})
+    setFile(null); setAnalysis(null); setResult(null); setMapping({}); setConfirmBranch(false)
     if (fileRef.current) fileRef.current.value = ""
   }
 
@@ -87,8 +92,9 @@ export default function ImportClient({
     form.set("branchId", branchId)
     form.set("file", file)
     form.set("mapping", JSON.stringify(mapping))
-    form.set("saveMapping", "1")
-    form.set("formatLabel", branch.posExport ? "AdaPOS export" : `${branch.name} format`)
+    form.set("saveMapping", isAdapos ? "0" : "1")
+    form.set("confirmBranchCode", confirmBranch ? "1" : "0")
+    form.set("formatLabel", `${branch.name} format`)
     start(async () => {
       const r = await runImport(form)
       setResult(r)
@@ -159,11 +165,11 @@ export default function ImportClient({
           </div>
 
           <p className="text-xs text-muted mt-3 mb-0">
-            {branch.mappingLabel
-              ? `${branch.name} has a saved mapping (${branch.mappingLabel}). The file is read with it automatically.`
-              : branch.posExport
-                ? `${branch.name} exports from AdaPOS. Map the columns once and every month after this is one step.`
-                : `${branch.name} has no saved mapping. You will match the columns once, then it is reused every month.`}
+            {branch.posExport
+              ? `${branch.name} exports from AdaPOS. The file is read automatically — there is nothing to map.`
+              : branch.mappingLabel
+                ? `${branch.name} has a saved mapping (${branch.mappingLabel}). The file is read with it automatically.`
+                : `${branch.name} has no saved mapping. If it is not an AdaPOS export you will match the columns once, then it is reused every month.`}
           </p>
         </div>
       )}
@@ -177,9 +183,9 @@ export default function ImportClient({
               <span className="flex-1 min-w-[160px]">
                 <span className="block font-medium text-ink truncate">{analysis.fileName}</span>
                 <span className="text-xs text-muted">
-                  {analysis.mappingSaved ? `Read with ${analysis.formatLabel}` : "New format"}
-                  {" · "}{analysis.columns?.length} columns, {analysis.rowCount} rows
-                  {analysis.sheetName ? ` · sheet “${analysis.sheetName}”` : ""}
+                  {isAdapos
+                    ? `Recognised as AdaPOS · branch ${analysis.fileBranchCode} ${analysis.fileBranchName} · ${analysis.rowCount} bills`
+                    : `${analysis.mappingSaved ? `Read with ${analysis.formatLabel}` : "New format"} · ${analysis.columns?.length} columns, ${analysis.rowCount} rows${analysis.sheetName ? ` · sheet “${analysis.sheetName}”` : ""}`}
                 </span>
               </span>
               <button onClick={reset} className="pill min-h-[44px] text-muted">Replace</button>
@@ -196,6 +202,7 @@ export default function ImportClient({
             )}
           </div>
 
+          {!isAdapos && (
           <div className="card card-pad mb-3">
             <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
               <h2 className="text-[15px] font-medium flex-1 min-w-0">Tell us what each column is</h2>
@@ -237,6 +244,7 @@ export default function ImportClient({
               {FIELDS.find((f) => f.key === "disc")!.hint}.
             </p>
           </div>
+          )}
 
           {/* ── preflight ─────────────────────────────────────────────────── */}
           <div className="card card-pad">
@@ -293,6 +301,22 @@ export default function ImportClient({
                       </table>
                     </div>
                   </>
+                )}
+
+                {analysis.needsBranchCodeConfirm && (
+                  <label className="note note-a mt-3 items-start cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={confirmBranch}
+                      onChange={(e) => setConfirmBranch(e.target.checked)}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <span>
+                      Yes — branch <strong className="font-medium">{analysis.fileBranchCode}</strong>{" "}
+                      ({analysis.fileBranchName}) is {branch.name}. This is recorded once, and
+                      from then on a file from any other branch is refused.
+                    </span>
+                  </label>
                 )}
 
                 <p className="text-xs text-muted mt-3 mb-2.5">

@@ -42,3 +42,6 @@ supabase/.temp/
 .uat-accounts.local.md
 *.local.md
 .env.local
+
+# Real sales exports used by tests/adapos.test.ts — live bill data, never committed.
+docs/samples/

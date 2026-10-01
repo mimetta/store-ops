@@ -181,6 +181,7 @@ export type Database = {
           id: string
           location: string | null
           name: string
+          pos_branch_code: string | null
           pos_export: boolean
           store_type: string
         }
@@ -190,6 +191,7 @@ export type Database = {
           id?: string
           location?: string | null
           name: string
+          pos_branch_code?: string | null
           pos_export?: boolean
           store_type?: string
         }
@@ -199,6 +201,7 @@ export type Database = {
           id?: string
           location?: string | null
           name?: string
+          pos_branch_code?: string | null
           pos_export?: boolean
           store_type?: string
         }
@@ -1258,13 +1261,53 @@ export type Database = {
           },
         ]
       }
+      sales_bill_payments: {
+        Row: {
+          amount: number
+          bank: string | null
+          bill_id: string
+          id: string
+          line_no: number
+          method: string
+          reference: string | null
+        }
+        Insert: {
+          amount?: number
+          bank?: string | null
+          bill_id: string
+          id?: string
+          line_no?: number
+          method: string
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          bank?: string | null
+          bill_id?: string
+          id?: string
+          line_no?: number
+          method?: string
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_bill_payments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "sales_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_bills: {
         Row: {
           bill_date: string
           bill_number: string
           branch_id: string
           created_at: string
+          discount_amount: number | null
           discount_pct: number | null
+          gross_amount: number | null
           id: string
           import_id: string | null
           is_vip: boolean | null
@@ -1277,7 +1320,9 @@ export type Database = {
           bill_number: string
           branch_id: string
           created_at?: string
+          discount_amount?: number | null
           discount_pct?: number | null
+          gross_amount?: number | null
           id?: string
           import_id?: string | null
           is_vip?: boolean | null
@@ -1290,7 +1335,9 @@ export type Database = {
           bill_number?: string
           branch_id?: string
           created_at?: string
+          discount_amount?: number | null
           discount_pct?: number | null
+          gross_amount?: number | null
           id?: string
           import_id?: string | null
           is_vip?: boolean | null
@@ -2892,7 +2939,7 @@ export type Database = {
         Row: {
           bills: number | null
           branch_id: string | null
-          net_amount: number | null
+          gross_amount: number | null
           product_id: string | null
           sale_date: string | null
           sku_text: string | null
