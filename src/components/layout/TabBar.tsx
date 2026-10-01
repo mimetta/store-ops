@@ -25,6 +25,7 @@ interface Tab {
 
 const TABS: Tab[] = [
   { label: "Home",    href: "/",            d: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10" },
+  { label: "Dashboard", href: "/dashboard", d: "M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z", needs: ["stock.reports", "sales.manual", "sales.import"] },
   { label: "Stock",   href: "/count",       d: "M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11", needs: ["stock.count"] },
   { label: "Receive", href: "/receiving", d: "M21 8v13H3V8 M1 3h22v5H1z M10 12h4", needs: ["receiving"] },
   { label: "Differences", href: "/count/review", d: "M9 12h6 M9 16h4 M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6", needs: ["stock.count"] },

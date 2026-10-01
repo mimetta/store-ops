@@ -3111,6 +3111,35 @@ export type Database = {
       }
     }
     Views: {
+      branch_daily_metrics: {
+        Row: {
+          bills: number | null
+          branch_id: string | null
+          branch_name: string | null
+          metric_date: string | null
+          pos_fed: boolean | null
+          sales: number | null
+          sales_excl_vip: number | null
+          sales_value_available: boolean | null
+          store_type: string | null
+          units: number | null
+          vip_sales: number | null
+          visitors: number | null
+        }
+        Relationships: []
+      }
+      branch_product_units: {
+        Row: {
+          branch_id: string | null
+          metric_date: string | null
+          product_id: string | null
+          product_name: string | null
+          sku: string | null
+          unit: string | null
+          units: number | null
+        }
+        Relationships: []
+      }
       daily_entry_status: {
         Row: {
           attributed_bills: number | null
@@ -3397,6 +3426,17 @@ export type Database = {
       business_today: { Args: never; Returns: string }
       can_access_branch: { Args: { target: string }; Returns: boolean }
       count_unresolved_lines: { Args: { p_count: string }; Returns: number }
+      dashboard_availability: {
+        Args: never
+        Returns: {
+          goals_available: boolean
+          npd_available: boolean
+          sales_branches: number
+          shifts_available: boolean
+          total_branches: number
+          traffic_available: boolean
+        }[]
+      }
       default_warehouse_for_branch: {
         Args: { p_branch: string }
         Returns: string
