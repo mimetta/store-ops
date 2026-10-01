@@ -1216,6 +1216,7 @@ export type Database = {
         Row: {
           bill_id: string
           id: string
+          line_no: number
           net_amount: number
           product_id: string | null
           quantity: number
@@ -1224,6 +1225,7 @@ export type Database = {
         Insert: {
           bill_id: string
           id?: string
+          line_no: number
           net_amount?: number
           product_id?: string | null
           quantity?: number
@@ -1232,6 +1234,7 @@ export type Database = {
         Update: {
           bill_id?: string
           id?: string
+          line_no?: number
           net_amount?: number
           product_id?: string | null
           quantity?: number
@@ -3099,6 +3102,15 @@ export type Database = {
         Returns: string
       }
       has_capability: { Args: { cap: string }; Returns: boolean }
+      import_sales_bills: {
+        Args: { p_bills: Json; p_branch: string; p_import: string }
+        Returns: {
+          bills_inserted: number
+          bills_updated: number
+          lines_written: number
+          payments_written: number
+        }[]
+      }
       lapse_expired_shift_swap_days: { Args: never; Returns: number }
       next_transfer_reference: { Args: never; Returns: string }
       open_count_for_today: {

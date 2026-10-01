@@ -273,7 +273,7 @@ export async function runImport(form: FormData): Promise<ImportResult> {
   // Collapse to bills and lines. Two rows for the same product on one bill are
   // summed rather than fighting over the unique key.
   type Line = { sku: string; qty: number; amount: number }
-  const bills = new Map<string, { date: string; amount: number; disc: number | null; pay: string | null; lines: Map<string, Line> }>()
+  const bills = new Map<string, { date: string; amount: number; disc: number | null; pay: string | null; lines: Line[] }>()
   const dates: string[] = []
 
   for (const r of sheet.rows) {
@@ -287,14 +287,12 @@ export async function runImport(form: FormData): Promise<ImportResult> {
     const disc = mapping.disc ? toNumber(r[mapping.disc]) : null
     const pay = mapping.pay ? r[mapping.pay]?.trim() || null : null
 
-    const bill = bills.get(billNo) ?? { date, amount: 0, disc, pay, lines: new Map() }
+    const bill = bills.get(billNo) ?? { date, amount: 0, disc, pay, lines: [] }
     bill.amount += amount
     if (disc !== null) bill.disc = Math.max(bill.disc ?? 0, disc)
     if (pay && !bill.pay) bill.pay = pay
-    const line = bill.lines.get(sku) ?? { sku, qty: 0, amount: 0 }
-    line.qty += qty
-    line.amount += amount
-    bill.lines.set(sku, line)
+    // One row in, one row out — see the AdaPOS path for why nothing is merged.
+    bill.lines.push({ sku, qty, amount })
     bills.set(billNo, bill)
   }
 
@@ -303,7 +301,7 @@ export async function runImport(form: FormData): Promise<ImportResult> {
   }
   dates.sort()
 
-  const allSkus = [...new Set([...bills.values()].flatMap((b) => [...b.lines.keys()]))]
+  const allSkus = [...new Set([...bills.values()].flatMap((b) => b.lines.map((l) => l.sku)))]
   const { data: known } = await supabase.from("products").select("id, sku").in("sku", allSkus.slice(0, 2000))
   const bySku = new Map(((known ?? []) as { id: string; sku: string }[]).map((p) => [p.sku, p.id]))
   const unmatched = allSkus.filter((s) => !bySku.has(s))
@@ -358,12 +356,13 @@ export async function runImport(form: FormData): Promise<ImportResult> {
   const lineRows = [...bills.entries()].flatMap(([bill_number, b]) => {
     const billId = idFor.get(bill_number)
     if (!billId) return []
-    return [...b.lines.values()].map((l) => ({
+    return b.lines.map((l, n) => ({
       bill_id: billId,
       product_id: bySku.get(l.sku) ?? null,
       sku_text: l.sku,
       quantity: l.qty,
       net_amount: l.amount,
+      line_no: n + 1,
     }))
   })
 
@@ -560,15 +559,6 @@ async function importAdapos(
   const bySku = new Map(((known ?? []) as { id: string; sku: string }[]).map((p) => [p.sku, p.id]))
   const unmatched = skus.filter((s) => !bySku.has(s))
 
-  const numbers = file.bills.map((b) => b.billNumber)
-  const already = new Set<string>()
-  for (let i = 0; i < numbers.length; i += 500) {
-    const { data } = await supabase
-      .from("sales_bills").select("bill_number")
-      .eq("branch_id", branchId).in("bill_number", numbers.slice(i, i + 500))
-    for (const b of (data ?? []) as { bill_number: string }[]) already.add(b.bill_number)
-  }
-
   const { data: run, error: runErr } = await supabase
     .from("sales_imports")
     .insert({
@@ -580,85 +570,54 @@ async function importAdapos(
     .select("id").single()
   if (runErr || !run) return { ok: false, error: runErr?.message ?? "Could not start the import." }
 
-  const idFor = new Map<string, string>()
-  // Chunked: 1,120 bills in one statement is a request nobody should send.
-  for (let i = 0; i < file.bills.length; i += 300) {
-    const chunk = file.bills.slice(i, i + 300)
-    const { data, error } = await supabase
-      .from("sales_bills")
-      .upsert(chunk.map((b) => ({
-        branch_id: branchId,
-        bill_number: b.billNumber,
-        bill_date: b.date,
-        net_amount: b.netAmount,
-        gross_amount: b.grossAmount,
-        discount_amount: b.discountAmount,
-        discount_pct: b.discountPct,
-        payment_method: b.payments.map((p) => p.method).join(" + ") || null,
-        import_id: run.id,
-        updated_at: new Date().toISOString(),
-      })), { onConflict: "branch_id,bill_number" })
-      .select("id, bill_number")
-    if (error) {
-      await supabase.from("sales_imports").delete().eq("id", run.id)
-      return { ok: false, error: `Could not save the bills: ${error.message}` }
-    }
-    for (const b of (data ?? []) as { id: string; bill_number: string }[]) idFor.set(b.bill_number, b.id)
-  }
-
-  // Replace lines and payments rather than merging: a corrected re-export may
-  // have fewer of either, and merging leaves the removed ones behind.
-  const billIds = [...idFor.values()]
-  for (let i = 0; i < billIds.length; i += 300) {
-    const slice = billIds.slice(i, i + 300)
-    await supabase.from("sales_bill_lines").delete().in("bill_id", slice)
-    await supabase.from("sales_bill_payments").delete().in("bill_id", slice)
-  }
-
-  const lineRows = file.bills.flatMap((b) => {
-    const billId = idFor.get(b.billNumber)
-    if (!billId) return []
-    // Two rows for one product on one bill are summed; the unique key is per
-    // (bill, code) and the POS does occasionally split a line.
-    const merged = new Map<string, { qty: number; amount: number }>()
-    for (const l of b.lines) {
-      const m = merged.get(l.code) ?? { qty: 0, amount: 0 }
-      m.qty += l.quantity
-      m.amount += l.amount
-      merged.set(l.code, m)
-    }
-    return [...merged.entries()].map(([code, m]) => ({
-      bill_id: billId, product_id: bySku.get(code) ?? null,
-      sku_text: code, quantity: m.qty, net_amount: m.amount,
-    }))
+  // ONE call, ONE transaction. Chunked through PostgREST this was 22 round
+  // trips and 7.4 seconds for the Song Wat export — and twenty-two places to
+  // fail halfway, leaving a month of bills with no lines under them.
+  const { data: res, error: impErr } = await supabase.rpc("import_sales_bills", {
+    p_branch: branchId,
+    p_import: run.id,
+    p_bills: file.bills.map((b) => ({
+      bill_number: b.billNumber,
+      bill_date: b.date,
+      net_amount: b.netAmount,
+      gross_amount: b.grossAmount,
+      discount_amount: b.discountAmount,
+      discount_pct: b.discountPct,
+      payment_method: b.payments.map((p) => p.method).join(" + ") || null,
+      // Array order is the line's position on the bill, so a product rung up
+      // twice keeps both rows.
+      lines: b.lines.map((l) => ({
+        sku_text: l.code, quantity: l.quantity, net_amount: l.amount,
+      })),
+      payments: b.payments.map((p) => ({
+        method: p.method, bank: p.bank, reference: p.reference, amount: p.amount,
+      })),
+    })),
   })
 
-  for (let i = 0; i < lineRows.length; i += 500) {
-    const { error } = await supabase.from("sales_bill_lines").insert(lineRows.slice(i, i + 500))
-    if (error) return { ok: false, error: `Could not save the bill lines: ${error.message}` }
+  if (impErr) {
+    // Nothing was written — the function is one transaction — so the run row
+    // would otherwise claim an import that did not happen.
+    await supabase.from("sales_imports").delete().eq("id", run.id)
+    return { ok: false, error: impErr.message }
   }
 
-  const payRows = file.bills.flatMap((b) => {
-    const billId = idFor.get(b.billNumber)
-    if (!billId) return []
-    return b.payments.map((p, n) => ({
-      bill_id: billId, method: p.method, bank: p.bank,
-      reference: p.reference, amount: p.amount, line_no: n + 1,
-    }))
-  })
-  for (let i = 0; i < payRows.length; i += 500) {
-    const { error } = await supabase.from("sales_bill_payments").insert(payRows.slice(i, i + 500))
-    if (error) return { ok: false, error: `Could not save the payments: ${error.message}` }
-  }
+  const out = (Array.isArray(res) ? res[0] : res) as
+    | { bills_inserted: number; bills_updated: number; lines_written: number }
+    | undefined
 
-  const inserted = file.bills.length - already.size
   await supabase.from("sales_imports").update({
-    bills_inserted: inserted, bills_updated: already.size, lines_written: lineRows.length,
+    bills_inserted: out?.bills_inserted ?? 0,
+    bills_updated: out?.bills_updated ?? 0,
+    lines_written: out?.lines_written ?? 0,
   }).eq("id", run.id)
 
   revalidatePath("/sales/import")
   return {
-    ok: true, billsInserted: inserted, billsUpdated: already.size,
-    linesWritten: lineRows.length, unmatched, mappingSaved: false,
+    ok: true,
+    billsInserted: out?.bills_inserted ?? 0,
+    billsUpdated: out?.bills_updated ?? 0,
+    linesWritten: out?.lines_written ?? 0,
+    unmatched, mappingSaved: false,
   }
 }
