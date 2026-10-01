@@ -11,10 +11,11 @@
     "uat:sql": "node scripts/uat/run-sql.mjs",
     "test:day": "tsx tests/day.test.ts",
     "test:guard": "NODE_ENV=development tsx tests/guard.test.ts && NODE_ENV=production tsx tests/guard.test.ts",
-    "test": "npm run test:day && npm run test:guard && node scripts/check-permission-drift.mjs && npm run check:write-paths && npm run check:types",
+    "test": "npm run test:day && npm run test:guard && npm run test:import && node scripts/check-permission-drift.mjs && npm run check:write-paths && npm run check:types",
     "check:write-paths": "node scripts/uat/check-write-paths.mjs",
     "types:generate": "scripts/uat/gen-types.sh",
-    "check:types": "scripts/uat/gen-types.sh --check && node scripts/uat/check-type-drift.mjs"
+    "check:types": "scripts/uat/gen-types.sh --check && node scripts/uat/check-type-drift.mjs",
+    "test:import": "NODE_OPTIONS=--conditions=react-server tsx tests/sales-import.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -22,7 +23,8 @@
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20",

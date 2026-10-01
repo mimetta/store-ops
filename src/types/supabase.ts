@@ -181,6 +181,7 @@ export type Database = {
           id: string
           location: string | null
           name: string
+          pos_export: boolean
           store_type: string
         }
         Insert: {
@@ -189,6 +190,7 @@ export type Database = {
           id?: string
           location?: string | null
           name: string
+          pos_export?: boolean
           store_type?: string
         }
         Update: {
@@ -197,6 +199,7 @@ export type Database = {
           id?: string
           location?: string | null
           name?: string
+          pos_export?: boolean
           store_type?: string
         }
         Relationships: []
@@ -1205,6 +1208,220 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      sales_bill_lines: {
+        Row: {
+          bill_id: string
+          id: string
+          net_amount: number
+          product_id: string | null
+          quantity: number
+          sku_text: string
+        }
+        Insert: {
+          bill_id: string
+          id?: string
+          net_amount?: number
+          product_id?: string | null
+          quantity?: number
+          sku_text: string
+        }
+        Update: {
+          bill_id?: string
+          id?: string
+          net_amount?: number
+          product_id?: string | null
+          quantity?: number
+          sku_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_bill_lines_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "sales_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_count_policy"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_bills: {
+        Row: {
+          bill_date: string
+          bill_number: string
+          branch_id: string
+          created_at: string
+          discount_pct: number | null
+          id: string
+          import_id: string | null
+          is_vip: boolean | null
+          net_amount: number
+          payment_method: string | null
+          updated_at: string
+        }
+        Insert: {
+          bill_date: string
+          bill_number: string
+          branch_id: string
+          created_at?: string
+          discount_pct?: number | null
+          id?: string
+          import_id?: string | null
+          is_vip?: boolean | null
+          net_amount?: number
+          payment_method?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bill_date?: string
+          bill_number?: string
+          branch_id?: string
+          created_at?: string
+          discount_pct?: number | null
+          id?: string
+          import_id?: string | null
+          is_vip?: boolean | null
+          net_amount?: number
+          payment_method?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "sales_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_import_mappings: {
+        Row: {
+          branch_id: string
+          column_map: Json
+          created_at: string
+          created_by: string | null
+          format_label: string
+          header_signature: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id: string
+          column_map: Json
+          created_at?: string
+          created_by?: string | null
+          format_label?: string
+          header_signature?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string
+          column_map?: Json
+          created_at?: string
+          created_by?: string | null
+          format_label?: string
+          header_signature?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_import_mappings_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: true
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_import_mappings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_imports: {
+        Row: {
+          bills_inserted: number
+          bills_updated: number
+          branch_id: string
+          file_name: string
+          id: string
+          imported_at: string
+          imported_by: string | null
+          lines_written: number
+          period_end: string | null
+          period_start: string | null
+          rows_read: number
+          unmatched_skus: string[]
+        }
+        Insert: {
+          bills_inserted?: number
+          bills_updated?: number
+          branch_id: string
+          file_name: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          lines_written?: number
+          period_end?: string | null
+          period_start?: string | null
+          rows_read?: number
+          unmatched_skus?: string[]
+        }
+        Update: {
+          bills_inserted?: number
+          bills_updated?: number
+          branch_id?: string
+          file_name?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          lines_written?: number
+          period_end?: string | null
+          period_start?: string | null
+          rows_read?: number
+          unmatched_skus?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_imports_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_imports_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sales_posting_lines: {
         Row: {
@@ -2667,6 +2884,40 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_units_by_day: {
+        Row: {
+          bills: number | null
+          branch_id: string | null
+          net_amount: number | null
+          product_id: string | null
+          sale_date: string | null
+          sku_text: string | null
+          units_sold: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_count_policy"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]

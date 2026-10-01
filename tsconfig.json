@@ -1,5 +1,10 @@
 {
   "compilerOptions": {
+    // No target was set, so it defaulted to ES5 and every `[...map.keys()]`
+    // failed to typecheck. Next.js transpiles with SWC and ignores this for
+    // emit; it governs type-checking, where ES5 is simply wrong for the
+    // runtimes this app targets.
+    "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
