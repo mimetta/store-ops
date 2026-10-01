@@ -72,7 +72,7 @@ const STOCK_ITEMS: NavItem[] = [
 ]
 
 const PEOPLE_ITEMS: NavItem[] = [
-  { label: "Shifts",   href: "/schedule", icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
+  { label: "Shifts",   href: "/shifts",   icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
   { label: "Leave",    href: "/leave",    icon: <Icon d={LEAVE_ICON} />,    needs: ["leave.request"] },
   { label: "Training", href: "/training", icon: <Icon d={TRAINING_ICON} />, needs: ["training.view"] },
 ]

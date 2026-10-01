@@ -50,6 +50,8 @@ UAT is **store-ops-uat** (`jgijsurgbciuopicqceo`).
 | D12 | ⏸ **Parked — no product has a cost price, so stock cannot be valued** | `products.cost_price` is NULL for all 735. The Inventory report leaves the value column blank rather than showing ฿0, which would read as free stock. AccCloud's `getProductRemain` does not carry cost; if stock value is wanted, it needs either another endpoint or a manual cost list. | ☐ |
 | D13 | ⏸ **Parked — there is no maximum stock level anywhere** | The demo's "order up to max" cannot be computed — no table holds a maximum. Low stock shows "short by", which reaches the minimum and is derivable from what exists. Adding a maximum is a schema change plus a figure per product per branch. | ☐ |
 
+| D14 | ⚠ **RLS assertions inside a migration's DO block prove nothing** | The pooler connects as the table OWNER, and Postgres exempts the owner from row-level security unless the table is set to `FORCE ROW LEVEL SECURITY`. Two assertions in `041` passed in a DO block while the policy was never consulted; moved to a PostgREST probe as a real signed-in user, where they pass genuinely. **Any RLS assertion in an earlier migration's verify block has the same flaw** and should be treated as unverified until checked through the API. The capability checks inside SECURITY DEFINER functions are unaffected — those raise in code, not through RLS. | ☐ |
+
 ## 3. Security
 
 | # | Item | Why | Status |
