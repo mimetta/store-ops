@@ -3131,7 +3131,7 @@ export type Database = {
         Returns: string
       }
       post_sales_units: {
-        Args: { p_posting: string }
+        Args: { p_acknowledge_existing?: boolean; p_posting: string }
         Returns: {
           lines_posted: number
           units_total: number
@@ -3176,6 +3176,15 @@ export type Database = {
         Returns: boolean
       }
       today_count_id: { Args: { p_warehouse: string }; Returns: string }
+      units_entry_window: { Args: never; Returns: number }
+      units_posted_on: {
+        Args: { p_branch: string; p_date: string }
+        Returns: {
+          batches: number
+          last_posted_at: string
+          units: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

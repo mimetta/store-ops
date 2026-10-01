@@ -28,7 +28,8 @@ function fmtDay(iso: string) {
 }
 
 export default function SalesEntry({
-  lines, branchOptions, selectedBranchId, warehouseId, branchName, whCode, today, hasPostedToday,
+  lines, branchOptions, selectedBranchId, warehouseId, branchName, whCode,
+  today, maxDate, minDate, priorBatches, priorUnits,
 }: {
   lines: SalesLine[]
   branchOptions: BranchOption[]
@@ -36,13 +37,19 @@ export default function SalesEntry({
   warehouseId: string
   branchName: string
   whCode: string
+  /** The date being entered, which is not necessarily today. */
   today: string
-  hasPostedToday: boolean
+  maxDate: string
+  minDate: string
+  priorBatches: number
+  priorUnits: number
 }) {
   const router = useRouter()
 
   const [units, setUnits] = useState<Record<string, string>>({})
   const [restored, setRestored] = useState(false)
+  // Keyed by the DAY BEING ENTERED, so a draft for yesterday does not
+  // reappear when the picker moves back to today.
   const draftKey = `sales-draft:${warehouseId}:${today}`
 
   // Same draft discipline as counting and receiving: a till is read in
@@ -69,6 +76,11 @@ export default function SalesEntry({
   const [query, setQuery] = useState("")
   const [saving, startSaving] = useTransition()
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  // Required before adding to a date that already has figures. Not a refusal
+  // of a second batch — lunch and closing are both real — but of a second
+  // batch nobody knew about.
+  const [acknowledged, setAcknowledged] = useState(false)
+  const isBackdated = today !== maxDate
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -90,9 +102,13 @@ export default function SalesEntry({
     startSaving(async () => {
       const payload: Record<string, number> = {}
       for (const [id, v] of entered) payload[id] = Number(v)
-      const r = await postSalesUnits({ branchId: selectedBranchId, warehouseId, units: payload })
+      const r = await postSalesUnits({
+        branchId: selectedBranchId, warehouseId, units: payload,
+        saleDate: today, acknowledgeExisting: acknowledged,
+      })
       if (r.ok) {
         setUnits({})
+        setAcknowledged(false)
         try { window.localStorage.removeItem(draftKey) } catch {}
         setMessage({
           ok: true,
@@ -128,23 +144,62 @@ export default function SalesEntry({
           </select>
         </label>
 
-        <span className="pill text-muted">{fmtDay(today)}</span>
+        <label className="pill">
+          <span className="text-xs text-muted">Day</span>
+          <input
+            type="date"
+            value={today}
+            min={minDate}
+            max={maxDate}
+            onChange={(e) => {
+              const d = e.target.value
+              if (d) router.push(`/sales/units?branch=${selectedBranchId}&date=${d}`)
+            }}
+            aria-label="Date these units were sold"
+            className="bg-transparent text-xs text-ink outline-none"
+          />
+        </label>
       </div>
 
       <div className="note note-i mb-3">
         <span aria-hidden="true">i</span>
         <span>
-          For shops with no POS export. What you post here comes out of stock, so
-          the next count has the right expected figure.
+          For shops with no POS export. What you post here comes out of stock on{" "}
+          <strong className="font-medium">{fmtDay(today)}</strong>, so the next count
+          has the right expected figure.
+          {isBackdated && " You are entering a past day — check the date is right."}
         </span>
       </div>
 
+      {/* What is already there, BEFORE anything is added to it. */}
+      {priorBatches > 0 && (
+        <div className="note note-a mb-3 flex-col items-stretch">
+          <p className="m-0 mb-2">
+            <strong className="font-medium">
+              {priorUnits} units are already posted for {fmtDay(today)}
+            </strong>{" "}
+            across {priorBatches} {priorBatches === 1 ? "batch" : "batches"}. Adding more
+            is normal — lunch and closing are both real — but the same figures keyed
+            twice looks exactly like a good day afterwards.
+          </p>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
+              className="mt-0.5 shrink-0"
+            />
+            <span>I have checked what is there, and these are units on top of it.</span>
+          </label>
+        </div>
+      )}
+
       <div className="flex gap-2.5 mb-3.5 flex-wrap">
         <div className="stat flex-1 min-w-[132px]">
-          <div className="text-[11px] text-subtle mb-1">Posted today</div>
+          <div className="text-[11px] text-subtle mb-1">Already posted</div>
           <div className="text-xl font-medium leading-none num-c">{postedUnits}</div>
           <div className="text-[11px] text-muted mt-1">
-            {hasPostedToday ? "already out of stock" : "nothing posted yet"}
+            {priorBatches > 0 ? `${priorBatches} batch${priorBatches === 1 ? "" : "es"}` : "nothing posted yet"}
           </div>
         </div>
         <div className="stat flex-1 min-w-[132px]">
@@ -233,13 +288,19 @@ export default function SalesEntry({
           later, post again — the second lot is added to the first, not instead
           of it. A posted batch cannot be edited.
         </p>
-        <button onClick={save} disabled={saving || entered.length === 0} className="btn-primary w-full">
+        <button
+          onClick={save}
+          disabled={saving || entered.length === 0 || (priorBatches > 0 && !acknowledged)}
+          className="btn-primary w-full"
+        >
           {saving ? "Posting…" : "Post units sold"}
         </button>
         <p className="text-xs text-muted text-center mt-2">
           {entered.length === 0
             ? "Enter the units for at least one product."
-            : `${totalUnits} units across ${entered.length} ${entered.length === 1 ? "product" : "products"}.`}
+            : priorBatches > 0 && !acknowledged
+              ? "Confirm you have checked what is already posted for this day."
+              : `${totalUnits} units across ${entered.length} ${entered.length === 1 ? "product" : "products"}, on ${fmtDay(today)}.`}
         </p>
       </div>
     </div>

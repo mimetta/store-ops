@@ -30,6 +30,10 @@ export async function postSalesUnits(input: {
   branchId: string
   warehouseId: string
   units: Record<string, number>
+  /** The day these were sold, which is not necessarily today. */
+  saleDate?: string
+  /** Set when the person has seen what is already posted for that day. */
+  acknowledgeExisting?: boolean
 }): Promise<PostResult> {
   const supabase = createClient()
 
@@ -76,6 +80,9 @@ export async function postSalesUnits(input: {
     .insert({
       branch_id: input.branchId,
       warehouse_id: input.warehouseId,
+      // Omitted rather than defaulted to today here: the column default is
+      // business_today(), and the database is the one that knows what day it is.
+      ...(input.saleDate ? { sale_date: input.saleDate } : {}),
       created_by: user.id,
     })
     .select("id")
@@ -94,7 +101,10 @@ export async function postSalesUnits(input: {
     return { ok: false, error: `Could not save the lines: ${lineErr.message}` }
   }
 
-  const { data, error } = await supabase.rpc("post_sales_units", { p_posting: posting.id })
+  const { data, error } = await supabase.rpc("post_sales_units", {
+    p_posting: posting.id,
+    p_acknowledge_existing: input.acknowledgeExisting ?? false,
+  })
   if (error) {
     // The batch is still unposted, so it has moved no stock. Remove it rather
     // than leave a draft the screen has no way to show.
