@@ -23,6 +23,8 @@ export interface BranchMetrics extends Metrics {
   salesValueAvailable: boolean
   /** The monthly target, pro-rated to the window. NULL when none is set. */
   goal?: number | null
+  /** What that pro-rating is made of, in words: "22 of 30 days of Sep". */
+  goalBasis?: string | null
 }
 
 export interface ProductUnits { sku: string; name: string; unit: string | null; units: number }
@@ -73,10 +75,19 @@ function Spark({ values, stroke }: { values: number[]; stroke: string }) {
   )
 }
 
-function Trend({ now, before }: { now: number; before: number }) {
+function Trend({
+  now, before, comparable,
+}: { now: number; before: number; comparable: boolean }) {
   // No previous figure is not a 100% rise. Saying so beats inventing one.
   if (before === 0) {
     return <span className="text-[11px] text-subtle whitespace-nowrap">no earlier figure</span>
+  }
+  // A previous window with far less data in it produces a true percentage that
+  // nobody can act on — +2749% says more about when the import started than
+  // about the shop. Better to show nothing than a number that will be read as
+  // growth.
+  if (!comparable) {
+    return <span className="text-[11px] text-subtle whitespace-nowrap">no comparable period</span>
   }
   const pct = ((now - before) / before) * 100
   const up = pct >= 0
@@ -105,13 +116,14 @@ function NotYet({ title, what, why }: { title: string; what: string; why: string
 
 export default function DashboardClient({
   period, from, to, today, branches, selectedBranch,
-  current, previous, series, byBranch, topProducts, productsByBranch,
+  current, previous, coverage, series, byBranch, topProducts, productsByBranch,
   countries, countriesByBranch, trafficSplit, actions, availability, upcoming,
 }: {
   period: Period; from: string; to: string; today: string
   branches: { id: string; name: string }[]
   selectedBranch: string | null
   current: Metrics; previous: Metrics; series: Metrics[]
+  coverage: { current: number; previous: number }
   byBranch: BranchMetrics[]
   topProducts: ProductUnits[]
   productsByBranch: Record<string, ProductUnits[]>
@@ -158,6 +170,11 @@ export default function DashboardClient({
     { key: "traffic", label: "Traffic", value: num(current.visitors), now: current.visitors, before: previous.visitors, hue: "text-amber-70" },
   ]
 
+  // Half the days of the current window is the line. Below it the comparison
+  // is between a period that was recorded and one that largely was not.
+  const comparable =
+    coverage.previous > 0 && coverage.previous >= Math.max(1, coverage.current * 0.5)
+
   const seriesFor = (k: KpiKey) =>
     series.map((s) => k === "sales" ? s.sales : k === "units" ? s.units : k === "bills" ? s.bills : s.visitors)
 
@@ -167,6 +184,8 @@ export default function DashboardClient({
     .filter((b) => b.goal != null && (b.goal as number) > 0)
     .sort((a, b) => (b.salesExclVip / (b.goal as number)) - (a.salesExclVip / (a.goal as number)))
   const missingGoals = byBranch.filter((b) => b.goal == null || (b.goal as number) <= 0)
+
+  const spanDays = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1
 
   const byType = byBranch.reduce<Record<string, BranchMetrics[]>>((a, b) => {
     (a[b.storeType] ??= []).push(b); return a
@@ -245,7 +264,7 @@ export default function DashboardClient({
           >
             <span className="flex items-baseline gap-2">
               <span className="text-[11px] text-subtle flex-1 min-w-0 truncate">{k.label}</span>
-              <Trend now={k.now} before={k.before} />
+              <Trend now={k.now} before={k.before} comparable={comparable} />
             </span>
             <span className="block text-xl font-medium leading-none num-c mt-1">{k.value}</span>
             <Spark values={seriesFor(k.key)} stroke={k.hue} />
@@ -489,7 +508,9 @@ export default function DashboardClient({
             <div className="card card-pad mb-3">
               <div className="flex items-baseline gap-2.5 mb-2 flex-wrap">
                 <h2 className="text-[15px] font-medium flex-1 min-w-0">Goal progress</h2>
-                <span className="text-xs text-muted">Sales excl. VIP against target</span>
+                <span className="text-xs text-muted">
+                  Sales excl. VIP against the target for these {spanDays} days
+                </span>
               </div>
               <div className="grid sm:grid-cols-2 gap-3">
                 {withGoals.map((b) => {
@@ -504,9 +525,15 @@ export default function DashboardClient({
                       <div className="h-[8px] rounded-full bg-panel overflow-hidden">
                         <span className={`block h-full ${t.bar}`} style={{ width: `${Math.min(100, pct)}%` }} />
                       </div>
-                      <div className="flex gap-2 mt-1 text-[11px]">
+                      <div className="flex gap-2 mt-1 text-[11px] flex-wrap">
                         <span className="text-muted">{baht(b.salesExclVip)}</span>
                         <span className="text-subtle">of {baht(b.goal as number)}</span>
+                      </div>
+                      {/* What the denominator IS. Without this, 87% could be
+                          against the month or against the days so far, and
+                          those are different conversations. */}
+                      <div className="text-[10px] text-subtle mt-0.5">
+                        target for {b.goalBasis ?? "this period"}
                       </div>
                     </div>
                   )

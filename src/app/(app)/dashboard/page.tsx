@@ -114,6 +114,12 @@ export default async function DashboardPage({
     pull(win.prevFrom, win.prevTo),
   ])
 
+  // How many DAYS each window actually has data for. A window that is mostly
+  // empty is not a smaller period, it is a period nobody recorded — and a
+  // percentage against it is arithmetically true and completely useless.
+  const daysWithData = (rows: Row[]) => new Set(rows.map((r) => r.metric_date)).size
+  const coverage = { current: daysWithData(current), previous: daysWithData(previous) }
+
   // ── the sparkline ─────────────────────────────────────────────────────────
   // Fourteen buckets across the window, whatever its length, so a month and a
   // day produce a line of the same shape rather than one dot and thirty.
@@ -260,15 +266,30 @@ export default async function DashboardPage({
     .in("branch_id", branchFilter.length ? branchFilter : ["00000000-0000-0000-0000-000000000000"])
 
   const daysInMonth = (ym: string) => new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate()
+  const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
   const goalByBranch: Record<string, number> = {}
+  // What the pro-rated figure is made of, so the screen can say what 87% is
+  // 87% OF. "Against the month" and "against the days so far" are different
+  // conversations to have with a KA.
+  const goalBasis: Record<string, string> = {}
+  const parts: Record<string, string[]> = {}
   for (const g of (goalRows ?? []) as { branch_id: string; period_month: string; goal_amount: number }[]) {
     const ym = g.period_month.slice(0, 7)
     // How many days of THIS window fall inside that month.
     let days = 0
     for (let d = win.from; d <= win.to; d = addDaysISO(d, 1)) if (d.slice(0, 7) === ym) days++
+    if (days === 0) continue
+    const inMonth = daysInMonth(ym)
     goalByBranch[g.branch_id] =
-      (goalByBranch[g.branch_id] ?? 0) + (Number(g.goal_amount) * days) / daysInMonth(ym)
+      (goalByBranch[g.branch_id] ?? 0) + (Number(g.goal_amount) * days) / inMonth
+    const label = MONTH_NAMES[+ym.slice(5, 7) - 1]
+    ;(parts[g.branch_id] ??= []).push(
+      days === inMonth
+        ? `all of ${label}`
+        : `${days} of ${inMonth} days of ${label}`
+    )
   }
+  for (const [id, list] of Object.entries(parts)) goalBasis[id] = list.join(" + ")
 
   const { data: avail } = await supabase.rpc("dashboard_availability")
   const a = (Array.isArray(avail) ? avail[0] : avail) as
@@ -302,8 +323,13 @@ export default async function DashboardPage({
       selectedBranch={searchParams.branch && scopedIds.includes(searchParams.branch) ? searchParams.branch : null}
       current={total(current)}
       previous={total(previous)}
+      coverage={coverage}
       series={buckets}
-      byBranch={byBranch.map((b) => ({ ...b, goal: goalByBranch[b.branchId] ?? null }))}
+      byBranch={byBranch.map((b) => ({
+        ...b,
+        goal: goalByBranch[b.branchId] ?? null,
+        goalBasis: goalBasis[b.branchId] ?? null,
+      }))}
       topProducts={topProducts}
       productsByBranch={productsByBranch}
       countries={countries}
