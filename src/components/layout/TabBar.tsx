@@ -29,7 +29,7 @@ const TABS: Tab[] = [
   { label: "Receive", href: "/receiving", d: "M21 8v13H3V8 M1 3h22v5H1z M10 12h4", needs: ["receiving"] },
   { label: "Differences", href: "/count/review", d: "M9 12h6 M9 16h4 M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6", needs: ["stock.count"] },
   { label: "Adjust",  href: "/adjustments", d: "M12 20h9 M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z", needs: ["stock.adjustment.approve"] },
-  { label: "Sales",   href: "/sales",       d: "M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3 M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2 M9 12h6", needs: ["sales.manual", "sales.import"] },
+  { label: "End of day", href: "/daily", d: "M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3 M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2 M9 12h6", needs: ["sales.manual", "bills", "traffic"] },
 ]
 
 export default function TabBar({ profile }: { profile: Profile | null }) {

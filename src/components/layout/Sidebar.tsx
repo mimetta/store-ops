@@ -43,7 +43,6 @@ const UNITS_ICON       = "M3 3v18h18 M7 14l3-4 3 3 5-7"
 const SALES_ICON      = "M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3 M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2 M9 7h6 M9 12h6 M9 16h4"
 const MONEY_ICON      = "M12 1v22 M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
 const CONSUMABLE_ICON = "M10 2h4 M12 14v-4 M4 13.4A2 2 0 006 15h12a2 2 0 002-1.6L21 6H3z"
-const TRAFFIC_ICON    = "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 11a4 4 0 100-8 4 4 0 000 8z M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75"
 const REPORTS_ICON    = "M18 20V10 M12 20V4 M6 20v-6"
 const CALENDAR_ICON   = "M8 2v4 M16 2v4 M3 10h18 M21 8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V8z"
 const LEAVE_ICON      = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M12 18v-6 M9 15h6"
@@ -54,10 +53,9 @@ const HISTORY_ICON    = "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m2
 
 const SALES_ITEMS: NavItem[] = [
   { label: "Sales",          href: "/sales",       icon: <Icon d={SALES_ICON} />,       needs: ["sales.manual", "sales.import"] },
-  { label: "Units sold",     href: "/sales/units", icon: <Icon d={UNITS_ICON} />,       needs: ["sales.manual"] },
+  { label: "End of day",     href: "/daily",       icon: <Icon d={UNITS_ICON} />,       needs: ["sales.manual", "bills", "traffic"] },
   { label: "Import sales",   href: "/sales/import", icon: <Icon d={IMPORT_ICON} />,     needs: ["sales.import"] },
   { label: "POS Money",      href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["pos.money"] },
-  { label: "Store traffic",  href: "/traffic",     icon: <Icon d={TRAFFIC_ICON} />,     needs: ["traffic"] },
 ]
 
 const STOCK_ITEMS: NavItem[] = [

@@ -68,6 +68,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "activity_logs_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "activity_logs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -111,6 +118,65 @@ export type Database = {
           {
             foreignKeyName: "announcements_posted_by_fkey"
             columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bill_nationalities: {
+        Row: {
+          bills: number
+          branch_id: string
+          entry_date: string
+          id: string
+          nationality: string
+          recorded_at: string
+          recorded_by: string | null
+        }
+        Insert: {
+          bills: number
+          branch_id: string
+          entry_date: string
+          id?: string
+          nationality: string
+          recorded_at?: string
+          recorded_by?: string | null
+        }
+        Update: {
+          bills?: number
+          branch_id?: string
+          entry_date?: string
+          id?: string
+          nationality?: string
+          recorded_at?: string
+          recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_nationalities_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_nationalities_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
+            foreignKeyName: "bill_nationalities_nationality_fkey"
+            columns: ["nationality"]
+            isOneToOne: false
+            referencedRelation: "nationalities"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "bill_nationalities_recorded_by_fkey"
+            columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -164,6 +230,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_monthly_goals_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "branch_monthly_goals_created_by_fkey"
@@ -254,6 +327,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "calendar_events_created_by_fkey"
@@ -379,6 +459,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "daily_sales_summary_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "daily_sales_summary_recorded_by_fkey"
             columns: ["recorded_by"]
             isOneToOne: false
@@ -440,6 +527,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "deliveries_created_by_fkey"
@@ -721,6 +815,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fg_stock_withdrawals_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "fg_stock_withdrawals_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -805,6 +906,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leave_requests_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "leave_requests_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
@@ -812,6 +920,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      nationalities: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       news: {
         Row: {
@@ -928,6 +1057,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_money_records_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "pos_money_records_recorded_by_fkey"
@@ -1158,6 +1294,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "profiles_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "profiles_chapter_fkey"
             columns: ["chapter"]
             isOneToOne: false
@@ -1357,6 +1500,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "sales_bills_import_id_fkey"
             columns: ["import_id"]
             isOneToOne: false
@@ -1403,6 +1553,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_import_mappings_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: true
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "sales_import_mappings_created_by_fkey"
@@ -1463,6 +1620,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_imports_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "sales_imports_imported_by_fkey"
@@ -1529,7 +1693,7 @@ export type Database = {
           posted_at: string | null
           posted_by: string | null
           sale_date: string
-          warehouse_id: string
+          warehouse_id: string | null
         }
         Insert: {
           branch_id: string
@@ -1540,7 +1704,7 @@ export type Database = {
           posted_at?: string | null
           posted_by?: string | null
           sale_date?: string
-          warehouse_id: string
+          warehouse_id?: string | null
         }
         Update: {
           branch_id?: string
@@ -1551,7 +1715,7 @@ export type Database = {
           posted_at?: string | null
           posted_by?: string | null
           sale_date?: string
-          warehouse_id?: string
+          warehouse_id?: string | null
         }
         Relationships: [
           {
@@ -1560,6 +1724,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_postings_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "sales_postings_created_by_fkey"
@@ -1619,6 +1790,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_records_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "sales_records_product_id_fkey"
@@ -1796,6 +1974,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "shift_swap_requests_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "shift_swap_requests_requester_id_fkey"
             columns: ["requester_id"]
             isOneToOne: false
@@ -1853,6 +2038,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "shift_templates_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "shift_templates_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1899,6 +2091,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_traffic_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "shop_traffic_submitted_by_fkey"
@@ -1969,6 +2168,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "stock_adjustments_count_line_id_fkey"
@@ -2206,6 +2412,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_counts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "stock_counts_counted_by_fkey"
             columns: ["counted_by"]
             isOneToOne: false
@@ -2323,6 +2536,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_levels_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "stock_levels_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -2392,6 +2612,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "stock_movements_created_by_fkey"
@@ -2670,6 +2897,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transfers_from_branch_id_fkey"
+            columns: ["from_branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "transfers_from_warehouse_id_fkey"
             columns: ["from_warehouse_id"]
             isOneToOne: false
@@ -2696,6 +2930,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_to_branch_id_fkey"
+            columns: ["to_branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "transfers_to_warehouse_id_fkey"
@@ -2790,6 +3031,13 @@ export type Database = {
             referencedRelation: "branches"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "warehouses_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
         ]
       }
       work_schedules: {
@@ -2832,6 +3080,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_schedules_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "work_schedules_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -2856,6 +3111,19 @@ export type Database = {
       }
     }
     Views: {
+      daily_entry_status: {
+        Row: {
+          attributed_bills: number | null
+          branch_id: string | null
+          branch_name: string | null
+          entry_date: string | null
+          imported_bills: number | null
+          pos_fed: boolean | null
+          units_keyed: number | null
+          visitors: number | null
+        }
+        Relationships: []
+      }
       pack_factors_outstanding: {
         Row: {
           name: string | null
@@ -2940,6 +3208,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_postings_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
             foreignKeyName: "sales_postings_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
@@ -2979,6 +3254,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
         ]
       }
@@ -3067,6 +3349,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "branches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_counts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
           {
             foreignKeyName: "stock_counts_warehouse_id_fkey"
@@ -3161,6 +3450,26 @@ export type Database = {
       resolve_shortage: {
         Args: { p_note?: string; p_shortage: string }
         Returns: undefined
+      }
+      save_daily_entry: {
+        Args: {
+          p_acknowledge_existing?: boolean
+          p_bills?: Json
+          p_branch: string
+          p_date: string
+          p_traffic?: Json
+          p_units?: Json
+        }
+        Returns: {
+          bills_recorded: number
+          bills_total: number
+          imported_bills: number
+          moved_stock: boolean
+          reconciles: boolean
+          traffic_recorded: number
+          units_posted: number
+          units_total: number
+        }[]
       }
       sees_all_branches: { Args: never; Returns: boolean }
       send_transfer: {
