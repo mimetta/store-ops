@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { can, branchScope } from "@/lib/permissions"
 import { bangkokToday, addDaysISO } from "@/lib/day"
-import { movementKind, type ReportTab, type InventoryRow, type MovementRow, type WarehouseRow } from "@/lib/reports"
+import { movementKind, type ReportTab, type InventoryRow, type MovementRow, type WarehouseRow, type LowStockRow } from "@/lib/reports"
 import type { Profile } from "@/types/database"
 import ReportsClient from "./ReportsClient"
 
@@ -67,34 +67,46 @@ export default async function ReportsPage({
   let inventory: InventoryRow[] = []
   let movements: MovementRow[] = []
   let warehouses: WarehouseRow[] = []
+  let lowRows: LowStockRow[] = []
   let costAvailable = false
-  let minimumIsDefault = false
+  let reorderFilled = 0
+  let reorderTotal = 0
 
   if (tab === "inventory" || tab === "low") {
     let q = supabase
       .from("stock_levels")
-      .select(`quantity, minimum_override,
-               products!inner(sku, name, unit, type, reorder_threshold, cost_price, active),
+      .select(`product_id, warehouse_id, quantity,
+               products!inner(sku, name, unit, type, cost_price, active),
                warehouses(wh_code, name, branches(name))`)
     if (branchId) q = q.eq("branch_id", branchId)
     const { data } = await q
 
     type R = {
-      quantity: number; minimum_override: number | null
+      product_id: string; warehouse_id: string; quantity: number
       products: { sku: string; name: string; unit: string | null; type: string | null
-                  reorder_threshold: number | null; cost_price: number | null; active: boolean }
+                  cost_price: number | null; active: boolean }
       warehouses: { wh_code: string; name: string; branches: { name: string } | null } | null
     }
     const rows = ((data ?? []) as unknown as R[]).filter((r) => r.products?.active)
 
     costAvailable = rows.some((r) => r.products.cost_price != null && Number(r.products.cost_price) > 0)
-    // Every product sharing one threshold means it is a column default, not a
-    // decision anyone made per product.
-    const thresholds = new Set(rows.map((r) => r.minimum_override ?? r.products.reorder_threshold))
-    minimumIsDefault = thresholds.size <= 1 && rows.length > 1
+
+    // The reorder point, where someone has set one. products.reorder_threshold
+    // is NOT a fallback: it holds a column default of 20 for every product, and
+    // falling back to it is exactly how "fewer than 20 units" came to be
+    // presented as a reorder list.
+    const { data: pts } = await supabase
+      .from("product_reorder_points")
+      .select("product_id, warehouse_id, reorder_point")
+    const pointFor = new Map(
+      ((pts ?? []) as { product_id: string; warehouse_id: string; reorder_point: number | null }[])
+        .map((p) => [`${p.product_id}:${p.warehouse_id}`, p.reorder_point])
+    )
+    reorderTotal = pointFor.size
+    reorderFilled = [...pointFor.values()].filter((v) => v != null).length
 
     inventory = rows.map((r) => {
-      const minimum = r.minimum_override ?? r.products.reorder_threshold ?? null
+      const minimum = pointFor.get(`${r.product_id}:${r.warehouse_id}`) ?? null
       return {
         branch: r.warehouses?.branches?.name ?? "—",
         warehouse: r.warehouses?.wh_code ?? "—",
@@ -108,6 +120,33 @@ export default async function ReportsPage({
           ? Number(r.products.cost_price) * Number(r.quantity) : null,
       }
     }).sort((a, b) => a.branch.localeCompare(b.branch) || a.sku.localeCompare(b.sku))
+  }
+
+  if (tab === "low") {
+    // Straight from the view, which only contains products that HAVE a reorder
+    // point. Filtering the inventory list here would quietly reintroduce the
+    // default for anything still blank.
+    const q = supabase
+      .from("stock_below_reorder_point")
+      .select("sku, product_name, shop, unit, count_frequency, on_hand, reorder_point, short_by, warehouse_id")
+      .order("short_by", { ascending: false })
+    const { data } = await q
+    type L = {
+      sku: string; product_name: string; shop: string; unit: string | null
+      count_frequency: string; on_hand: number; reorder_point: number
+      short_by: number; warehouse_id: string
+    }
+    lowRows = ((data ?? []) as L[]).map((r) => ({
+      shop: r.shop, sku: r.sku, name: r.product_name, unit: r.unit,
+      cycle: r.count_frequency, onHand: Number(r.on_hand),
+      reorderPoint: Number(r.reorder_point), shortBy: Number(r.short_by),
+    }))
+
+    const { data: pts } = await supabase
+      .from("product_reorder_points").select("reorder_point")
+    const all = (pts ?? []) as { reorder_point: number | null }[]
+    reorderTotal = all.length
+    reorderFilled = all.filter((p) => p.reorder_point != null).length
   }
 
   if (tab === "movement") {
@@ -181,8 +220,10 @@ export default async function ReportsPage({
       inventory={inventory}
       movements={movements}
       warehouses={warehouses}
+      lowRows={lowRows}
       costAvailable={costAvailable}
-      minimumIsDefault={minimumIsDefault}
+      reorderFilled={reorderFilled}
+      reorderTotal={reorderTotal}
     />
   )
 }

@@ -44,25 +44,52 @@ export async function exportReport(input: {
   let sheet = "Report"
   let name = "report"
 
-  if (input.tab === "inventory" || input.tab === "low") {
+  if (input.tab === "low") {
+    // From the view, so the export contains exactly what the screen shows:
+    // only products with a reorder point someone actually set.
+    const { data } = await supabase
+      .from("stock_below_reorder_point")
+      .select("shop, sku, product_name, unit, count_frequency, on_hand, reorder_point, short_by")
+      .order("short_by", { ascending: false })
+    type L = {
+      shop: string; sku: string; product_name: string; unit: string | null
+      count_frequency: string; on_hand: number; reorder_point: number; short_by: number
+    }
+    rows = ((data ?? []) as L[]).map((r) => ({
+      Shop: r.shop, Code: r.sku, Product: r.product_name,
+      Cycle: r.count_frequency, "On hand": r.on_hand, Unit: r.unit ?? "",
+      "Reorder at": r.reorder_point, "Short by": r.short_by,
+    }))
+    sheet = "Below reorder point"
+    name = "low-stock"
+  }
+
+  if (input.tab === "inventory") {
     let q = supabase
       .from("stock_levels")
-      .select(`quantity, minimum_override,
-               products!inner(sku, name, unit, type, reorder_threshold, cost_price, active),
+      .select(`product_id, warehouse_id, quantity,
+               products!inner(sku, name, unit, type, cost_price, active),
                warehouses(wh_code, name, branches(name))`)
     if (input.branchId) q = q.eq("branch_id", input.branchId)
     const { data } = await q
 
+    const { data: pts } = await supabase
+      .from("product_reorder_points").select("product_id, warehouse_id, reorder_point")
+    const pointFor = new Map(
+      ((pts ?? []) as { product_id: string; warehouse_id: string; reorder_point: number | null }[])
+        .map((p) => [`${p.product_id}:${p.warehouse_id}`, p.reorder_point])
+    )
+
     type R = {
-      quantity: number; minimum_override: number | null
+      product_id: string; warehouse_id: string; quantity: number
       products: { sku: string; name: string; unit: string | null; type: string | null
-                  reorder_threshold: number | null; cost_price: number | null; active: boolean }
+                  cost_price: number | null; active: boolean }
       warehouses: { wh_code: string; name: string; branches: { name: string } | null } | null
     }
     const all = ((data ?? []) as unknown as R[])
       .filter((r) => r.products?.active)
       .map((r) => {
-        const min = r.minimum_override ?? r.products.reorder_threshold ?? null
+        const min = pointFor.get(`${r.product_id}:${r.warehouse_id}`) ?? null
         return {
           Branch: r.warehouses?.branches?.name ?? "—",
           Warehouse: r.warehouses?.wh_code ?? "—",
@@ -71,21 +98,19 @@ export async function exportReport(input: {
           Type: r.products.type ?? "",
           "On hand": r.quantity,
           Unit: r.products.unit ?? "",
-          Minimum: min,
+
           // Written as a blank, not a zero: no product has a cost recorded and
           // a column of ฿0 would be read as free stock.
           "Value at cost": r.products.cost_price != null
             ? Number(r.products.cost_price) * r.quantity : null,
-          "Short by": min != null && r.quantity < min ? min - r.quantity : null,
+          "Reorder at": min,
         }
       })
       .sort((a, b) => String(a.Branch).localeCompare(String(b.Branch)) || String(a.Code).localeCompare(String(b.Code)))
 
-    rows = input.tab === "low"
-      ? all.filter((r) => r["Short by"] != null)
-      : all
-    sheet = input.tab === "low" ? "Below minimum" : "Inventory"
-    name = input.tab === "low" ? "low-stock" : "inventory"
+    rows = all
+    sheet = "Inventory"
+    name = "inventory"
   }
 
   if (input.tab === "movement") {

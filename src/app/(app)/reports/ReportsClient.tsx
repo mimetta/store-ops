@@ -4,7 +4,8 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { exportReport } from "./export-actions"
 import {
-  MOVEMENT_KINDS, type ReportTab, type InventoryRow, type MovementRow, type WarehouseRow,
+  MOVEMENT_KINDS, type ReportTab, type InventoryRow, type MovementRow,
+  type WarehouseRow, type LowStockRow,
 } from "@/lib/reports"
 
 const TABS: { key: ReportTab; label: string }[] = [
@@ -18,7 +19,8 @@ const num = (n: number) => Math.round(n).toLocaleString("en-GB")
 
 export default function ReportsClient({
   tab, branches, branchId, from, to, today, kind,
-  inventory, movements, warehouses, costAvailable, minimumIsDefault,
+  inventory, movements, warehouses, lowRows, costAvailable,
+  reorderFilled, reorderTotal,
 }: {
   tab: ReportTab
   branches: { id: string; name: string }[]
@@ -27,8 +29,10 @@ export default function ReportsClient({
   inventory: InventoryRow[]
   movements: MovementRow[]
   warehouses: WarehouseRow[]
+  lowRows: LowStockRow[]
   costAvailable: boolean
-  minimumIsDefault: boolean
+  reorderFilled: number
+  reorderTotal: number
 }) {
   const router = useRouter()
   const [busy, start] = useTransition()
@@ -71,7 +75,8 @@ export default function ReportsClient({
     })
   }
 
-  const low = inventory.filter((r) => r.minimum != null && r.onHand < r.minimum)
+  const low = lowRows
+  const reorderOutstanding = reorderTotal - reorderFilled
   const unitsIn = movements.filter((m) => m.quantity > 0).reduce((a, m) => a + m.quantity, 0)
   const unitsOut = movements.filter((m) => m.quantity < 0).reduce((a, m) => a - m.quantity, 0)
 
@@ -139,7 +144,8 @@ export default function ReportsClient({
           <div className="flex gap-2.5 mb-3.5 flex-wrap">
             <Stat label="Lines" value={num(inventory.length)} />
             <Stat label="Units on hand" value={num(inventory.reduce((a, r) => a + r.onHand, 0))} />
-            <Stat label="Below minimum" value={num(low.length)} tone={low.length ? "text-danger-70" : undefined} />
+            <Stat label="Reorder points set" value={`${num(reorderFilled)} / ${num(reorderTotal)}`}
+                  tone={reorderFilled === 0 ? "text-amber-70" : undefined} />
             <Stat
               label="Stock value"
               value={costAvailable ? "—" : "not recorded"}
@@ -164,7 +170,7 @@ export default function ReportsClient({
             onExport={download}
             busy={busy}
             empty={inventory.length === 0 ? "No stock records." : null}
-            head={["Branch", "Product", "On hand", "Unit", "Minimum", "Value"]}
+            head={["Branch", "Product", "On hand", "Unit", "Reorder at", "Value"]}
             align={["", "", "r", "", "r", "r"]}
             rows={inventory.map((r) => {
               const isLow = r.minimum != null && r.onHand < r.minimum
@@ -188,50 +194,59 @@ export default function ReportsClient({
       {tab === "low" && (
         <>
           <div className="flex gap-2.5 mb-3.5 flex-wrap">
-            <Stat label="Below minimum" value={num(low.length)} tone={low.length ? "text-danger-70" : undefined} />
-            <Stat label="Branches affected" value={num(new Set(low.map((r) => r.branch)).size)} />
-            <Stat label="Units short" value={num(low.reduce((a, r) => a + ((r.minimum ?? 0) - r.onHand), 0))}
-                  hint="to reach the minimum" />
+            <Stat label="Below reorder point" value={num(low.length)}
+                  tone={low.length ? "text-danger-70" : undefined} />
+            <Stat label="Shops affected" value={num(new Set(low.map((r) => r.shop)).size)} />
+            <Stat label="Units short" value={num(low.reduce((a, r) => a + r.shortBy, 0))}
+                  hint="to reach the reorder point" />
+            <Stat label="Reorder points set" value={`${num(reorderFilled)} / ${num(reorderTotal)}`}
+                  tone={reorderFilled === 0 ? "text-amber-70" : undefined}
+                  hint={reorderOutstanding ? `${num(reorderOutstanding)} still blank` : "all set"} />
           </div>
 
-          {minimumIsDefault && (
+          {reorderOutstanding > 0 && (
             <div className="note note-a mb-3">
               <span aria-hidden="true">!</span>
               <span>
-                <strong className="font-medium">Every product shares the same minimum</strong>,
-                which means it is a column default rather than a figure anyone chose per
-                product. This list is therefore &ldquo;below {inventory[0]?.minimum ?? 20}&rdquo;,
-                not &ldquo;below what this product needs&rdquo;. Setting real minimums is what
-                makes it a reorder list.
+                <strong className="font-medium">
+                  {num(reorderOutstanding)} of {num(reorderTotal)} products have no reorder point yet
+                </strong>{" "}
+                and are left out of this list entirely. They are not &ldquo;fine&rdquo; — they are
+                unknown. Nothing is compared against a default: a list that is really
+                &ldquo;fewer than 20 units&rdquo; would get ordered from.
               </span>
             </div>
           )}
 
           <Table
-            title="Below minimum"
+            title="Below reorder point"
             onExport={download}
             busy={busy}
-            empty={low.length === 0 ? "Nothing is below its minimum right now." : null}
-            head={["Branch", "Product", "On hand", "Unit", "Minimum", "Short by"]}
+            empty={low.length === 0
+              ? (reorderFilled === 0
+                  ? "No reorder points have been set yet, so nothing can be below one."
+                  : "Nothing is below its reorder point right now.")
+              : null}
+            head={["Shop", "Product", "On hand", "Unit", "Reorder at", "Short by"]}
             align={["", "", "r", "", "r", "r"]}
-            rows={low
-              .slice()
-              .sort((a, b) => (a.onHand / (a.minimum || 1)) - (b.onHand / (b.minimum || 1)))
-              .map((r) => [
-                r.branch,
-                <span key="p">
-                  <span className="block truncate max-w-[250px]">{r.name}</span>
-                  <span className="font-mono text-[11px] text-subtle">{r.sku}</span>
-                </span>,
-                <span key="q" className="num-c text-danger-70 font-medium">{num(r.onHand)}</span>,
-                r.unit ?? "—",
-                <span key="m" className="text-muted">{r.minimum}</span>,
-                <span key="s" className="num-c font-medium">{num((r.minimum ?? 0) - r.onHand)}</span>,
-              ])}
+            rows={low.map((r) => [
+              r.shop,
+              <span key="p">
+                <span className="block truncate max-w-[250px]">{r.name}</span>
+                <span className="font-mono text-[11px] text-subtle">
+                  {r.sku} · {r.cycle}
+                </span>
+              </span>,
+              <span key="q" className="num-c text-danger-70 font-medium">{num(r.onHand)}</span>,
+              r.unit ?? "—",
+              <span key="m" className="text-muted">{num(r.reorderPoint)}</span>,
+              <span key="s" className="num-c font-medium">{num(r.shortBy)}</span>,
+            ])}
           />
           <p className="text-[11px] text-subtle mt-2">
-            &ldquo;Short by&rdquo; reaches the minimum. There is no maximum recorded anywhere,
-            so an order-up-to-max figure would be invented.
+            Reorder points are per product per shop, because turnover differs by shop.
+            &ldquo;Short by&rdquo; reaches the reorder point; there is no maximum recorded
+            anywhere, so an order-up-to figure would be invented.
           </p>
         </>
       )}

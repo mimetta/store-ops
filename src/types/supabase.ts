@@ -1170,6 +1170,80 @@ export type Database = {
           },
         ]
       }
+      product_reorder_points: {
+        Row: {
+          count_frequency: string
+          created_at: string
+          filled_at: string | null
+          filled_by: string | null
+          notes: string | null
+          product_id: string
+          product_name: string
+          reorder_point: number | null
+          shop: string
+          sku: string
+          unit: string | null
+          warehouse_id: string
+        }
+        Insert: {
+          count_frequency: string
+          created_at?: string
+          filled_at?: string | null
+          filled_by?: string | null
+          notes?: string | null
+          product_id: string
+          product_name: string
+          reorder_point?: number | null
+          shop: string
+          sku: string
+          unit?: string | null
+          warehouse_id: string
+        }
+        Update: {
+          count_frequency?: string
+          created_at?: string
+          filled_at?: string | null
+          filled_by?: string | null
+          notes?: string | null
+          product_id?: string
+          product_name?: string
+          reorder_point?: number | null
+          shop?: string
+          sku?: string
+          unit?: string | null
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_reorder_points_filled_by_fkey"
+            columns: ["filled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reorder_points_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_count_policy"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "product_reorder_points_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reorder_points_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           acccloud_master_id: number | null
@@ -3201,6 +3275,16 @@ export type Database = {
         }
         Relationships: []
       }
+      reorder_points_outstanding: {
+        Row: {
+          count_frequency: string | null
+          filled: number | null
+          outstanding: number | null
+          rows: number | null
+          shop: string | null
+        }
+        Relationships: []
+      }
       sales_posted_today: {
         Row: {
           batches: number | null
@@ -3290,6 +3374,43 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "daily_entry_status"
             referencedColumns: ["branch_id"]
+          },
+        ]
+      }
+      stock_below_reorder_point: {
+        Row: {
+          count_frequency: string | null
+          on_hand: number | null
+          product_id: string | null
+          product_name: string | null
+          reorder_point: number | null
+          shop: string | null
+          short_by: number | null
+          sku: string | null
+          unit: string | null
+          warehouse_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_levels_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_count_policy"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "stock_levels_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_levels_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
           },
         ]
       }

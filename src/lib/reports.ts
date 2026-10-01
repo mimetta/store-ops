@@ -18,6 +18,17 @@ export interface InventoryRow {
   value: number | null
 }
 
+export interface LowStockRow {
+  shop: string
+  sku: string
+  name: string
+  unit: string | null
+  cycle: string
+  onHand: number
+  reorderPoint: number
+  shortBy: number
+}
+
 export interface MovementRow {
   when: string
   branch: string
