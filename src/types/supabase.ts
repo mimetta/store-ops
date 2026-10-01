@@ -2356,6 +2356,7 @@ export type Database = {
           product_id: string | null
           quantity: number
           reference: string | null
+          sales_bill_id: string | null
           warehouse_id: string | null
         }
         Insert: {
@@ -2368,6 +2369,7 @@ export type Database = {
           product_id?: string | null
           quantity: number
           reference?: string | null
+          sales_bill_id?: string | null
           warehouse_id?: string | null
         }
         Update: {
@@ -2380,6 +2382,7 @@ export type Database = {
           product_id?: string | null
           quantity?: number
           reference?: string | null
+          sales_bill_id?: string | null
           warehouse_id?: string | null
         }
         Relationships: [
@@ -2409,6 +2412,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_sales_bill_id_fkey"
+            columns: ["sales_bill_id"]
+            isOneToOne: false
+            referencedRelation: "sales_bills"
             referencedColumns: ["id"]
           },
           {
@@ -3094,6 +3104,7 @@ export type Database = {
       auth_branch_id: { Args: never; Returns: string }
       auth_portal_role: { Args: never; Returns: string }
       branch_has_erp_balance: { Args: { p_branch: string }; Returns: boolean }
+      branch_is_pos_fed: { Args: { p_branch: string }; Returns: boolean }
       business_today: { Args: never; Returns: string }
       can_access_branch: { Args: { target: string }; Returns: boolean }
       count_unresolved_lines: { Args: { p_count: string }; Returns: number }
@@ -3108,7 +3119,9 @@ export type Database = {
           bills_inserted: number
           bills_updated: number
           lines_written: number
+          moved_stock: boolean
           payments_written: number
+          units_out: number
         }[]
       }
       lapse_expired_shift_swap_days: { Args: never; Returns: number }

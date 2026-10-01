@@ -129,6 +129,9 @@ export default function ImportClient({
             {result.unmatched && result.unmatched.length > 0
               ? ` ${result.unmatched.length} product code${result.unmatched.length > 1 ? "s" : ""} did not match anything in your product list.`
               : ""}
+            {result.movedStock
+              ? ` ${result.unitsOut} units came out of stock, dated to each bill.`
+              : " No stock moved: this branch holds none of ours."}
             {result.mappingSaved ? " The mapping is saved — next month this file imports in one step." : ""}
           </span>
         </div>

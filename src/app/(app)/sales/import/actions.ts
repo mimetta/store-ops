@@ -232,6 +232,10 @@ export interface ImportResult {
   linesWritten?: number
   unmatched?: string[]
   mappingSaved?: boolean
+  /** Units taken out of stock. Zero for a branch with no warehouse. */
+  unitsOut?: number
+  /** False when the branch holds no stock of ours — a consignment partner does. */
+  movedStock?: boolean
 }
 
 /** Write the bills. Re-running the same file updates rather than duplicates. */
@@ -603,7 +607,10 @@ async function importAdapos(
   }
 
   const out = (Array.isArray(res) ? res[0] : res) as
-    | { bills_inserted: number; bills_updated: number; lines_written: number }
+    | {
+        bills_inserted: number; bills_updated: number; lines_written: number
+        units_out: number; moved_stock: boolean
+      }
     | undefined
 
   await supabase.from("sales_imports").update({
@@ -618,6 +625,8 @@ async function importAdapos(
     billsInserted: out?.bills_inserted ?? 0,
     billsUpdated: out?.bills_updated ?? 0,
     linesWritten: out?.lines_written ?? 0,
+    unitsOut: Number(out?.units_out ?? 0),
+    movedStock: out?.moved_stock ?? false,
     unmatched, mappingSaved: false,
   }
 }
