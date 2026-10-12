@@ -112,6 +112,14 @@ export default function DailyEntry({
 
   const enteredUnits = Object.entries(units).filter(([, v]) => v !== "" && Number(v) > 0)
   const totalUnits = enteredUnits.reduce((a, [, v]) => a + Number(v), 0)
+  // ── the Money card ────────────────────────────────────────────────────
+  // Restored from the demo's Manual entry tab, which had it until that screen
+  // was split. Without it a hand-keyed branch's commission revenue is an
+  // ESTIMATE from list prices and its VIP is zero, so the whole VIP turnover
+  // sits in the pool.
+  const [totalSales, setTotalSales] = useState("")
+  const [vipSales, setVipSales] = useState("")
+
   const billTotal = Object.values(billCounts).reduce((a, v) => a + (v === "" ? 0 : Number(v)), 0)
   const anyBills = Object.values(billCounts).some((v) => v !== "")
 
@@ -120,9 +128,13 @@ export default function DailyEntry({
   const billGap = importedBills - billTotal
 
   const needsAck = !branch.posFed && priorBatches > 0 && enteredUnits.length > 0
-  const nothingToSave = enteredUnits.length === 0 && !anyBills && thai === "" && foreign === ""
+  const moneyKeyed = totalSales !== ""
+  const vipOverTotal = moneyKeyed && vipSales !== "" && Number(vipSales) > Number(totalSales)
+  const nothingToSave =
+    enteredUnits.length === 0 && !anyBills && thai === "" && foreign === "" && !moneyKeyed
   const canSubmit =
-    !nothingToSave && (!needsAck || acknowledged) && (!branch.posFed || !anyBills || reconciles)
+    !nothingToSave && (!needsAck || acknowledged) && !vipOverTotal &&
+    (!branch.posFed || !anyBills || reconciles)
 
   const num = (raw: string, set: (v: string) => void) => {
     if (raw !== "" && !/^\d+$/.test(raw)) return
@@ -144,6 +156,10 @@ export default function DailyEntry({
           foreign: foreign === "" ? null : Number(foreign),
         },
         acknowledgeExisting: acknowledged,
+        // "" means not keyed; "0" means there were none, which the demo asked
+        // for in so many words.
+        totalSales: moneyKeyed ? Number(totalSales) : null,
+        vipSales: moneyKeyed ? (vipSales === "" ? 0 : Number(vipSales)) : null,
       })
       if (r.ok) {
         try { window.localStorage.removeItem(draftKey) } catch {}
@@ -159,6 +175,10 @@ export default function DailyEntry({
         }
         if (r.billsRecorded) parts.push(`${r.billsTotal} bills by country`)
         if (r.trafficRecorded) parts.push("traffic")
+        if (r.salesValueSaved) {
+          parts.push(`฿${Number(totalSales).toLocaleString()} taken`)
+          setTotalSales(""); setVipSales("")
+        }
         setMessage({
           ok: true,
           text: `Saved for ${fmtDay(date)} — ${parts.join(", ")}.` +
@@ -231,6 +251,61 @@ export default function DailyEntry({
 
       {message && (
         <div className={`note ${message.ok ? "note-g" : "note-r"} mb-3`}>{message.text}</div>
+      )}
+
+      {/* ── money — hand-keyed only ───────────────────────────────────────
+          The demo's Money card, restored. A POS branch's figures come from
+          the AdaPOS import, so keying them here would be a second answer free
+          to drift from the first — save_daily_entry refuses it outright. */}
+      {!branch.posFed && canUnits && (
+        <div className="card card-pad mb-3">
+          <div className="flex items-baseline gap-2.5 mb-3 flex-wrap">
+            <h2 className="text-[15px] font-medium flex-1 min-w-0">Money</h2>
+            <span className="text-xs text-muted">What the shop took today</span>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            <label className="flex-1 min-w-[150px]">
+              <span className="text-xs text-muted">Total sales</span>
+              <input
+                inputMode="decimal" placeholder="฿0" value={totalSales}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setTotalSales(v)
+                }}
+                className="input-field mt-1 num-c"
+              />
+            </label>
+            <label className="flex-1 min-w-[150px]">
+              <span className="text-xs text-muted">Of which VIP</span>
+              <input
+                inputMode="decimal" placeholder="฿0" value={vipSales}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setVipSales(v)
+                }}
+                className={`input-field mt-1 num-c ${vipOverTotal ? "border-danger-60" : ""}`}
+              />
+            </label>
+          </div>
+          {/* The demo's words, kept because they say the WHY and not just the what. */}
+          <p className="text-[13px] text-muted mt-3 mb-0">
+            VIP sales are excluded from the commission pool. Enter ฿0 if there were none.
+          </p>
+          {vipOverTotal && (
+            <p className="note note-r mt-3">
+              <span>VIP sales cannot be more than the total.</span>
+            </p>
+          )}
+          {moneyKeyed && vipSales === "" && (
+            <p className="note note-a mt-3">
+              <span>
+                No VIP figure — this will save as ฿0, which means <strong>there were
+                none</strong>. If some of today&apos;s takings were VIP, enter them, or
+                the commission pool will be too big.
+              </span>
+            </p>
+          )}
+        </div>
       )}
 
       {/* ── units sold — hand-keyed only ─────────────────────────────────── */}

@@ -204,10 +204,50 @@ commit;
 
 do $$
 declare
+  v_sl_snapshot jsonb;
   v_b uuid; v_wh uuid; v_p uuid; v_actor uuid; v_post uuid; v_post2 uuid;
   v_ok boolean; v_err text; r record; v_moved date;
 begin
-  select id into v_actor from profiles where portal_role='admin' limit 1;
+
+  -- ── snapshot stock_levels so this block leaves none of its own arithmetic ──
+  -- The cleanup below removes the movements, deliveries and postings this
+  -- block creates, but receive_delivery/post_sales_units also UPSERT
+  -- stock_levels, and nothing was putting those back. Two test rows reached
+  -- production that way. 212 rows on UAT, 4 on production — the snapshot is
+  -- cheap and the restore is exact.
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'q', quantity)), '[]'::jsonb)
+    into v_sl_snapshot
+    from stock_levels;
+  -- Pick somebody who actually HOLDS the capability, then TEST the choice.
+  -- `where portal_role = 'admin'` returns NULL on production — the only
+  -- account holding 'admin' was deactivated and the administrator holds
+  -- 'superadmin'. A NULL actor makes auth.uid() NULL and every capability
+  -- check refuse, which reads as a permission bug rather than an absent user.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role and rc.capability = 'sales.manual'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('sales.manual')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "sales.manual" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub',v_actor,'role','authenticated')::text, true);
 
@@ -286,6 +326,18 @@ begin
     (select id from sales_postings where branch_id=v_b and note='W37');
   delete from sales_postings where branch_id=v_b and note='W37';
   update branches set pos_branch_code = '00003' where id = v_b;
+  -- ── restore stock_levels to the snapshot ──────────────────────────────────
+  -- Rows this block created go; rows it changed go back to the quantity they
+  -- held. A verify block must leave the database as it found it.
+  delete from stock_levels sl
+   where not exists (select 1 from jsonb_array_elements(v_sl_snapshot) e
+                      where (e->>'id')::uuid = sl.id);
+  update stock_levels sl
+     set quantity = (e->>'q')::int
+    from jsonb_array_elements(v_sl_snapshot) e
+   where (e->>'id')::uuid = sl.id
+     and sl.quantity is distinct from (e->>'q')::int;
+
 end $$;
 
 

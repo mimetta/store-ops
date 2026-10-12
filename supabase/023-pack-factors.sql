@@ -68,7 +68,35 @@ comment on column product_pack_factors.factor is
 -- The seed. Product names are carried into `notes` because several of them
 -- already state the factor ("X 7 pcs", "x 3", "duet"), and whoever fills this
 -- in should see that without going to look it up.
-insert into product_pack_factors (sku, pack_unit, notes) values
+-- ── the LIST, which is not the same thing as the worksheet ────────────────
+--
+-- product_pack_factors.sku has a foreign key to products(sku), so seeding it
+-- directly fails outright on a database whose product master is incomplete.
+-- That is exactly what happened on production: these 27 SKUs exist among UAT's
+-- 735 products and not among production's 54, because the AccCloud sync has
+-- never run there. The whole migration rolled back over it.
+--
+-- So the list is held in its own table with NO foreign key, and the worksheet
+-- is filled from it for the products that actually exist. Same shape as 018's
+-- countable_products and its unresolved view.
+create table if not exists product_pack_factor_seed (
+  sku        text primary key,
+  pack_unit  text not null,
+  notes      text
+);
+
+comment on table product_pack_factor_seed is
+  'The pack-factor list as written by hand, independent of whether the product '
+  'master knows these SKUs yet. product_pack_factors is filled FROM here for '
+  'products that exist; pack_factor_seed_unmatched shows the rest. Re-run 023 '
+  'after an AccCloud sync to pick up newly-known SKUs.';
+
+alter table product_pack_factor_seed enable row level security;
+drop policy if exists "read product_pack_factor_seed" on product_pack_factor_seed;
+create policy "read product_pack_factor_seed" on product_pack_factor_seed
+  for select to authenticated using (true);
+
+insert into product_pack_factor_seed (sku, pack_unit, notes) values
   ('FG1-ABPF100-B-CM',    'BOX',  'ambient pafrum 100 ml (cotton musk)'),
   ('FG1-ABPF100-B-CR',    'BOX',  'ambient parfum 100 ml (charlene rose)'),
   ('FG1-ABPF100-B-NG',    'BOX',  'ambient parfum 100 ml (neroli garden)'),
@@ -102,8 +130,30 @@ insert into product_pack_factors (sku, pack_unit, notes) values
 on conflict (sku) do update set
   pack_unit = excluded.pack_unit,
   notes     = excluded.notes;
+
+-- Fill the worksheet with what the product master actually knows. Everything
+-- else waits in the seed table until it does.
+insert into product_pack_factors (sku, pack_unit, notes)
+select s.sku, s.pack_unit, s.notes
+  from product_pack_factor_seed s
+  join products p on p.sku = s.sku
+on conflict (sku) do update set
+  pack_unit = excluded.pack_unit,
+  notes     = excluded.notes;
 -- factor is NOT overwritten on conflict: re-running this file must never undo
 -- a number somebody filled in.
+
+-- What the list names and the product master does not have. Non-empty is the
+-- NORMAL state until the AccCloud sync has run — the same as 018's
+-- unresolved_countable_products. It is the signal for when to re-run this.
+create or replace view pack_factor_seed_unmatched as
+  select s.sku, s.pack_unit, s.notes
+    from product_pack_factor_seed s
+   where not exists (select 1 from products p where p.sku = s.sku);
+
+comment on view pack_factor_seed_unmatched is
+  'Pack-factor SKUs the product master does not know yet. Expected to be '
+  'non-empty until the AccCloud sync has run. Re-run 023 to pick them up.';
 
 alter table product_pack_factors enable row level security;
 
@@ -149,19 +199,101 @@ select p.sku, p.unit
 from product_count_policy pol
 join products p on p.id = pol.product_id
 left join product_pack_factors f on f.sku = p.sku
-where pol.count_frequency <> 'never' and p.unit <> 'PCS' and f.sku is null
+where pol.count_frequency <> 'never'
+  -- NOT `unit <> 'PCS'`: the two databases hold different unit vocabularies.
+  -- UAT says PCS / SET / GRAM / BOX (AccCloud codes); production says 'piece'.
+  -- Matching one spelling reports every single-piece product as needing a
+  -- pack factor on the other.
+  and upper(btrim(coalesce(p.unit, ''))) not in ('PCS', 'PIECE', 'PC', 'EA', 'UNIT')
+  and coalesce(p.unit, '') <> 'ชิ้น'
+  and f.sku is null
 order by p.sku;
 -- Expect exactly DEPOSIT and DEPOSIT-PAY, which are not physical.
 
--- The attribution constraint bites.
+-- ── assertions ────────────────────────────────────────────────────────────
+--
+-- The grids above are for reading; these are for judging. Without them this
+-- migration emitted three tables and one free-text notice, so a harness could
+-- not tell pass from fail and a human had nothing to scan for. That is how it
+-- was reported complete in session 4 without having run at all.
+--
+-- The counts (27 rows, 13 SET, 10 BOX) are deliberately NOT asserted: they are
+-- facts about today's product list, and production has 54 products against
+-- UAT's 735. Asserting them would fail on a database where this migration
+-- worked perfectly — the same mistake 040 made.
 do $$
-declare ok boolean := false;
+declare v_missing int; v_filled int; v_rows int; v_seed int; v_unknown int;
+        v_ok boolean := false;
 begin
-  begin
-    update product_pack_factors set factor = 3 where sku = 'FG-SET-KTC-NG';
-  exception when check_violation then ok := true;
-  end;
-  raise notice 'factor without an author refused: %', ok;
+  select count(*) into v_rows from product_pack_factors;
+
+  -- 0. the list installed in full, and the worksheet holds whatever the
+  --    product master could match. On production that is far fewer, and that
+  --    is reported rather than asserted — 54 products against UAT's 735.
+  select count(*) into v_seed    from product_pack_factor_seed;
+  select count(*) into v_unknown from pack_factor_seed_unmatched;
+
+  raise notice '% | the pack-factor list is installed         | % SKU(s)',
+    (v_seed > 0), v_seed;
+  raise notice 'INFO    | % worksheet row(s); % SKU(s) the product master does not know yet',
+    v_rows, v_unknown;
+  if v_unknown > 0 then
+    raise notice 'INFO    | that is normal until the AccCloud sync runs here.';
+    raise notice 'INFO    | re-run 023 afterwards — it is idempotent, and it will';
+    raise notice 'INFO    | not overwrite a factor anybody has filled in.';
+  end if;
+
+  -- the worksheet must never contain a SKU the list does not name
+  raise notice '% | every worksheet row comes from the list   |',
+    not exists (select 1 from product_pack_factors f
+                 where not exists (select 1 from product_pack_factor_seed s
+                                    where s.sku = f.sku));
+
+  -- 1. REPORTED, not asserted. This asks whether a hand-written list covers
+  --    whatever products happen to exist, which is a curation question about
+  --    today's data — not something this migration can be right or wrong
+  --    about. Asserting it failed on production while the schema installed
+  --    perfectly, the same way 040's row count did.
+  --
+  --    The unit test is vocabulary-tolerant on purpose: UAT holds AccCloud
+  --    codes (PCS, SET, GRAM, BOX) and production holds 'piece'. Nothing
+  --    reconciles them — the sync does not write `unit` at all — so a single
+  --    spelling is wrong on one database or the other.
+  select count(*) into v_missing
+    from product_count_policy pol
+    join products p on p.id = pol.product_id
+    left join product_pack_factors f on f.sku = p.sku
+   where pol.count_frequency <> 'never'
+     and upper(btrim(coalesce(p.unit, ''))) not in ('PCS', 'PIECE', 'PC', 'EA', 'UNIT')
+     and coalesce(p.unit, '') <> 'ชิ้น'
+     and f.sku is null
+     and p.sku not in ('DEPOSIT', 'DEPOSIT-PAY');
+  raise notice 'INFO    | % countable product(s) sold in a multi-unit have no pack factor',
+    v_missing;
+  if v_missing > 0 then
+    raise notice 'INFO    | add them to the seed list above — the grid in STEP 2 names them.';
+  end if;
+
+  -- 2. seeded blank, on purpose. A pack factor is measured, not invented.
+  select count(*) into v_filled from product_pack_factors where factor is not null;
+  raise notice '% | every row starts blank                    | % filled in',
+    (v_filled = 0), v_filled;
+
+  -- 3. the attribution constraint bites. Only meaningful if there is a row to
+  --    try it on — on a database with no countable products there is not.
+  if v_rows = 0 then
+    raise notice 'SKIPPED | no worksheet rows, so the attribution constraint';
+    raise notice 'SKIPPED | cannot be exercised. The table and its CHECK are';
+    raise notice 'SKIPPED | installed; re-run once products exist to seed it.';
+  else
+    begin
+      update product_pack_factors set factor = 3
+       where ctid = (select ctid from product_pack_factors limit 1);
+      v_ok := false;
+    exception when check_violation then v_ok := true;
+    end;
+    raise notice '% | a factor without an author is refused     |', v_ok;
+  end if;
 end $$;
 
 

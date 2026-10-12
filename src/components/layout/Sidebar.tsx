@@ -48,13 +48,26 @@ const REPORTS_ICON    = "M18 20V10 M12 20V4 M6 20v-6"
 const CALENDAR_ICON   = "M8 2v4 M16 2v4 M3 10h18 M21 8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V8z"
 const LEAVE_ICON      = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M12 18v-6 M9 15h6"
 const SCHEDULE_ICON   = "M3 3h18v18H3z M3 9h18 M9 21V9"
+// two arrows passing — the demo's ⇄
+const SWAP_ICON       = "M7 4L3 8l4 4 M3 8h14 M17 20l4-4-4-4 M21 16H7"
+// a clock — overtime is hours beyond the shift
+const OT_ICON         = "M12 7v5l3 2 M12 3a9 9 0 100 18 9 9 0 000-18z"
+// a rising line into a target — the pool against the goal
+const COMMISSION_ICON = "M3 17l6-6 4 4 7-7 M14 8h7v7"
 const TRAINING_ICON   = "M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 9 3 12 0v-5"
+const PEOPLE_ICON     = "M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2 M10 11a4 4 0 100-8 4 4 0 000 8 M22 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75"
+const FEEDBACK_ICON   = "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+const TRUCK_ICON      = "M1 3h15v13H1z M16 8h4l3 3v5h-7V8 M5.5 18.5a2 2 0 100-4 2 2 0 000 4 M18.5 18.5a2 2 0 100-4 2 2 0 000 4"
+const SYNC_ICON       = "M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0114.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0020.49 15"
 const SETTINGS_ICON   = "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
 const HISTORY_ICON    = "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
 
 const SALES_ITEMS: NavItem[] = [
-  { label: "Dashboard",     href: "/dashboard",   icon: <Icon d={DASH_ICON} />,        needs: ["stock.reports", "sales.manual", "sales.import"] },
-  { label: "Sales",          href: "/sales",       icon: <Icon d={SALES_ICON} />,       needs: ["sales.manual", "sales.import"] },
+  // No `needs`: /dashboard has no capability check of its own and never had
+  // one, so gating the link advertised a restriction nothing enforced. RLS
+  // scopes every figure on it to the branches you may see, and a KA seeing
+  // their own branch's dashboard is correct — they key most of it in.
+  { label: "Dashboard",     href: "/dashboard",   icon: <Icon d={DASH_ICON} /> },
   { label: "End of day",     href: "/daily",       icon: <Icon d={UNITS_ICON} />,       needs: ["sales.manual", "bills", "traffic"] },
   { label: "Import sales",   href: "/sales/import", icon: <Icon d={IMPORT_ICON} />,     needs: ["sales.import"] },
   { label: "POS Money",      href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["pos.money"] },
@@ -68,25 +81,48 @@ const STOCK_ITEMS: NavItem[] = [
   { label: "Stock adjustments",    href: "/adjustments",  icon: <Icon d={ADJUST_ICON} />,  needs: ["stock.adjustment.approve"] },
   { label: "Stock reports",        href: "/reports",      icon: <Icon d={REPORTS_ICON} />, needs: ["stock.reports"] },
   { label: "FG Stock",             href: "/stock",        icon: <Icon d={STOCK_ICON} />,   needs: ["stock.count"] },
-  { label: "Consumables",          href: "/consumables",  icon: <Icon d={CONSUMABLE_ICON} />, needs: ["stock.count"] },
+  { label: "Consumables",          href: "/stock?type=consumable",  icon: <Icon d={CONSUMABLE_ICON} />, needs: ["stock.count"] },
 ]
 
 const PEOPLE_ITEMS: NavItem[] = [
   { label: "Shifts",   href: "/shifts",   icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
+  { label: "Swaps",    href: "/swaps",    icon: <Icon d={SWAP_ICON} />,     needs: ["shifts.manage", "shifts.view_own"] },
   { label: "Leave",    href: "/leave",    icon: <Icon d={LEAVE_ICON} />,    needs: ["leave.request"] },
+  { label: "Overtime", href: "/overtime", icon: <Icon d={OT_ICON} />,       needs: ["overtime.record"] },
+  { label: "Commission", href: "/commission", icon: <Icon d={COMMISSION_ICON} />, needs: ["payout.view"] },
   { label: "Training", href: "/training", icon: <Icon d={TRAINING_ICON} />, needs: ["training.view"] },
 ]
 
 const MANAGE_ITEMS: NavItem[] = [
   { label: "Calendar & events", href: "/calendar", icon: <Icon d={CALENDAR_ICON} />, needs: ["calendar.manage"] },
+  { label: "People",            href: "/people",   icon: <Icon d={PEOPLE_ICON} />,   needs: ["people.manage"] },
+  // Under Manage, not Logistics: this is an admin-only integration — product
+  // master, run history, failures — not a shop-floor activity. The demo has it
+  // here too, gated to `admin` alone.
+  { label: "AccCloud sync",     href: "/sync",     icon: <Icon d={SYNC_ICON} />,     needs: ["acccloud.sync"] },
   { label: "Settings",          href: "/settings", icon: <Icon d={SETTINGS_ICON} />, needs: ["settings"] },
   { label: "Activity log",      href: "/activity", icon: <Icon d={HISTORY_ICON} />,  needs: ["settings"] },
 ]
 
+// Customer feedback is not a sale, not stock, and not about staff. A group of
+// one is honest about that, and the CRM work in the pipeline will join it.
+const CUSTOMER_ITEMS: NavItem[] = [
+  { label: "Customer feedback", href: "/feedback", icon: <Icon d={FEEDBACK_ICON} />, needs: ["feedback.record"] },
+]
+
+// The scheduling side only. /receiving stays under Stock, because a KA
+// receiving a box is doing stock work — this is the head of logistics setting
+// dates, which is the one thing `delivery.schedule` was created for.
+const LOGISTICS_ITEMS: NavItem[] = [
+  { label: "Delivery schedule", href: "/deliveries", icon: <Icon d={TRUCK_ICON} />, needs: ["delivery.schedule"] },
+]
+
 const SECTIONS: { label: string; items: NavItem[] }[] = [
-  { label: "Sales",  items: SALES_ITEMS },
+  { label: "Sales",     items: SALES_ITEMS },
+  { label: "Customers", items: CUSTOMER_ITEMS },
   { label: "Stock",  items: STOCK_ITEMS },
   { label: "People", items: PEOPLE_ITEMS },
+  { label: "Logistics", items: LOGISTICS_ITEMS },
   { label: "Manage", items: MANAGE_ITEMS },
 ]
 

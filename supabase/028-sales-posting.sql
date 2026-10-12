@@ -104,9 +104,21 @@ create trigger sales_posting_lines_no_edit
   for each row execute function public.sales_posting_lines_immutable();
 
 -- ── posting is what moves stock ───────────────────────────────────────────
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('post_sales_units', '028');
+  end if;
+end
+$$;
+
 create or replace function public.post_sales_units(p_posting uuid)
 returns table (lines_posted integer, units_total bigint)
 language plpgsql security definer set search_path = public, pg_temp as $$
+  -- fn-version: 028
 declare
   v_branch uuid; v_wh uuid; v_posted timestamptz; v_date date;
   v_lines integer; v_units bigint;
@@ -223,9 +235,21 @@ create policy "write sales_posting_lines" on sales_posting_lines
 -- delivery created for the first time. Harmless to the level itself, which is
 -- keyed on (product, warehouse), but it makes those rows invisible to anything
 -- that filters by branch.
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('receive_delivery', '028');
+  end if;
+end
+$$;
+
 create or replace function public.receive_delivery(p_delivery uuid)
 returns table (lines_received integer, shortages_raised integer, units_added bigint)
 language plpgsql security definer set search_path = public, pg_temp as $$
+  -- fn-version: 028
 declare
   v_branch uuid; v_wh uuid; v_status text;
   v_unchecked integer; v_noreason integer;
@@ -312,14 +336,47 @@ commit;
 
 do $$
 declare
+  v_sl_snapshot jsonb;
   v_b uuid; v_w uuid; v_p uuid; v_post uuid; v_actor uuid;
   v_before integer; v_after integer; v_lines integer; v_units bigint;
   v_ok boolean; v_err text;
 begin
+
+  -- ── snapshot stock_levels so this block leaves none of its own arithmetic ──
+  -- The cleanup below removes the movements, deliveries and postings this
+  -- block creates, but receive_delivery/post_sales_units also UPSERT
+  -- stock_levels, and nothing was putting those back. Two test rows reached
+  -- production that way. 212 rows on UAT, 4 on production — the snapshot is
+  -- cheap and the restore is exact.
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'q', quantity)), '[]'::jsonb)
+    into v_sl_snapshot
+    from stock_levels;
   select b.id, w.id into v_b, v_w from branches b
     join warehouses w on w.branch_id=b.id and w.is_default and w.in_scope
    where b.name = 'Song Wat';
   select id into v_p from products where active order by sku limit 1;
+
+  -- 033 adds branches.pos_branch_code, and from 036 post_sales_units REFUSES
+  -- a manual posting at a POS-fed branch — "this branch takes its sales from
+  -- the POS import". That is correct behaviour and arrives two migrations
+  -- after this one, so on a database at 028 Song Wat is still hand-keyed and
+  -- everything below works. Re-running this block against a LATER schema (the
+  -- production-shape sweep does exactly that) hits the refusal instead.
+  --
+  -- Named through information_schema because the column does not exist at 028
+  -- and a plain reference would fail to parse.
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'branches'
+                and column_name = 'pos_branch_code') then
+    execute 'select (select pos_branch_code from branches where id = $1) is not null'
+      into v_ok using v_b;
+    if v_ok then
+      raise notice 'SKIPPED | Song Wat is POS-fed on this schema (033+), so manual';
+      raise notice 'SKIPPED | posting is refused by design. This block tests the';
+      raise notice 'SKIPPED | hand-keyed path, which 028 is the correct era for.';
+      return;
+    end if;
+  end if;
 
   -- 0. the capability gate, before impersonating anyone
   insert into sales_postings (branch_id, warehouse_id) values (v_b, v_w) returning id into v_post;
@@ -331,12 +388,55 @@ begin
   end;
   raise notice '% | unauthenticated post refused          |', v_ok;
 
-  select id into v_actor from profiles where portal_role = 'admin' limit 1;
+  -- Pick somebody who actually HOLDS the capability and sees every branch,
+  -- rather than assuming a row with portal_role = 'admin' exists.
+  --
+  -- Production has none. Session 1's step 2e deactivated the only account
+  -- holding 'admin', and the remaining administrator holds 'superadmin'. The
+  -- old select returned NULL, auth.uid() became NULL, and every capability
+  -- check refused — which read as a permission bug rather than an absent test
+  -- user. This is the same shape as 057's commission assertion.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role
+                        and rc.capability = 'sales.manual'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  -- Then TEST the choice rather than trusting it. Whether a role sees every
+  -- branch depends on which version of sees_all_branches() is installed —
+  -- 054 removes 'superadmin' from it, so the same account qualifies before
+  -- that migration and not after. Asking the database beats assuming.
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('sales.manual')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "sales.manual" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_actor, 'role','authenticated')::text, true);
 
-  select coalesce(quantity,0) into v_before from stock_levels
-   where product_id = v_p and warehouse_id = v_w;
+  -- coalesce() must wrap the SUBQUERY, not the column. `select coalesce(q,0)
+  -- into v` leaves v NULL when no row matches at all — the SELECT returns no
+  -- rows and INTO assigns NULL regardless. On production, where this product
+  -- has no stock row yet, that made the assertion print <NULL>: neither pass
+  -- nor fail, proving nothing.
+  select coalesce((select quantity from stock_levels
+                    where product_id = v_p and warehouse_id = v_w), 0)
+    into v_before;
 
   -- 1. posting writes a NEGATIVE movement
   select lines_posted, units_total into v_lines, v_units from public.post_sales_units(v_post);
@@ -348,7 +448,8 @@ begin
                and movement_type = 'out' and quantity = -4);
 
   -- 2. the level went DOWN
-  select quantity into v_after from stock_levels where product_id = v_p and warehouse_id = v_w;
+  select coalesce((select quantity from stock_levels
+                      where product_id = v_p and warehouse_id = v_w), 0) into v_after;
   raise notice '% | stock fell by 4                       | % -> %',
     (v_before - v_after = 4), v_before, v_after;
 
@@ -381,7 +482,8 @@ begin
       (select units_sold from sales_posted_today
         where product_id = v_p and warehouse_id = v_w and sale_date = public.business_today());
 
-    select quantity into v_after from stock_levels where product_id = v_p and warehouse_id = v_w;
+    select coalesce((select quantity from stock_levels
+                      where product_id = v_p and warehouse_id = v_w), 0) into v_after;
     raise notice '% | stock fell by 7 in total              | % -> %',
       (v_before - v_after = 7), v_before, v_after;
 
@@ -401,6 +503,18 @@ begin
     delete from sales_posting_lines where posting_id in (v_post, v_post2);
     delete from sales_postings where id in (v_post, v_post2);
   end;
+  -- ── restore stock_levels to the snapshot ──────────────────────────────────
+  -- Rows this block created go; rows it changed go back to the quantity they
+  -- held. A verify block must leave the database as it found it.
+  delete from stock_levels sl
+   where not exists (select 1 from jsonb_array_elements(v_sl_snapshot) e
+                      where (e->>'id')::uuid = sl.id);
+  update stock_levels sl
+     set quantity = (e->>'q')::int
+    from jsonb_array_elements(v_sl_snapshot) e
+   where (e->>'id')::uuid = sl.id
+     and sl.quantity is distinct from (e->>'q')::int;
+
 end $$;
 
 -- The chain can now report both directions.

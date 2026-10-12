@@ -344,8 +344,20 @@ $$;
 grant execute on function public.next_transfer_reference() to authenticated;
 
 -- ── resolve_shortage follows the rename ───────────────────────────────────
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('resolve_shortage', '031');
+  end if;
+end
+$$;
+
 create or replace function public.resolve_shortage(p_shortage uuid, p_note text default null)
 returns void language plpgsql security definer set search_path = public, pg_temp as $$
+  -- fn-version: 031
 begin
   if not public.has_capability('delivery.schedule') then
     raise exception 'you do not have permission to resolve a discrepancy';
@@ -433,13 +445,53 @@ commit;
 
 do $$
 declare
+  v_sl_snapshot jsonb;
   v_a_b uuid; v_a_w uuid; v_z_b uuid; v_z_w uuid; v_central uuid;
   v_p uuid; v_t uuid; v_l uuid; v_actor uuid;
   v_from0 int; v_from1 int; v_to0 int; v_to1 int;
   v_lines int; v_units bigint; v_terminal boolean; v_disc int;
   v_ok boolean; v_err text; v_status text;
 begin
-  select id into v_actor from profiles where portal_role='admin' limit 1;
+
+  -- ── snapshot stock_levels so this block leaves none of its own arithmetic ──
+  -- The cleanup below removes the movements, deliveries and postings this
+  -- block creates, but receive_delivery/post_sales_units also UPSERT
+  -- stock_levels, and nothing was putting those back. Two test rows reached
+  -- production that way. 212 rows on UAT, 4 on production — the snapshot is
+  -- cheap and the restore is exact.
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'q', quantity)), '[]'::jsonb)
+    into v_sl_snapshot
+    from stock_levels;
+  -- Pick somebody who actually HOLDS the capability, then TEST the choice.
+  -- `where portal_role = 'admin'` returns NULL on production — the only
+  -- account holding 'admin' was deactivated and the administrator holds
+  -- 'superadmin'. A NULL actor makes auth.uid() NULL and every capability
+  -- check refuse, which reads as a permission bug rather than an absent user.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role and rc.capability = 'transfers'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('transfers')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "transfers" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub',v_actor,'role','authenticated')::text, true);
 
@@ -529,6 +581,18 @@ begin
     (select id from transfer_lines where transfer_id in (select id from transfers where reference like 'TR-%'));
   delete from transfer_lines where transfer_id in (select id from transfers where reference like 'TR-%');
   delete from transfers where reference like 'TR-%';
+  -- ── restore stock_levels to the snapshot ──────────────────────────────────
+  -- Rows this block created go; rows it changed go back to the quantity they
+  -- held. A verify block must leave the database as it found it.
+  delete from stock_levels sl
+   where not exists (select 1 from jsonb_array_elements(v_sl_snapshot) e
+                      where (e->>'id')::uuid = sl.id);
+  update stock_levels sl
+     set quantity = (e->>'q')::int
+    from jsonb_array_elements(v_sl_snapshot) e
+   where (e->>'id')::uuid = sl.id
+     and sl.quantity is distinct from (e->>'q')::int;
+
 end $$;
 
 

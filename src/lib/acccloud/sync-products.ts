@@ -216,30 +216,64 @@ export async function syncProductsFromAccCloud(
     const existingSkus = new Set((existing ?? []).map((p) => p.sku))
 
     const now = new Date().toISOString()
-    const payload = Array.from(drafts.values()).map((d) => ({
+
+    // Columns AccCloud actually supplies. Everything else on `products` is
+    // ours and must survive a sync untouched.
+    //
+    // `unit` is deliberately absent: no endpoint supplies one, and 015 dropped
+    // the column default so it stays NULL rather than becoming 'piece' by
+    // accident. The same reasoning applies to cost_price and
+    // reorder_threshold, which AccCloud also does not supply.
+    const fromAccCloud = (d: ProductDraft) => ({
       sku: d.sku,
       name: d.name,
       group_code: d.group_code,
       category: d.category,
       acccloud_master_id: d.acccloud_master_id,
-      source: "acccloud",
       last_synced_at: now,
       raw: d.raw,
-      // unit is deliberately absent: no endpoint supplies one, and the column
-      // default was dropped in 015 so it stays NULL rather than becoming
-      // 'piece' by accident.
-    }))
+    })
 
-    for (let i = 0; i < payload.length; i += 500) {
-      const chunk = payload.slice(i, i + 500)
-      const { error } = await supabase
-        .from("products")
-        .upsert(chunk, { onConflict: "sku" })
-      if (error) throw new Error(`Product upsert failed: ${error.message}`)
+    // ── `source` says who CREATED the row, not who wrote it last ───────────
+    //
+    // Setting source='acccloud' on an existing row was a defect, not just a
+    // consequence. The sync does not write unit, cost_price or
+    // reorder_threshold — so stamping 'acccloud' over a hand-entered row left
+    // it claiming a provenance for values AccCloud never supplied, and
+    // destroyed the only marker that said otherwise. Production has 54 such
+    // rows, all source='manual', all carrying unit 'piece' inherited from a
+    // column default that 015 removed.
+    //
+    // Presence in AccCloud is already recorded, twice, by columns this sync
+    // does write: `last_synced_at` and `acccloud_master_id`. So the fix needs
+    // no new column — only that `source` stops being overwritten.
+    //
+    //   source = 'manual'    a person created this row
+    //   source = 'acccloud'  this sync created it
+    //   last_synced_at       seen in AccCloud, whoever created it
+    //
+    // Two batches rather than one, because a PostgREST upsert updates exactly
+    // the columns present in the payload: omitting `source` for existing rows
+    // is what leaves it alone, and the key cannot vary within a batch.
+    const inserts: Record<string, unknown>[] = []
+    const updates: Record<string, unknown>[] = []
+    for (const d of drafts.values()) {
+      if (existingSkus.has(d.sku)) updates.push(fromAccCloud(d))
+      else inserts.push({ ...fromAccCloud(d), source: "acccloud" })
     }
 
-    result.productsInserted = payload.filter((p) => !existingSkus.has(p.sku)).length
-    result.productsUpdated = payload.length - result.productsInserted
+    for (const [batch, label] of [[inserts, "insert"], [updates, "update"]] as const) {
+      for (let i = 0; i < batch.length; i += 500) {
+        const chunk = batch.slice(i, i + 500)
+        const { error } = await supabase
+          .from("products")
+          .upsert(chunk, { onConflict: "sku" })
+        if (error) throw new Error(`Product ${label} failed: ${error.message}`)
+      }
+    }
+
+    result.productsInserted = inserts.length
+    result.productsUpdated = updates.length
 
     // ── stock levels ──────────────────────────────────────────────────────
     // Balances for the two branch warehouses. Central (00) is skipped: the

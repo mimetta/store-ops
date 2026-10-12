@@ -74,10 +74,22 @@ comment on column stock_counts.count_date is
   'joining yesterday''s count is the same bug as it being mis-dated.';
 
 -- The two functions from 025 decided "today" for themselves.
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('open_count_for_today', '026');
+  end if;
+end
+$$;
+
 create or replace function public.open_count_for_today(
   p_branch uuid,
   p_warehouse uuid
 ) returns uuid language plpgsql security definer set search_path = public as $$
+  -- fn-version: 026
 declare v_id uuid; v_today date := public.business_today();
 begin
   if not public.has_capability('stock.count') then
@@ -107,8 +119,20 @@ begin
   return v_id;
 end $$;
 
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('today_count_id', '026');
+  end if;
+end
+$$;
+
 create or replace function public.today_count_id(p_warehouse uuid)
 returns uuid language sql stable security invoker as $$
+  -- fn-version: 026
   select id from stock_counts
    where warehouse_id = p_warehouse and count_date = public.business_today()
    limit 1

@@ -117,7 +117,7 @@ function NotYet({ title, what, why }: { title: string; what: string; why: string
 export default function DashboardClient({
   period, from, to, today, branches, selectedBranch,
   current, previous, coverage, series, byBranch, topProducts, productsByBranch,
-  countries, countriesByBranch, trafficSplit, actions, availability, upcoming,
+  countries, countriesByBranch, trafficSplit, actions, availability, reorderPointsSet, upcoming,
 }: {
   period: Period; from: string; to: string; today: string
   branches: { id: string; name: string }[]
@@ -132,6 +132,9 @@ export default function DashboardClient({
   trafficSplit: Record<string, { thai: number; foreign: number }>
   actions: ActionItem[]
   availability: Availability
+  /** How many reorder points exist for the shops in scope. 0 is not "nothing
+   *  is low" — it is "nobody has set one", and the two must not look alike. */
+  reorderPointsSet: number
   upcoming: { id: string; title: string; date: string; type: string }[]
 }) {
   const router = useRouter()
@@ -556,6 +559,19 @@ export default function DashboardClient({
             </div>
           )}
 
+          {reorderPointsSet === 0 && (
+            <div className="mb-3">
+              <NotYet
+                title="Low stock"
+                what="No reorder points have been set."
+                why={"040 seeds the worksheet blank on purpose — a reorder point is a "
+                   + "figure somebody measures, not a default. Until one is filled in "
+                   + "there is nothing to be below, so this stays quiet rather than "
+                   + "reporting that everything is fine."}
+              />
+            </div>
+          )}
+
           {actions.length > 0 && (
             <div className="card card-pad mb-3">
               <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
@@ -565,7 +581,7 @@ export default function DashboardClient({
                 </span>
               </div>
               {actions.map((a) => (
-                <Link key={a.href} href={a.href}
+                <Link key={a.label} href={a.href}
                       className="flex items-center gap-2.5 py-2.5 border-t border-sand min-h-[44px]">
                   <span className="flex-1 min-w-0 truncate text-ink">{a.label}</span>
                   <span className="text-brown font-medium text-[13px] whitespace-nowrap">{a.value}</span>

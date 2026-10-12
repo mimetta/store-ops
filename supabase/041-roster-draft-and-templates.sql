@@ -293,13 +293,37 @@ declare
   v_m date := date_trunc('month', public.business_today() + interval '1 month')::date;
   n int; v_ok boolean;
 begin
-  select id into v_mgr from profiles where portal_role='manager' limit 1;
-  select id into v_ka  from profiles where portal_role='ka' limit 1;
+  -- Pick by CAPABILITY, not by role name. Production has no 'manager' row at
+  -- all; `where portal_role='manager'` returns NULL there, auth.uid() goes
+  -- NULL with it, and publish_roster refuses — which reads as a broken
+  -- capability check and is nothing of the kind.
+  select p.id into v_mgr
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role and rc.capability = 'shifts.manage'))
+   order by case p.portal_role when 'manager' then 1 when 'admin' then 2 else 3 end
+   limit 1;
+  select id into v_ka  from profiles where portal_role='ka' and branch_id is not null limit 1;
   select branch_id into v_b from profiles where id = v_ka;
   select id into v_tpl from shift_templates where active order by sort_order limit 1;
 
   perform set_config('request.jwt.claims',
                      json_build_object('sub',v_mgr,'role','authenticated')::text, true);
+
+  -- Test the choice rather than trusting it. On production the three KAs have
+  -- no branch at all, so v_b is NULL and every insert below would be writing
+  -- nowhere; and whether the chosen actor sees that branch depends on which
+  -- version of sees_all_branches() is installed.
+  if v_mgr is null or v_ka is null or v_b is null or v_tpl is null
+     or not (public.has_capability('shifts.manage')
+             and public.can_access_branch(v_b)) then
+    raise notice 'SKIPPED | no account can publish a roster at a branch with a';
+    raise notice 'SKIPPED | rostered KA, so the positive path is untested here.';
+    raise notice 'SKIPPED | The schema change is installed and does not depend on it.';
+    return;
+  end if;
 
   delete from work_schedules where branch_id = v_b and date >= v_m;
 

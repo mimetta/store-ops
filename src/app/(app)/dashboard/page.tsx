@@ -234,7 +234,48 @@ export default async function DashboardPage({
         .in("explanation_state", ["pending", "recount_requested"]).not("variance", "is", null).neq("variance", 0),
     ])
 
+  // ── stock and withdrawals, folded in from the old home page ─────────────
+  //
+  // `/` showed these two and the dashboard did not, which is the only reason
+  // that page still existed. Its sales figures came from daily_sales_summary,
+  // sales_records and pos_money_records — the three tables 039's
+  // branch_daily_metrics replaced — so the two screens could disagree about
+  // the same day. Folding these in is what lets `/` become a redirect.
+  //
+  // Low stock is scoped by branch NAME: stock_below_reorder_point carries the
+  // shop name rather than a branch_id, because it is built from the reorder
+  // worksheet, which is per warehouse.
+  const scopedNames = branches
+    .filter((b) => branchFilter.includes(b.id))
+    .map((b) => b.name)
+
+  const [{ count: lowStock }, { count: pendingWithdrawals }, { count: reorderPointsSet }] =
+    await Promise.all([
+      supabase.from("stock_below_reorder_point")
+        .select("*", { count: "exact", head: true }).in("shop", scopedNames),
+      supabase.from("fg_stock_withdrawals")
+        .select("*", { count: "exact", head: true })
+        .in("branch_id", branchFilter).eq("status", "pending"),
+      supabase.from("product_reorder_points")
+        .select("*", { count: "exact", head: true })
+        .in("shop", scopedNames).not("reorder_point", "is", null),
+    ])
+
   const actions: ActionItem[] = []
+  if ((lowStock ?? 0) > 0) {
+    actions.push({
+      label: "Products below their reorder point", href: "/stock",
+      value: `${lowStock} ${lowStock === 1 ? "item" : "items"}`,
+    })
+  }
+  if ((pendingWithdrawals ?? 0) > 0) {
+    actions.push({
+      // Plain /stock: the withdrawals list there is collapsible local state, so
+      // a query parameter would not open it. Deep-link when /stock is restyled.
+      label: "Stock withdrawals waiting for approval", href: "/stock",
+      value: `${pendingWithdrawals} pending`,
+    })
+  }
   if ((unexplained ?? 0) > 0) {
     actions.push({
       label: "Stock count differences to check", href: "/count/review",
@@ -337,6 +378,7 @@ export default async function DashboardPage({
       trafficSplit={trafficSplit}
       actions={actions}
       availability={availability}
+      reorderPointsSet={reorderPointsSet ?? 0}
       upcoming={((events ?? []) as { id: string; title: string; start_date: string; event_type: string }[])
         .map((e) => ({ id: e.id, title: e.title, date: e.start_date, type: e.event_type }))}
     />

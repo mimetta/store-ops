@@ -67,8 +67,20 @@ comment on column stock_count_lines.counted_at is
   'was filled in after the first pass — a resumed count, not a revised one.';
 
 -- ── immutability, now distinguishing a first count from a revision ────────
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('stock_count_lines_immutable', '025');
+  end if;
+end
+$$;
+
 create or replace function public.stock_count_lines_immutable()
 returns trigger language plpgsql as $$
+  -- fn-version: 025
 declare v_status text;
 begin
   select status into v_status from stock_counts where id = old.count_id;
@@ -118,10 +130,22 @@ comment on function public.stock_count_lines_immutable is
 -- insert races two KAs submitting at once; on conflict it re-reads rather
 -- than failing, which is why this is a function and not two statements in the
 -- application.
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('open_count_for_today', '025');
+  end if;
+end
+$$;
+
 create or replace function public.open_count_for_today(
   p_branch uuid,
   p_warehouse uuid
 ) returns uuid language plpgsql security definer set search_path = public as $$
+  -- fn-version: 025
 declare v_id uuid;
 begin
   if not public.has_capability('stock.count') then
@@ -165,8 +189,20 @@ grant execute on function public.open_count_for_today(uuid, uuid) to authenticat
 -- in its own timezone, and a Node process deriving a date string separately
 -- can land on a different day either side of midnight — the screen would then
 -- offer a blank form over a count that already exists.
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('today_count_id', '025');
+  end if;
+end
+$$;
+
 create or replace function public.today_count_id(p_warehouse uuid)
 returns uuid language sql stable security invoker as $$
+  -- fn-version: 025
   select id from stock_counts
    where warehouse_id = p_warehouse and count_date = current_date
    limit 1
@@ -268,6 +304,7 @@ end $$;
 -- drop function if exists public.open_count_for_today(uuid, uuid);
 -- create or replace function public.stock_count_lines_immutable()
 -- returns trigger language plpgsql as $$
+  -- fn-version: 025
 -- declare v_status text;
 -- begin
 --   select status into v_status from stock_counts where id = old.count_id;

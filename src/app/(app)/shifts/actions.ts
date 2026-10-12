@@ -164,3 +164,31 @@ export async function saveShiftTimes(
   revalidatePath("/shifts")
   return { ok: true }
 }
+
+/**
+ * Mark a rostered day as not worked, or clear the mark.
+ *
+ * Deliberately separate from setShift: this does not change what was
+ * ROSTERED, it records that the roster and the day disagreed. Changing the
+ * shift to "off" instead would lose the fact that somebody was expected and
+ * did not come — and 046 refuses it anyway once the month is published.
+ *
+ * Commission reads attendance from the roster, so a day marked here stops
+ * counting towards that person's share and raises everyone else's.
+ */
+export async function markNotWorked(
+  scheduleId: string, reason: string,
+): Promise<ShiftResult> {
+  const { supabase, user, allowed } = await manager()
+  if (!user) return { ok: false, error: "Not signed in." }
+  if (!allowed) return { ok: false, error: "You do not have permission to change a roster." }
+
+  const { error } = await supabase.rpc("mark_not_worked", {
+    p_schedule: scheduleId, p_reason: reason,
+  })
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/shifts")
+  revalidatePath("/commission")
+  return { ok: true }
+}

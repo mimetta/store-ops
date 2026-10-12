@@ -170,6 +170,15 @@ comment on view daily_entry_status is
   p_bills    [ {"nationality": "thailand", "bills": 12} ]
   p_traffic  [ {"nationality": "thai", "visitor_count": 40} ]
 */
+-- 069 also writes this function. Refuse to revert it.
+do $g$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('save_daily_entry', '038');
+  end if;
+end
+$g$;
+
 create or replace function public.save_daily_entry(
   p_branch   uuid,
   p_date     date,
@@ -183,6 +192,7 @@ create or replace function public.save_daily_entry(
   traffic_recorded integer, reconciles boolean, imported_bills integer
 ) language plpgsql security definer set search_path = public, pg_temp as $$
 declare
+  -- fn-version: 038
   v_wh uuid; v_pos boolean; v_window integer; v_existing integer;
   v_posting uuid; v_units integer := 0; v_total bigint := 0;
   v_bills integer := 0; v_billsum integer := 0; v_traffic integer := 0;
@@ -312,7 +322,36 @@ declare
   v_con uuid; v_pos uuid; v_wh uuid; v_p uuid; v_actor uuid; r record;
   v_ok boolean; v_err text; v_lvl int; v_date date := public.business_today() - 1;
 begin
-  select id into v_actor from profiles where portal_role='admin' limit 1;
+  -- Pick somebody who actually HOLDS the capability, then TEST the choice.
+  -- `where portal_role = 'admin'` returns NULL on production — the only
+  -- account holding 'admin' was deactivated and the administrator holds
+  -- 'superadmin'. A NULL actor makes auth.uid() NULL and every capability
+  -- check refuse, which reads as a permission bug rather than an absent user.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role and rc.capability = 'sales.manual'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('sales.manual')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "sales.manual" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub',v_actor,'role','authenticated')::text, true);
 
@@ -379,7 +418,36 @@ end $$;
 do $$
 declare v_pos uuid; v_actor uuid; r record; v_date date := public.business_today() - 1;
 begin
-  select id into v_actor from profiles where portal_role='admin' limit 1;
+  -- Pick somebody who actually HOLDS the capability, then TEST the choice.
+  -- `where portal_role = 'admin'` returns NULL on production — the only
+  -- account holding 'admin' was deactivated and the administrator holds
+  -- 'superadmin'. A NULL actor makes auth.uid() NULL and every capability
+  -- check refuse, which reads as a permission bug rather than an absent user.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role and rc.capability = 'sales.manual'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('sales.manual')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "sales.manual" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub',v_actor,'role','authenticated')::text, true);
   select id into v_pos from branches where name='Talat Noi';

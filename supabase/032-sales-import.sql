@@ -230,9 +230,38 @@ commit;
 do $$
 declare
   v_b uuid; v_actor uuid; v_imp uuid; v_bill uuid; v_p uuid;
-  v_ok boolean; v_amt numeric; n int;
+  v_ok boolean; v_amt numeric; n int; v_units_before numeric;
 begin
-  select id into v_actor from profiles where portal_role='admin' limit 1;
+  -- Pick somebody who actually HOLDS the capability, then TEST the choice.
+  -- `where portal_role = 'admin'` returns NULL on production — the only
+  -- account holding 'admin' was deactivated and the administrator holds
+  -- 'superadmin'. A NULL actor makes auth.uid() NULL and every capability
+  -- check refuse, which reads as a permission bug rather than an absent user.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role and rc.capability = 'sales.import'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('sales.import')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "sales.import" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub',v_actor,'role','authenticated')::text, true);
   select id into v_b from branches where name='Song Wat';
@@ -274,19 +303,45 @@ begin
     (select is_vip from sales_bills where id = v_bill);
 
   -- 4. an unknown product code still records the sale
-  insert into sales_bill_lines (bill_id, product_id, sku_text, quantity, net_amount)
-  values (v_bill, null, 'NOT-A-REAL-CODE', 2, 500);
-  insert into sales_bill_lines (bill_id, product_id, sku_text, quantity, net_amount)
-  values (v_bill, v_p, (select sku from products where id = v_p), 1, 700);
+  -- Baseline BEFORE this block's own lines. Asserting `sum = 3` assumed the
+  -- branch had no other sales — true on a virgin schema, false the moment
+  -- anything real has been imported (UAT reports 1909). The claim being made
+  -- is that the view counts THESE units, so measure the change, not the total.
+  select coalesce((select sum(units_sold) from sales_units_by_day
+                    where branch_id = v_b), 0)
+    into v_units_before;
+
+  -- 034 adds sales_bill_lines.line_no NOT NULL. This block predates it, so it
+  -- cannot name the column outright — but when it is re-run against a database
+  -- that HAS 034 (the production-shape sweep does exactly that) a plain insert
+  -- violates the not-null. Name it only when it exists, via EXECUTE so the
+  -- reference is not parsed until it runs.
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'sales_bill_lines'
+                and column_name = 'line_no') then
+    execute 'insert into sales_bill_lines
+               (bill_id, product_id, sku_text, quantity, net_amount, line_no)
+             values ($1, null, ''NOT-A-REAL-CODE'', 2, 500, 1),
+                    ($1, $2, (select sku from products where id = $2), 1, 700, 2)'
+      using v_bill, v_p;
+  else
+    insert into sales_bill_lines (bill_id, product_id, sku_text, quantity, net_amount)
+    values (v_bill, null, 'NOT-A-REAL-CODE', 2, 500);
+    insert into sales_bill_lines (bill_id, product_id, sku_text, quantity, net_amount)
+    values (v_bill, v_p, (select sku from products where id = v_p), 1, 700);
+  end if;
   raise notice '% | an unmatched code is kept, not dropped  | % line(s), % unmatched',
     true,
     (select count(*) from sales_bill_lines where bill_id = v_bill),
     (select count(*) from sales_bill_lines where bill_id = v_bill and product_id is null);
 
   -- 5. the view shapes it like the manual screen's output
-  raise notice '% | sales_units_by_day reports the units   | %',
-    (select coalesce(sum(units_sold),0) = 3 from sales_units_by_day where branch_id = v_b),
-    (select coalesce(sum(units_sold),0) from sales_units_by_day where branch_id = v_b);
+  raise notice '% | sales_units_by_day reports the units   | +% (was %)',
+    (coalesce((select sum(units_sold) from sales_units_by_day
+                where branch_id = v_b), 0) - v_units_before = 3),
+    coalesce((select sum(units_sold) from sales_units_by_day
+               where branch_id = v_b), 0) - v_units_before,
+    v_units_before;
 
   -- 6. deleting a bill takes its lines with it
   delete from sales_bills where id = v_bill;

@@ -2,11 +2,17 @@
  * Which branches count as shops.
  *
  * `active` and `store_type` answer different questions and one cannot stand
- * in for the other. The office at Vanich House is active — people work there,
- * it holds staff assignments, it appears in Settings — but it is not a shop,
- * so it has no place in a stock count picker or a sales-entry dropdown.
+ * in for the other. A branch can be active — people work there, it holds staff
+ * assignments, it appears in Settings — and still not be a shop, in which case
+ * it has no place in a stock count picker or a sales-entry dropdown.
  *
- * Filtering shop operations on `active` alone put it in all of them.
+ * Filtering shop operations on `active` alone put everything in all of them.
+ *
+ * NOTE: no branch is currently an `office`. Vanich House was typed as one in
+ * `012` and it is a CONSIGNMENT SHOP — corrected by `057`. Typing a shop as an
+ * office removes it from the 13 screens that filter here, from monthly goals,
+ * and therefore from commission. Do not infer the type from a name or an
+ * address; ask.
  */
 
 export const SHOP_STORE_TYPES = ["own_store", "consignment", "popup"] as const

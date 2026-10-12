@@ -592,6 +592,10 @@ async function importAdapos(
       // twice keeps both rows.
       lines: b.lines.map((l) => ({
         sku_text: l.code, quantity: l.quantity, net_amount: l.amount,
+        // Column 23, the price before any discount. The parser has always read
+        // it; until 050 nothing stored it, which left consignment branches
+        // with no way to value their units.
+        unit_price: l.pricePerUnit,
       })),
       payments: b.payments.map((p) => ({
         method: p.method, bank: p.bank, reference: p.reference, amount: p.amount,

@@ -96,7 +96,9 @@ insert into role_capabilities (role, capability) values
   ('admin','transfers'),         ('manager','transfers'),         ('supervisor','transfers'),
   ('logistics','transfers'),
 
-  ('ka','shifts.view_own'),
+  -- supervisor added by 045, kept here so a fresh apply of 004 agrees with a
+  -- database that has run the whole sequence
+  ('ka','shifts.view_own'),       ('supervisor','shifts.view_own'),
 
   ('admin','shifts.manage'),     ('manager','shifts.manage'),     ('people','shifts.manage'),
 
@@ -121,6 +123,23 @@ insert into role_capabilities (role, capability) values
   ('people','calendar.manage'),  ('marketing','calendar.manage'),
 
   ('admin','acccloud.sync'),
+
+  -- 064: managing people — the three roles that already hold payout.view and
+  -- shifts.manage. `settings` was the nearest fit and excluded `people`, whose
+  -- job this is.
+  -- 067: customer feedback. Everyone records — the dashboard only works
+  -- pooled, and a KA who cannot see it has no reason to feed it. Marketing
+  -- records but does NOT manage: editing someone else's record of what a
+  -- customer said is the wrong shape.
+  ('admin','feedback.record'),   ('manager','feedback.record'),
+  ('supervisor','feedback.record'), ('ka','feedback.record'),
+  ('people','feedback.record'),  ('marketing','feedback.record'),
+  ('logistics','feedback.record'),
+  ('admin','feedback.manage'),   ('manager','feedback.manage'),
+  ('people','feedback.manage'),
+
+  ('admin','people.manage'),     ('manager','people.manage'),
+  ('people','people.manage'),
 
   ('admin','settings'),          ('manager','settings');
 
@@ -161,8 +180,20 @@ returns boolean language sql stable security definer set search_path = public, p
   )
 $$;
 
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('sees_all_branches', '004');
+  end if;
+end
+$$;
+
 create or replace function public.sees_all_branches()
 returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  -- fn-version: 004
   select coalesce(
     (select portal_role from profiles where id = auth.uid())
       in ('superadmin','admin','manager','people','marketing','logistics'),
@@ -336,6 +367,17 @@ create policy "write work_schedules" on work_schedules
 
 -- ── leave_requests ─────────────────────────────────────────────────────────
 -- Everyone may see and raise their own; shifts.manage sees and decides all.
+-- Production carries DUPLICATE PAIRS here — two INSERT policies and two UPDATE
+-- policies with different names and the same effect — so both of each must be
+-- named. A survivor is not inert: permissive policies are OR'd, so one left
+-- behind widens access past whatever replaces it (see 044).
+--
+-- "Authenticated can view leave requests" is the dangerous one: `using (true)`,
+-- and it is why everyone could read everyone's leave. prod/042b removed it
+-- from production, but 004 must not depend on 042b having run first — on any
+-- database where it has not, 004 would add the correctly scoped policy BESIDE
+-- the loose one and narrow nothing at all.
+drop policy if exists "Authenticated can view leave requests"    on leave_requests;
 drop policy if exists "Staff can view own leave_requests"        on leave_requests;
 drop policy if exists "Staff can insert leave_requests"          on leave_requests;
 drop policy if exists "Admins/managers can update leave_requests" on leave_requests;

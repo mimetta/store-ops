@@ -123,7 +123,37 @@
            bg-panel text-brown font-medium;
   }
 
+  /* ── badges ───────────────────────────────────────────────────────────
+     `.badge` is shape only; a tone goes with it. Settled here rather than per
+     screen because ten conversions follow and kcp-portal's version of this
+     was a colour map copied into each page — which is how `superadmin` ended
+     up styled on four screens and checked on eleven.
+
+     The tones are the semantic tints already in the palette. They carry
+     MEANING, not decoration: neutral says "a fact", good says "in force",
+     warn says "needs somebody", danger says "stopped". Never reach for one
+     because of its colour. */
   .badge { @apply text-[11px] font-medium px-2 py-0.5 rounded-full; }
+  .badge-neutral { @apply bg-panel border border-sand text-muted; }
+  .badge-good    { @apply bg-good-50 border border-sage text-good-70; }
+  .badge-warn    { @apply bg-amber-50 border border-amber-60 text-amber-70; }
+  .badge-info    { @apply bg-info-50 border border-info-60 text-info-70; }
+  .badge-danger  { @apply bg-danger-50 border border-danger-60 text-danger-70; }
+
+  /* ── empty states ─────────────────────────────────────────────────────
+     An empty list is a QUESTION, not a pass. Every screen that can come back
+     with nothing should say WHY in a sentence, and this is the shape for it.
+     Copied ad hoc into six screens already; named here so the seventh does
+     not invent a seventh version. */
+  .empty { @apply flex flex-col items-center justify-center gap-1.5 py-10 px-6 text-center; }
+  .empty-title { @apply text-sm text-ink; }
+  .empty-hint  { @apply text-xs text-muted max-w-sm; }
+
+  /* ── list rows ────────────────────────────────────────────────────────
+     The table-ish list used by most screens. A real <table> where the data is
+     tabular; this for rows that are really records. */
+  .row { @apply flex items-center gap-3 px-4 py-2.5 border-b border-sand last:border-b-0; }
+  .row-tap { @apply row w-full text-left hover:bg-panel transition-colors; }
 
   .stat {
     @apply bg-panel rounded-lg px-3 py-2.5 text-left;

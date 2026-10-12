@@ -186,7 +186,36 @@ declare
   -- date collides with real bills and the assertions then measure both.
   v_d date := public.business_today(); v_sales numeric; v_bills bigint;
 begin
-  select id into v_actor from profiles where portal_role='admin' limit 1;
+  -- Pick somebody who actually HOLDS the capability, then TEST the choice.
+  -- `where portal_role = 'admin'` returns NULL on production — the only
+  -- account holding 'admin' was deactivated and the administrator holds
+  -- 'superadmin'. A NULL actor makes auth.uid() NULL and every capability
+  -- check refuse, which reads as a permission bug rather than an absent user.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role and rc.capability = 'stock.reports'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('stock.reports')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "stock.reports" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub',v_actor,'role','authenticated')::text, true);
   select id into v_pos from branches where name='Talat Noi';
@@ -232,10 +261,19 @@ begin
   raise notice '% | branches sum to the period total       | sales=% bills=%',
     (v_sales = 3500 and v_bills = 12), v_sales, v_bills;
 
+  -- Check the function against the TABLES, not against an assumed empty
+  -- database. `goals_available = false` is a fact about today's rows, not
+  -- about dashboard_availability() — it held on a virgin schema and failed
+  -- the moment anything had been seeded, which proved nothing either way.
+  -- npd is the exception: it is hardcoded false because no column marks a new
+  -- product, so it must be false regardless of what is in the tables.
   select * into r from public.dashboard_availability();
-  raise notice '% | availability reports what is missing   | goals=% shifts=% traffic=% npd=%',
-    (r.goals_available = false and r.shifts_available = false
-     and r.traffic_available = true and r.npd_available = false),
+  raise notice '% | availability reports what is there     | goals=% shifts=% traffic=% npd=%',
+    (r.goals_available  = exists (select 1 from branch_monthly_goals)
+     and r.shifts_available  = exists (select 1 from work_schedules)
+     and r.traffic_available = exists (select 1 from shop_traffic)
+     and r.traffic_available = true          -- this block just inserted some
+     and r.npd_available     = false),       -- no source exists for it at all
     r.goals_available, r.shifts_available, r.traffic_available, r.npd_available;
 
   delete from sales_bills where bill_number like 'DM-%';

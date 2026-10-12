@@ -14,10 +14,10 @@ import { bangkokToday } from "@/lib/day"
 
 const EVENT_COLORS: Record<EventType, { bg: string; text: string; label: string }> = {
   ma_visit:    { bg: "bg-purple-500/20", text: "text-purple-300", label: "MA Visit" },
-  appointment: { bg: "bg-blue-500/20",   text: "text-blue-300",   label: "Appointment" },
-  internal:    { bg: "bg-amber-500/20",  text: "text-amber-300",  label: "Internal" },
-  training:    { bg: "bg-emerald-500/20",text: "text-emerald-300",label: "Training" },
-  other:       { bg: "bg-brand-700",     text: "text-brand-300",  label: "Other" },
+  appointment: { bg: "bg-info-50",   text: "text-info-65",   label: "Appointment" },
+  internal:    { bg: "bg-amber-50",  text: "text-amber-70",  label: "Internal" },
+  training:    { bg: "bg-sage/20",text: "text-good-70",label: "Training" },
+  other:       { bg: "bg-panel",     text: "text-muted",  label: "Other" },
 }
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -199,7 +199,7 @@ export default function CalendarPage() {
           <button onClick={prevMonth} className="btn-ghost p-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
-          <h2 className="text-base font-semibold text-white w-44 text-center">{monthLabel}</h2>
+          <h2 className="text-base font-semibold text-ink w-44 text-center">{monthLabel}</h2>
           <button onClick={nextMonth} className="btn-ghost p-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
@@ -212,22 +212,22 @@ export default function CalendarPage() {
 
         {/* Calendar grid */}
         <div className="card overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-brand-700">
+          <div className="grid grid-cols-7 border-b border-sand">
             {DAYS.map((d) => (
-              <div key={d} className="text-center text-xs font-semibold text-brand-400 py-2">{d}</div>
+              <div key={d} className="text-center text-xs font-semibold text-muted py-2">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
             {cells.map((day, idx) => (
               <div
                 key={idx}
-                className={`min-h-[90px] p-1.5 border-b border-r border-brand-800 last:border-r-0 ${day ? "" : "bg-brand-950/30"}`}
+                className={`min-h-[90px] p-1.5 border-b border-r border-sand last:border-r-0 ${day ? "" : "bg-cream/30"}`}
               >
                 {day && (
                   <>
                     <p className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
                       day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear()
-                        ? "bg-white text-brand-900" : "text-brand-400"
+                        ? "bg-cream text-ink" : "text-muted"
                     }`}>{day}</p>
                     <div className="space-y-0.5">
                       {eventsOnDay(day).slice(0, 3).map((ev) => {
@@ -243,7 +243,7 @@ export default function CalendarPage() {
                         )
                       })}
                       {eventsOnDay(day).length > 3 && (
-                        <p className="text-[9px] text-brand-600 px-1">+{eventsOnDay(day).length - 3} more</p>
+                        <p className="text-[9px] text-subtle px-1">+{eventsOnDay(day).length - 3} more</p>
                       )}
                     </div>
                   </>
@@ -255,8 +255,8 @@ export default function CalendarPage() {
 
         {/* Event detail modal */}
         {selectedEvent && (
-          <div className="fixed inset-0 bg-black/60 z-40 flex items-center justify-center p-4" onClick={() => { setSelectedEvent(null); setDeleteConfirm(false) }}>
-            <div className="bg-brand-900 border border-brand-700 rounded-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-ink/20 z-40 flex items-center justify-center p-4" onClick={() => { setSelectedEvent(null); setDeleteConfirm(false) }}>
+            <div className="bg-cream border border-sand rounded-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-start justify-between mb-3">
                 <div>
                   {selectedEvent.event_type && (
@@ -264,44 +264,44 @@ export default function CalendarPage() {
                       {EVENT_COLORS[selectedEvent.event_type].label}
                     </span>
                   )}
-                  <h3 className="text-base font-semibold text-white">{selectedEvent.title}</h3>
+                  <h3 className="text-base font-semibold text-ink">{selectedEvent.title}</h3>
                 </div>
                 <button onClick={() => { setSelectedEvent(null); setDeleteConfirm(false) }} className="btn-ghost p-1">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>
-              <div className="space-y-2 text-sm text-brand-300 mb-4">
+              <div className="space-y-2 text-sm text-muted mb-4">
                 <p>📅 {selectedEvent.start_date}{selectedEvent.end_date && selectedEvent.end_date !== selectedEvent.start_date ? ` → ${selectedEvent.end_date}` : ""}</p>
                 {selectedEvent.start_time && <p>🕐 {selectedEvent.start_time}{selectedEvent.end_time ? ` – ${selectedEvent.end_time}` : ""}</p>}
                 {selectedEvent.branches && <p>📍 {(selectedEvent.branches as RetailBranch).name}</p>}
-                {selectedEvent.description && <p className="text-brand-400">{selectedEvent.description}</p>}
+                {selectedEvent.description && <p className="text-muted">{selectedEvent.description}</p>}
               </div>
 
               {canManageCalendar && (
                 deleteConfirm ? (
-                  <div className="border-t border-brand-700 pt-4">
-                    <p className="text-sm text-white mb-3">Delete this event?</p>
+                  <div className="border-t border-sand pt-4">
+                    <p className="text-sm text-ink mb-3">Delete this event?</p>
                     <div className="flex gap-2">
-                      <button onClick={handleDelete} disabled={deleting} className="flex-1 py-2 text-sm bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors">
+                      <button onClick={handleDelete} disabled={deleting} className="flex-1 py-2 text-sm bg-danger-50 text-danger-70 border border-danger-60 rounded-lg hover:bg-danger-50 transition-colors">
                         {deleting ? "Deleting…" : "Confirm delete"}
                       </button>
-                      <button onClick={() => setDeleteConfirm(false)} className="flex-1 py-2 text-sm btn-ghost border border-brand-700 rounded-lg">
+                      <button onClick={() => setDeleteConfirm(false)} className="flex-1 py-2 text-sm btn-ghost border border-sand rounded-lg">
                         Cancel
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="border-t border-brand-700 pt-4 flex gap-2">
+                  <div className="border-t border-sand pt-4 flex gap-2">
                     <button
                       onClick={() => openEdit(selectedEvent)}
-                      className="flex-1 py-2 text-sm btn-ghost border border-brand-700 rounded-lg flex items-center justify-center gap-1.5"
+                      className="flex-1 py-2 text-sm btn-ghost border border-sand rounded-lg flex items-center justify-center gap-1.5"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Edit
                     </button>
                     <button
                       onClick={() => setDeleteConfirm(true)}
-                      className="flex-1 py-2 text-sm bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors flex items-center justify-center gap-1.5"
+                      className="flex-1 py-2 text-sm bg-danger-50 text-danger-70 border border-danger-60 rounded-lg hover:bg-danger-50 transition-colors flex items-center justify-center gap-1.5"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                       Delete
@@ -318,11 +318,11 @@ export default function CalendarPage() {
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingEvent ? "Edit Event" : "Add Event"}>
         <form onSubmit={handleSubmitEvent} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Title *</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Title *</label>
             <input required type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Event title…" className="input-field" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Type</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Type</label>
             <select value={form.event_type} onChange={(e) => setForm({ ...form, event_type: e.target.value as EventType })} className="input-field">
               {(Object.entries(EVENT_COLORS) as [EventType, typeof EVENT_COLORS[EventType]][]).map(([k, v]) => (
                 <option key={k} value={k}>{v.label}</option>
@@ -330,37 +330,37 @@ export default function CalendarPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Branch</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Branch</label>
             <BranchSelect branches={branches} value={form.branch_id} onChange={(id) => setForm({ ...form, branch_id: id })} allLabel="All branches" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-brand-300 mb-1.5">Start date *</label>
+              <label className="block text-sm font-medium text-muted mb-1.5">Start date *</label>
               <input required type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="input-field" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-brand-300 mb-1.5">End date</label>
+              <label className="block text-sm font-medium text-muted mb-1.5">End date</label>
               <input type="date" value={form.end_date} min={form.start_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="input-field" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-brand-300 mb-1.5">Start time</label>
+              <label className="block text-sm font-medium text-muted mb-1.5">Start time</label>
               <input type="time" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} className="input-field" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-brand-300 mb-1.5">End time</label>
+              <label className="block text-sm font-medium text-muted mb-1.5">End time</label>
               <input type="time" value={form.end_time} onChange={(e) => setForm({ ...form, end_time: e.target.value })} className="input-field" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Description</label>
             <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="input-field resize-none" />
           </div>
-          {submitError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">{submitError}</p>}
+          {submitError && <p className="text-danger-70 text-sm bg-danger-50 border border-danger-60 px-3 py-2 rounded-lg">{submitError}</p>}
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={submitting} className="btn-primary flex-1 py-2.5">
               {submitting ? "Saving…" : editingEvent ? "Update Event" : "Add Event"}
             </button>
-            <button type="button" onClick={() => setDrawerOpen(false)} className="btn-ghost flex-1 py-2.5 border border-brand-700">Cancel</button>
+            <button type="button" onClick={() => setDrawerOpen(false)} className="btn-ghost flex-1 py-2.5 border border-sand">Cancel</button>
           </div>
         </form>
       </Drawer>

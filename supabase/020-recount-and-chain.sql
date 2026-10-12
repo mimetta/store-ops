@@ -66,8 +66,20 @@ alter table stock_count_lines add constraint stock_count_lines_explanation_compl
   );
 
 -- ── immutability, now with a write-once recount ───────────────────────────
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('stock_count_lines_immutable', '020');
+  end if;
+end
+$$;
+
 create or replace function public.stock_count_lines_immutable()
 returns trigger language plpgsql as $$
+  -- fn-version: 020
 declare v_status text;
 begin
   select status into v_status from stock_counts where id = old.count_id;
@@ -154,8 +166,20 @@ comment on view stock_count_line_chain is
   'expected number is not in the browser before submit.';
 
 -- ── can the day be closed? ────────────────────────────────────────────────
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('count_unresolved_lines', '020');
+  end if;
+end
+$$;
+
 create or replace function public.count_unresolved_lines(p_count uuid)
 returns integer language sql stable as $$
+  -- fn-version: 020
   select count(*)::integer from stock_count_lines
    where count_id = p_count
      and variance is not null and variance <> 0

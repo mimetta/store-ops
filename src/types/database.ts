@@ -1,8 +1,16 @@
 // Must match the profiles.portal_role check constraint — verified by
 // scripts/uat/check-type-drift.mjs. `staff` is retained because 003 kept it
 // for rows that predate 005's migration to `ka`; it grants nothing.
+//
+// `superadmin` was removed by 054, which merged it into admin. It is NOT gone
+// from the code: it stays in LEGACY_ROLES, where `can()` and `branchScope()`
+// still treat it as a superset of admin. That matters because a database that
+// has not yet run 054 still holds the row — dropping the handling as well as
+// the type would lock that account out of every page between a deploy and the
+// migration. The type says what the column may contain now; LEGACY_ROLES says
+// what the code must still cope with.
 export type PortalRole =
-  | 'superadmin' | 'admin' | 'manager' | 'supervisor' | 'ka'
+  | 'admin' | 'manager' | 'supervisor' | 'ka'
   | 'logistics' | 'people' | 'marketing' | 'staff' | 'inactive'
 export type EmploymentType = 'full_time' | 'part_time' | 'contract' | 'intern'
 export type ServiceStatus = 'active' | 'building' | 'planned' | 'maintenance'

@@ -98,7 +98,13 @@ export default async function DailyPage({
     req && /^\d{4}-\d{2}-\d{2}$/.test(req) && req <= today && req >= earliest ? req : today
 
   const { data: natRows } = await supabase
-    .from("nationalities").select("code, label").eq("active", true).order("sort_order")
+    // `offer_in_counts` as well as `active` (068). These counts reconcile
+    // against imported bill totals, so a code that describes an attribution
+    // rather than an observation — `unknown`, meaning nobody asked — would be
+    // a hole in the reconciliation. /feedback uses `active` alone, because one
+    // customer's nationality does not have to add up to anything.
+    .from("nationalities").select("code, label")
+    .eq("active", true).eq("offer_in_counts", true).order("sort_order")
   const nationalities = (natRows ?? []) as { code: string; label: string }[]
 
   // What the day already holds, so nothing is keyed twice blind.

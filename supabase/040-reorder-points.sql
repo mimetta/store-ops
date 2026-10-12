@@ -196,15 +196,110 @@ select count_frequency, shop, rows, filled, outstanding
 from reorder_points_outstanding;
 
 do $$
-declare v_actor uuid; v_ok boolean; r record; n int;
+declare v_actor uuid; v_ok boolean; r record; n int; v_expected int;
 begin
-  select id into v_actor from profiles where portal_role='admin' limit 1;
+  -- Pick somebody who actually HOLDS the capability, then TEST the choice.
+  -- `where portal_role = 'admin'` returns NULL on production — the only
+  -- account holding 'admin' was deactivated and the administrator holds
+  -- 'superadmin'. A NULL actor makes auth.uid() NULL and every capability
+  -- check refuse, which reads as a permission bug rather than an absent user.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role and rc.capability = 'settings'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('settings')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "settings" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub',v_actor,'role','authenticated')::text, true);
 
+  -- The worksheet is seeded from stock_levels joined to the count list. On a
+  -- database where the AccCloud sync has not run, BOTH are nearly empty — so
+  -- the seed legitimately produces 0 rows. Production: 2 stock rows, 54
+  -- products. UAT: 212 and 735.
+  --
+  -- `n > 0` is therefore a fact about today's DATA, not about this migration,
+  -- and asserting it failed on production while the schema was perfectly
+  -- installed. The claim actually being made is "the seed matched everything
+  -- it should have", so compare it against the source.
   select count(*) into n from product_reorder_points;
-  raise notice '% | the worksheet is seeded                | % rows, % blank',
-    (n > 0), n, (select count(*) from product_reorder_points where reorder_point is null);
+
+  -- Count what the seed SHOULD have reached but did not. Comparing totals
+  -- instead would be wrong in both directions: `on conflict do nothing`
+  -- collapses duplicates, and the worksheet legitimately keeps a row whose
+  -- stock has since gone. The claim is "the seed missed nothing".
+  select count(*) into v_expected
+    from (
+      select distinct sl.product_id, sl.warehouse_id
+        from stock_levels sl
+        join products p   on p.id = sl.product_id and p.active
+        join product_count_policy pcp on pcp.product_id = sl.product_id
+        join warehouses w on w.id = sl.warehouse_id and w.in_scope and w.is_default
+                         and w.branch_id is not null
+        join branches b   on b.id = w.branch_id
+       where pcp.count_frequency in ('daily','weekly')
+    ) src
+   where not exists (select 1 from product_reorder_points pr
+                      where pr.product_id = src.product_id
+                        and pr.warehouse_id = src.warehouse_id);
+
+  -- Reported, NOT asserted. Immediately after STEP 1 this is 0. Later it is
+  -- however much stock has arrived since, because the seed runs once and
+  -- `on conflict do nothing` means re-running the file picks the new ones up.
+  -- Asserting it would fail on every database the moment stock changed, which
+  -- says nothing about whether this migration worked.
+  raise notice 'INFO    | % worksheet row(s); % countable pair(s) not yet seeded',
+    n, v_expected;
+  if v_expected > 0 then
+    raise notice 'INFO    | re-run this file to seed them — the insert is idempotent';
+  end if;
+
+  -- The invariant that IS this migration's claim: every row in the worksheet
+  -- is a real countable product in a real in-scope warehouse. Junk here would
+  -- mean the seed query was wrong.
+  select count(*) into v_expected
+    from product_reorder_points pr
+   where not exists (
+     select 1
+       from stock_levels sl
+       join products p   on p.id = sl.product_id and p.active
+       join product_count_policy pcp on pcp.product_id = sl.product_id
+       join warehouses w on w.id = sl.warehouse_id and w.in_scope and w.is_default
+                        and w.branch_id is not null
+       join branches b   on b.id = w.branch_id
+      where pcp.count_frequency in ('daily','weekly')
+        and sl.product_id = pr.product_id
+        and sl.warehouse_id = pr.warehouse_id);
+
+  raise notice '% | every worksheet row is countable stock | % stray',
+    (v_expected = 0), v_expected;
+
+  if n = 0 then
+    raise notice 'SKIPPED | the worksheet is empty because nothing countable has';
+    raise notice 'SKIPPED | stock yet — the AccCloud sync has not run here. The';
+    raise notice 'SKIPPED | table, its policies and its constraints are installed;';
+    raise notice 'SKIPPED | re-run this file after the sync to seed it (the insert';
+    raise notice 'SKIPPED | is `on conflict do nothing`, so it is safe to repeat).';
+    return;
+  end if;
 
   raise notice '% | every row starts blank                 |',
     not exists (select 1 from product_reorder_points where reorder_point is not null);

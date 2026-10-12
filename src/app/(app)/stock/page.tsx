@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
+import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { SHOP_STORE_TYPES } from "@/lib/branches"
 import { useProfile } from "@/lib/hooks"
@@ -62,14 +64,36 @@ function getStatus(qty: number, globalMin: number, minOverride: number | null): 
 }
 
 function StatusBadge({ status }: { status: StatusType }) {
-  if (status === "ok")       return <span className="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">OK</span>
-  if (status === "critical") return <span className="badge bg-red-500/10 text-red-400 border border-red-500/20 text-[10px]">Critical</span>
-  return <span className="badge bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px]">Low</span>
+  if (status === "ok")       return <span className="badge bg-good-50 text-good-70 border border-sage text-[10px]">OK</span>
+  if (status === "critical") return <span className="badge bg-danger-50 text-danger-70 border border-danger-60 text-[10px]">Critical</span>
+  return <span className="badge bg-amber-50 text-amber-70 border border-amber-60 text-[10px]">Low</span>
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+/**
+ * Stock levels — finished goods and consumables, in one screen.
+ *
+ * `/consumables` used to be a second, smaller copy of this: the same tables,
+ * the same writes (stock_levels plus a stock_movements row for every change),
+ * differing only in `products.type`. Keeping two meant consumables had the
+ * poorer half of the features and both had to be converted. They are tabs now,
+ * and /consumables redirects here.
+ *
+ * This is NOT what /count does, and the two are deliberately separate:
+ *
+ *   /count   the periodic, disciplined path — a count is immutable, a
+ *            variance gets explained, an adjustment gets approved
+ *   here     correcting a figure, and FG withdrawals
+ *
+ * What makes the direct path legitimate is that every change written here
+ * also writes a movement, so the chain can still explain the number. /sales
+ * did not, which is why it is being retired rather than restyled.
+ */
 export default function StockPage() {
+  const params = useSearchParams()
+  // 'fg' | 'consumable' — which product type this tab is showing.
+  const type = params.get("type") === "consumable" ? "consumable" : "fg"
   const { profile } = useProfile()
   const canCountStock = can(profile, "stock.count")
   const showYesterday = canCountStock
@@ -113,7 +137,9 @@ export default function StockPage() {
   const [withdrawModal, setWithdrawModal]   = useState<Product | null>(null)
   const [wForm, setWForm]                   = useState({ lot_number: "", withdraw_date: date, quantity: "1", notes: "" })
   const [wSaving, setWSaving]               = useState(false)
-  const [withdrawalsOpen, setWithdrawalsOpen] = useState(false)
+  // Opened by ?pending=1 so /dashboard's "waiting for approval" row lands on
+  // the list rather than on the page containing it.
+  const [withdrawalsOpen, setWithdrawalsOpen] = useState(params.get("pending") === "1")
 
   useEffect(() => {
     setHasBarcodeDetector("BarcodeDetector" in window)
@@ -141,7 +167,7 @@ export default function StockPage() {
     setLoading(true)
     const sb = createClient()
     const [prodRes, stockRes] = await Promise.all([
-      sb.from("products").select("*").eq("type", "fg").eq("active", true).order("name"),
+      sb.from("products").select("*").eq("type", type).eq("active", true).order("name"),
       sb.from("stock_levels").select("*").eq("branch_id", selectedBranch),
     ])
     const products = (prodRes.data ?? []) as Product[]
@@ -159,7 +185,7 @@ export default function StockPage() {
       changed: false,
     })))
     setLoading(false)
-  }, [selectedBranch])
+  }, [selectedBranch, type])
 
   const loadWithdrawals = useCallback(async () => {
     if (!selectedBranch) { setWithdrawals([]); return }
@@ -441,19 +467,39 @@ export default function StockPage() {
       <style dangerouslySetInnerHTML={{ __html: PRINT_CSS }} />
 
       <div className="print-only hidden">
-        <h2 className="text-lg font-bold mb-1">{branchName} — FG Stock Count Sheet</h2>
+        <h2 className="text-lg font-bold mb-1">{branchName} — {type === "fg" ? "FG" : "Consumables"} Stock Count Sheet</h2>
         <p className="text-sm mb-4">Date: {date}</p>
       </div>
 
       {/* Topbar */}
-      <div className="no-print shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-brand-800 flex-wrap">
-        <span className="text-white font-semibold text-sm mr-1">FG Stock</span>
+      <div className="no-print shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-sand flex-wrap">
+        {/* One screen, two product types. /consumables redirects to the second
+            tab; keeping them as separate pages meant two conversions and the
+            poorer feature set on one of them. */}
+        <div className="flex items-center gap-1 mr-1">
+          {([
+            { key: "fg", label: "FG Stock" },
+            { key: "consumable", label: "Consumables" },
+          ] as const).map((t) => (
+            <Link
+              key={t.key}
+              href={t.key === "fg" ? "/stock" : "/stock?type=consumable"}
+              className={`px-2.5 py-1 rounded-card text-sm transition-colors ${
+                type === t.key
+                  ? "bg-panel text-ink font-semibold border border-sand"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
+        </div>
 
         <select
           value={selectedBranch}
           onChange={(e) => setSelectedBranch(e.target.value)}
           disabled={!canCountStock}
-          className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40 disabled:opacity-60 disabled:cursor-default"
+          className="bg-panel border border-sand text-ink text-sm rounded-lg px-3 py-1.5 outline-none focus:border-sand/40 disabled:opacity-60 disabled:cursor-default"
         >
           {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           {branches.length === 0 && <option value="">No branches</option>}
@@ -463,7 +509,7 @@ export default function StockPage() {
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40"
+          className="bg-panel border border-sand text-ink text-sm rounded-lg px-3 py-1.5 outline-none focus:border-sand/40"
         />
 
         <div className="ml-auto flex gap-2">
@@ -472,8 +518,8 @@ export default function StockPage() {
             onClick={() => setScanMode((v) => !v)}
             className={`flex items-center gap-1.5 text-sm rounded-lg px-3 py-1.5 border transition-colors ${
               scanMode
-                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/30"
-                : "bg-brand-800 border border-brand-700 text-brand-300 hover:bg-brand-700"
+                ? "bg-sage/20 border-sage text-good-70 hover:bg-sage/30"
+                : "bg-panel border border-sand text-muted hover:bg-panel"
             }`}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -483,7 +529,7 @@ export default function StockPage() {
           </button>
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 bg-brand-800 border border-brand-700 text-brand-300 text-sm rounded-lg px-3 py-1.5 hover:bg-brand-700 transition-colors"
+            className="flex items-center gap-1.5 bg-panel border border-sand text-muted text-sm rounded-lg px-3 py-1.5 hover:bg-panel transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Print / PDF
@@ -491,7 +537,7 @@ export default function StockPage() {
           <button
             onClick={handleSave}
             disabled={saving || !selectedBranch}
-            className="flex items-center gap-1.5 bg-white text-brand-950 text-sm font-semibold rounded-lg px-4 py-1.5 hover:bg-brand-100 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1.5 bg-cream text-ink text-sm font-semibold rounded-lg px-4 py-1.5 hover:bg-panel disabled:opacity-40 transition-colors"
           >
             {saving ? "Saving…" : "Save Count"}
           </button>
@@ -500,9 +546,9 @@ export default function StockPage() {
 
       {/* Scan Mode Area */}
       {scanMode && (
-        <div className="no-print shrink-0 border-b border-emerald-500/30 bg-emerald-950/20 px-4 py-3">
+        <div className="no-print shrink-0 border-b border-sage bg-good-50/20 px-4 py-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-emerald-400 shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-good-70 shrink-0">
               <rect x="2" y="2" width="20" height="20" rx="2"/><line x1="6" y1="6" x2="6" y2="18"/><line x1="10" y1="6" x2="10" y2="18"/><line x1="14" y1="6" x2="14" y2="11"/><line x1="18" y1="6" x2="18" y2="11"/><rect x="13" y="13" width="6" height="6" rx="1"/>
             </svg>
             <input
@@ -513,12 +559,12 @@ export default function StockPage() {
               onKeyDown={(e) => { if (e.key === "Enter" && scanValue.trim()) handleScan(scanValue.trim()) }}
               placeholder="Scan barcode here — press Enter or use camera…"
               autoComplete="off"
-              className="flex-1 bg-brand-900 border border-emerald-500/40 text-white text-sm rounded-lg px-4 py-2 outline-none focus:border-emerald-400 font-mono placeholder:text-brand-600"
+              className="flex-1 bg-cream border border-sage text-ink text-sm rounded-lg px-4 py-2 outline-none focus:border-sage font-mono placeholder:text-subtle"
             />
             {hasBarcodeDetector && !cameraActive && (
               <button
                 onClick={startCamera}
-                className="flex items-center gap-1.5 text-sm text-emerald-400 border border-emerald-500/40 rounded-lg px-3 py-1.5 hover:bg-emerald-500/10 transition-colors whitespace-nowrap"
+                className="flex items-center gap-1.5 text-sm text-good-70 border border-sage rounded-lg px-3 py-1.5 hover:bg-good-50 transition-colors whitespace-nowrap"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
                 Use Camera
@@ -527,7 +573,7 @@ export default function StockPage() {
             {cameraActive && (
               <button
                 onClick={stopCamera}
-                className="flex items-center gap-1.5 text-sm text-red-400 border border-red-500/30 rounded-lg px-3 py-1.5 hover:bg-red-500/10 transition-colors whitespace-nowrap"
+                className="flex items-center gap-1.5 text-sm text-danger-70 border border-danger-60 rounded-lg px-3 py-1.5 hover:bg-danger-50 transition-colors whitespace-nowrap"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
                 Stop Camera
@@ -538,16 +584,16 @@ export default function StockPage() {
             <div className="mt-3 flex items-start gap-3">
               <video
                 ref={videoRef}
-                className="w-64 h-40 object-cover rounded-xl bg-black border border-emerald-500/30"
+                className="w-64 h-40 object-cover rounded-xl bg-ink border border-sage"
                 muted
                 playsInline
               />
               <div className="flex flex-col gap-1 pt-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-emerald-400 text-xs font-medium">Camera active</span>
+                  <span className="inline-block w-2 h-2 rounded-full bg-sage animate-pulse" />
+                  <span className="text-good-70 text-xs font-medium">Camera active</span>
                 </div>
-                <p className="text-brand-500 text-xs">Point at a barcode to scan</p>
+                <p className="text-subtle text-xs">Point at a barcode to scan</p>
               </div>
             </div>
           )}
@@ -555,26 +601,26 @@ export default function StockPage() {
       )}
 
       {/* Filter row */}
-      <div className="no-print shrink-0 flex items-center gap-3 px-4 py-2 border-b border-brand-800 bg-brand-950/40 flex-wrap">
+      <div className="no-print shrink-0 flex items-center gap-3 px-4 py-2 border-b border-sand bg-cream/40 flex-wrap">
         {/* Multi-select category filter */}
         <div className="relative" ref={catPanelRef}>
           <button
             onClick={() => setCatPanelOpen((v) => !v)}
-            className="flex items-center gap-1.5 bg-brand-800 border border-brand-700 text-brand-300 text-xs rounded-lg px-3 py-1.5 outline-none hover:border-white/30"
+            className="flex items-center gap-1.5 bg-panel border border-sand text-muted text-xs rounded-lg px-3 py-1.5 outline-none hover:border-sand/30"
           >
             {catFilters.length === 0 ? "All categories" : `${catFilters.length} selected`}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={`transition-transform ${catPanelOpen ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           {catPanelOpen && (
-            <div className="absolute top-full left-0 mt-1 z-30 bg-brand-900 border border-brand-700 rounded-xl shadow-xl min-w-44 py-1">
+            <div className="absolute top-full left-0 mt-1 z-30 bg-cream border border-sand rounded-xl shadow-xl min-w-44 py-1">
               <button
                 onClick={() => { setCatFilters([]); setCatPanelOpen(false) }}
-                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-brand-800 ${catFilters.length === 0 ? "text-white font-semibold" : "text-brand-300"}`}
+                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-panel ${catFilters.length === 0 ? "text-ink font-semibold" : "text-muted"}`}
               >
                 All categories
               </button>
               {categories.map((cat) => (
-                <label key={cat} className="flex items-center gap-2 px-3 py-1.5 text-xs text-brand-200 hover:bg-brand-800 cursor-pointer">
+                <label key={cat} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ink hover:bg-panel cursor-pointer">
                   <input
                     type="checkbox"
                     checked={catFilters.includes(cat)}
@@ -590,16 +636,16 @@ export default function StockPage() {
 
         {/* Active category chips */}
         {catFilters.map((cat) => (
-          <span key={cat} className="flex items-center gap-1 bg-brand-700 text-brand-200 text-xs rounded-full px-2.5 py-0.5">
+          <span key={cat} className="flex items-center gap-1 bg-panel text-ink text-xs rounded-full px-2.5 py-0.5">
             {cat}
-            <button onClick={() => toggleCatFilter(cat)} className="hover:text-white leading-none">×</button>
+            <button onClick={() => toggleCatFilter(cat)} className="hover:text-ink leading-none">×</button>
           </span>
         ))}
 
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as "" | StatusType)}
-          className="bg-brand-800 border border-brand-700 text-brand-300 text-xs rounded-lg px-3 py-1.5 outline-none focus:border-white/40"
+          className="bg-panel border border-sand text-muted text-xs rounded-lg px-3 py-1.5 outline-none focus:border-sand/40"
         >
           <option value="">All statuses</option>
           <option value="ok">OK</option>
@@ -612,70 +658,70 @@ export default function StockPage() {
           onClick={() => setShowBarcode((v) => !v)}
           className={`flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1.5 border transition-colors ${
             showBarcode
-              ? "bg-brand-700 border-brand-600 text-brand-200"
-              : "bg-transparent border-brand-700 text-brand-500 hover:text-brand-300 hover:border-brand-600"
+              ? "bg-panel border-sand text-ink"
+              : "bg-transparent border-sand text-subtle hover:text-muted hover:border-sand"
           }`}
         >
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="6" y1="6" x2="6" y2="18"/><line x1="10" y1="6" x2="10" y2="18"/><line x1="14" y1="6" x2="14" y2="11"/><line x1="18" y1="6" x2="18" y2="11"/><rect x="13" y="13" width="6" height="6" rx="1"/></svg>
           Barcode
         </button>
 
-        <span className="text-brand-600 text-xs ml-auto">{filtered.length} of {rows.length} products</span>
+        <span className="text-subtle text-xs ml-auto">{filtered.length} of {rows.length} products</span>
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm count-table">
           <thead className="sticky top-0 z-10">
-            <tr className="border-b border-brand-700 bg-brand-900">
-              <th className="text-left px-4 py-2.5 text-brand-400 font-medium text-xs whitespace-nowrap">SKU</th>
-              {showBarcode && <th className="text-left px-4 py-2.5 text-brand-400 font-medium text-xs whitespace-nowrap">Barcode</th>}
-              <th className="text-left px-4 py-2.5 text-brand-400 font-medium text-xs">Product name</th>
-              <th className="text-left px-4 py-2.5 text-brand-400 font-medium text-xs">Category</th>
-              <th className="text-right px-4 py-2.5 text-brand-400 font-medium text-xs">Minimum</th>
-              <th className="text-left px-4 py-2.5 text-brand-400 font-medium text-xs">Supplier</th>
-              {showYesterday && <th className="text-right px-4 py-2.5 text-brand-400 font-medium text-xs whitespace-nowrap">Yesterday</th>}
-              <th className="text-center px-4 py-2.5 text-brand-400 font-medium text-xs whitespace-nowrap">Today&apos;s count</th>
-              <th className="text-right px-4 py-2.5 text-brand-400 font-medium text-xs">Change</th>
-              <th className="text-left px-4 py-2.5 text-brand-400 font-medium text-xs">Status</th>
-              <th className="text-center px-4 py-2.5 text-brand-400 font-medium text-xs">Action</th>
+            <tr className="border-b border-sand bg-cream">
+              <th className="text-left px-4 py-2.5 text-muted font-medium text-xs whitespace-nowrap">SKU</th>
+              {showBarcode && <th className="text-left px-4 py-2.5 text-muted font-medium text-xs whitespace-nowrap">Barcode</th>}
+              <th className="text-left px-4 py-2.5 text-muted font-medium text-xs">Product name</th>
+              <th className="text-left px-4 py-2.5 text-muted font-medium text-xs">Category</th>
+              <th className="text-right px-4 py-2.5 text-muted font-medium text-xs">Minimum</th>
+              <th className="text-left px-4 py-2.5 text-muted font-medium text-xs">Supplier</th>
+              {showYesterday && <th className="text-right px-4 py-2.5 text-muted font-medium text-xs whitespace-nowrap">Yesterday</th>}
+              <th className="text-center px-4 py-2.5 text-muted font-medium text-xs whitespace-nowrap">Today&apos;s count</th>
+              <th className="text-right px-4 py-2.5 text-muted font-medium text-xs">Change</th>
+              <th className="text-left px-4 py-2.5 text-muted font-medium text-xs">Status</th>
+              <th className="text-center px-4 py-2.5 text-muted font-medium text-xs">Action</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={colCount} className="px-4 py-16 text-center text-brand-500">Loading…</td></tr>
+              <tr><td colSpan={colCount} className="px-4 py-16 text-center text-subtle">Loading…</td></tr>
             ) : !selectedBranch ? (
-              <tr><td colSpan={colCount} className="px-4 py-16 text-center text-brand-500">Select a branch to view stock.</td></tr>
+              <tr><td colSpan={colCount} className="px-4 py-16 text-center text-subtle">Select a branch to view stock.</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={colCount} className="px-4 py-16 text-center text-brand-500">No products found.</td></tr>
+              <tr><td colSpan={colCount} className="px-4 py-16 text-center text-subtle">No products found.</td></tr>
             ) : filtered.map((r) => {
               const isHighlighted = highlightedId === r.product.id
               return (
                 <tr
                   key={r.product.id}
                   ref={(el) => { rowRefs.current[r.product.id] = el }}
-                  className={`border-b border-brand-800 transition-colors ${
-                    isHighlighted ? "ring-2 ring-inset ring-emerald-500 bg-emerald-950/30" :
-                    r.status === "critical" ? "bg-red-950/25 hover:bg-red-950/35" :
-                    r.status === "low"      ? "bg-amber-950/20 hover:bg-amber-950/30" :
-                                              "hover:bg-brand-800/30"
+                  className={`border-b border-sand transition-colors ${
+                    isHighlighted ? "ring-2 ring-inset ring-sage bg-good-50/30" :
+                    r.status === "critical" ? "bg-danger-50/25 hover:bg-danger-50/35" :
+                    r.status === "low"      ? "bg-amber-50 hover:bg-amber-50" :
+                                              "hover:bg-panel/30"
                   }`}
                 >
-                  <td className="px-4 py-2.5 font-mono text-xs text-brand-400 whitespace-nowrap">{r.product.sku}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-muted whitespace-nowrap">{r.product.sku}</td>
                   {showBarcode && (
-                    <td className="px-4 py-2.5 font-mono text-xs text-brand-500 whitespace-nowrap">
+                    <td className="px-4 py-2.5 font-mono text-xs text-subtle whitespace-nowrap">
                       {r.product.sku}
                     </td>
                   )}
-                  <td className="px-4 py-2.5 text-white font-medium">{r.product.name}</td>
-                  <td className="px-4 py-2.5 text-brand-400 text-xs">{r.product.category ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-right text-brand-300">
+                  <td className="px-4 py-2.5 text-ink font-medium">{r.product.name}</td>
+                  <td className="px-4 py-2.5 text-muted text-xs">{r.product.category ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-right text-muted">
                     {r.minOverride != null ? (
                       <span title={`Global minimum: ${r.product.reorder_threshold}`}>{r.minOverride}</span>
                     ) : r.product.reorder_threshold}
                   </td>
-                  <td className="px-4 py-2.5 text-brand-400 text-xs">{r.product.supplier ?? "—"}</td>
-                  {showYesterday && <td className="px-4 py-2.5 text-right text-brand-300 font-mono">{r.yesterdayQty}</td>}
+                  <td className="px-4 py-2.5 text-muted text-xs">{r.product.supplier ?? "—"}</td>
+                  {showYesterday && <td className="px-4 py-2.5 text-right text-muted font-mono">{r.yesterdayQty}</td>}
                   <td className="px-4 py-2.5 text-center">
                     <input
                       ref={(el) => { countInputRefs.current[r.product.id] = el }}
@@ -684,18 +730,18 @@ export default function StockPage() {
                       value={r.todayQty}
                       onChange={(e) => handleCountChange(r.product.id, e.target.value)}
                       placeholder={String(r.yesterdayQty)}
-                      className={`w-24 bg-brand-800 text-white text-center text-sm rounded-lg px-3 py-1 outline-none transition-all ${
+                      className={`w-24 bg-panel text-ink text-center text-sm rounded-lg px-3 py-1 outline-none transition-all ${
                         r.changed
-                          ? "border-2 border-emerald-500 focus:border-emerald-400"
-                          : "border border-brand-700 focus:border-white/40"
+                          ? "border-2 border-sage focus:border-sage"
+                          : "border border-sand focus:border-sand/40"
                       }`}
                     />
                   </td>
                   <td className={`px-4 py-2.5 text-right font-semibold font-mono ${
-                    r.change === null ? "text-brand-600" :
-                    r.change > 0     ? "text-emerald-400" :
-                    r.change < 0     ? "text-red-400" :
-                                       "text-brand-500"
+                    r.change === null ? "text-subtle" :
+                    r.change > 0     ? "text-good-70" :
+                    r.change < 0     ? "text-danger-70" :
+                                       "text-subtle"
                   }`}>
                     {r.change === null ? "—" : r.change > 0 ? `+${r.change}` : r.change}
                   </td>
@@ -703,7 +749,7 @@ export default function StockPage() {
                   <td className="px-4 py-2.5 text-center">
                     <button
                       onClick={() => openWithdrawModal(r.product)}
-                      className="text-xs text-brand-400 hover:text-white border border-brand-700 hover:border-brand-500 rounded-lg px-2 py-0.5 transition-colors whitespace-nowrap"
+                      className="text-xs text-muted hover:text-ink border border-sand hover:border-sand rounded-lg px-2 py-0.5 transition-colors whitespace-nowrap"
                     >
                       Withdraw
                     </button>
@@ -715,49 +761,51 @@ export default function StockPage() {
         </table>
       </div>
 
-      {/* Pending withdrawals section (managers only) */}
-      {canCountStock && selectedBranch && (
-        <div className="no-print shrink-0 border-t border-brand-800">
+      {/* Pending withdrawals — finished goods only; there is no such thing as
+          a consumable withdrawal, and fg_stock_withdrawals has no type column.
+          /dashboard links straight here with ?pending=1. */}
+      {canCountStock && selectedBranch && type === "fg" && (
+        <div className="no-print shrink-0 border-t border-sand">
           <button
             onClick={() => setWithdrawalsOpen((v) => !v)}
-            className="w-full flex items-center gap-2 px-4 py-2 text-xs text-brand-400 hover:text-white hover:bg-brand-800/30 transition-colors"
+            className="w-full flex items-center gap-2 px-4 py-2 text-xs text-muted hover:text-ink hover:bg-panel/30 transition-colors"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={`transition-transform ${withdrawalsOpen ? "rotate-90" : ""}`}><polyline points="9 18 15 12 9 6"/></svg>
             Pending withdrawals
             {withdrawals.length > 0 && (
-              <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] px-1.5 py-0.5 rounded-full">{withdrawals.length}</span>
+              <span className="bg-amber-50 text-amber-70 border border-amber-60 text-[10px] px-1.5 py-0.5 rounded-full">{withdrawals.length}</span>
             )}
           </button>
           {withdrawalsOpen && (
-            <div className="max-h-48 overflow-auto border-t border-brand-800/60">
+            <div className="max-h-48 overflow-auto border-t border-sand/60">
               {withdrawals.length === 0 ? (
-                <p className="px-4 py-4 text-center text-brand-600 text-xs">No pending withdrawals</p>
+                <p className="px-4 py-4 text-center text-subtle text-xs">No pending withdrawals</p>
               ) : (
                 <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-brand-900">
-                    <tr className="border-b border-brand-800">
-                      <th className="text-left px-4 py-2 text-brand-500 font-medium">Product</th>
-                      <th className="text-left px-4 py-2 text-brand-500 font-medium">Lot</th>
-                      <th className="text-left px-4 py-2 text-brand-500 font-medium">Date</th>
-                      <th className="text-right px-4 py-2 text-brand-500 font-medium">Qty</th>
-                      <th className="text-left px-4 py-2 text-brand-500 font-medium">Requested by</th>
-                      <th className="text-left px-4 py-2 text-brand-500 font-medium">Notes</th>
-                      <th className="text-center px-4 py-2 text-brand-500 font-medium">Actions</th>
+                  <thead className="sticky top-0 bg-cream">
+                    <tr className="border-b border-sand">
+                      <th className="text-left px-4 py-2 text-subtle font-medium">Product</th>
+                      <th className="text-left px-4 py-2 text-subtle font-medium">Lot</th>
+                      <th className="text-left px-4 py-2 text-subtle font-medium">Date</th>
+                      <th className="text-right px-4 py-2 text-subtle font-medium">Qty</th>
+                      <th className="text-left px-4 py-2 text-subtle font-medium">Requested by</th>
+                      <th className="text-left px-4 py-2 text-subtle font-medium">Notes</th>
+                      <th className="text-center px-4 py-2 text-subtle font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {withdrawals.map((w) => (
-                      <tr key={w.id} className="border-b border-brand-800 hover:bg-brand-800/20">
-                        <td className="px-4 py-2 text-white font-medium">{w.products?.name ?? "—"} <span className="text-brand-500 font-mono">{w.products?.sku}</span></td>
-                        <td className="px-4 py-2 text-brand-300 font-mono">{w.lot_number}</td>
-                        <td className="px-4 py-2 text-brand-400">{w.withdraw_date}</td>
-                        <td className="px-4 py-2 text-right text-brand-200 font-semibold">{w.quantity}</td>
-                        <td className="px-4 py-2 text-brand-400">{w.profiles?.nickname ?? w.profiles?.full_name ?? "—"}</td>
-                        <td className="px-4 py-2 text-brand-500">{w.notes ?? "—"}</td>
+                      <tr key={w.id} className="border-b border-sand hover:bg-panel">
+                        <td className="px-4 py-2 text-ink font-medium">{w.products?.name ?? "—"} <span className="text-subtle font-mono">{w.products?.sku}</span></td>
+                        <td className="px-4 py-2 text-muted font-mono">{w.lot_number}</td>
+                        <td className="px-4 py-2 text-muted">{w.withdraw_date}</td>
+                        <td className="px-4 py-2 text-right text-ink font-semibold">{w.quantity}</td>
+                        <td className="px-4 py-2 text-muted">{w.profiles?.nickname ?? w.profiles?.full_name ?? "—"}</td>
+                        <td className="px-4 py-2 text-subtle">{w.notes ?? "—"}</td>
                         <td className="px-4 py-2 text-center">
                           <div className="flex items-center justify-center gap-1.5">
-                            <button onClick={() => handleApprove(w)} className="text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/10 rounded px-2 py-0.5 transition-colors">Approve</button>
-                            <button onClick={() => handleReject(w)} className="text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded px-2 py-0.5 transition-colors">Reject</button>
+                            <button onClick={() => handleApprove(w)} className="text-good-70 border border-sage hover:bg-good-50 rounded px-2 py-0.5 transition-colors">Approve</button>
+                            <button onClick={() => handleReject(w)} className="text-danger-70 border border-danger-60 hover:bg-danger-50 rounded px-2 py-0.5 transition-colors">Reject</button>
                           </div>
                         </td>
                       </tr>
@@ -771,76 +819,76 @@ export default function StockPage() {
       )}
 
       {/* Summary bar */}
-      <div className="no-print shrink-0 flex items-center gap-6 px-4 py-2 border-t border-brand-800 bg-brand-800/40 text-xs">
-        <span className="text-brand-400">{rows.length} products</span>
-        <span className={belowMin > 0 ? "text-amber-400" : "text-brand-500"}>{belowMin} below minimum</span>
-        <span className={criticalCount > 0 ? "text-red-400" : "text-brand-500"}>{criticalCount} critical</span>
-        {lastSaved && <span className="ml-auto text-brand-500">Saved {lastSaved.at} by {lastSaved.by}</span>}
+      <div className="no-print shrink-0 flex items-center gap-6 px-4 py-2 border-t border-sand bg-panel text-xs">
+        <span className="text-muted">{rows.length} products</span>
+        <span className={belowMin > 0 ? "text-amber-70" : "text-subtle"}>{belowMin} below minimum</span>
+        <span className={criticalCount > 0 ? "text-danger-70" : "text-subtle"}>{criticalCount} critical</span>
+        {lastSaved && <span className="ml-auto text-subtle">Saved {lastSaved.at} by {lastSaved.by}</span>}
       </div>
 
       {/* Withdraw modal */}
       {withdrawModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-brand-900 border border-brand-700 rounded-2xl shadow-2xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-brand-800">
-              <h3 className="text-white font-semibold">Request Withdrawal</h3>
-              <button onClick={() => setWithdrawModal(null)} className="text-brand-500 hover:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 backdrop-blur-sm">
+          <div className="bg-cream border border-sand rounded-2xl shadow-2xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-sand">
+              <h3 className="text-ink font-semibold">Request Withdrawal</h3>
+              <button onClick={() => setWithdrawModal(null)} className="text-subtle hover:text-ink">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div className="px-5 py-4 space-y-3">
               <div>
-                <label className="text-brand-400 text-xs mb-1 block">Product</label>
-                <p className="text-white text-sm font-medium">{withdrawModal.name} <span className="text-brand-500 font-mono text-xs">{withdrawModal.sku}</span></p>
+                <label className="text-muted text-xs mb-1 block">Product</label>
+                <p className="text-ink text-sm font-medium">{withdrawModal.name} <span className="text-subtle font-mono text-xs">{withdrawModal.sku}</span></p>
               </div>
               <div>
-                <label className="text-brand-400 text-xs mb-1 block">Lot number <span className="text-red-400">*</span></label>
+                <label className="text-muted text-xs mb-1 block">Lot number <span className="text-danger-70">*</span></label>
                 <input
                   type="text"
                   value={wForm.lot_number}
                   onChange={(e) => setWForm((f) => ({ ...f, lot_number: e.target.value }))}
                   placeholder="e.g. LOT-2026-001"
-                  className="w-full bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-white/40"
+                  className="w-full bg-panel border border-sand text-ink text-sm rounded-lg px-3 py-2 outline-none focus:border-sand/40"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-brand-400 text-xs mb-1 block">Withdraw date</label>
+                  <label className="text-muted text-xs mb-1 block">Withdraw date</label>
                   <input
                     type="date"
                     value={wForm.withdraw_date}
                     onChange={(e) => setWForm((f) => ({ ...f, withdraw_date: e.target.value }))}
-                    className="w-full bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-white/40"
+                    className="w-full bg-panel border border-sand text-ink text-sm rounded-lg px-3 py-2 outline-none focus:border-sand/40"
                   />
                 </div>
                 <div>
-                  <label className="text-brand-400 text-xs mb-1 block">Quantity <span className="text-red-400">*</span></label>
+                  <label className="text-muted text-xs mb-1 block">Quantity <span className="text-danger-70">*</span></label>
                   <input
                     type="number"
                     min="1"
                     value={wForm.quantity}
                     onChange={(e) => setWForm((f) => ({ ...f, quantity: e.target.value }))}
-                    className="w-full bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-white/40"
+                    className="w-full bg-panel border border-sand text-ink text-sm rounded-lg px-3 py-2 outline-none focus:border-sand/40"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-brand-400 text-xs mb-1 block">Notes</label>
+                <label className="text-muted text-xs mb-1 block">Notes</label>
                 <textarea
                   value={wForm.notes}
                   onChange={(e) => setWForm((f) => ({ ...f, notes: e.target.value }))}
                   rows={2}
                   placeholder="Optional notes"
-                  className="w-full bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-white/40 resize-none"
+                  className="w-full bg-panel border border-sand text-ink text-sm rounded-lg px-3 py-2 outline-none focus:border-sand/40 resize-none"
                 />
               </div>
             </div>
-            <div className="px-5 py-4 border-t border-brand-800 flex justify-end gap-2">
-              <button onClick={() => setWithdrawModal(null)} className="px-4 py-2 text-sm text-brand-400 hover:text-white transition-colors">Cancel</button>
+            <div className="px-5 py-4 border-t border-sand flex justify-end gap-2">
+              <button onClick={() => setWithdrawModal(null)} className="px-4 py-2 text-sm text-muted hover:text-ink transition-colors">Cancel</button>
               <button
                 onClick={handleWithdrawSubmit}
                 disabled={wSaving || !wForm.lot_number.trim() || !wForm.quantity}
-                className="px-4 py-2 text-sm font-semibold bg-white text-brand-950 rounded-lg hover:bg-brand-100 disabled:opacity-40 transition-colors"
+                className="px-4 py-2 text-sm font-semibold bg-cream text-ink rounded-lg hover:bg-panel disabled:opacity-40 transition-colors"
               >
                 {wSaving ? "Submitting…" : "Submit Request"}
               </button>
@@ -853,8 +901,8 @@ export default function StockPage() {
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl shadow-xl border ${
           toastType === "warn"
-            ? "bg-amber-950 border-amber-500/30 text-amber-300"
-            : "bg-emerald-950 border-emerald-500/30 text-emerald-300"
+            ? "bg-amber-50 border-amber-60 text-amber-70"
+            : "bg-good-50 border-sage text-good-70"
         }`}>
           {toastType === "warn"
             ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>

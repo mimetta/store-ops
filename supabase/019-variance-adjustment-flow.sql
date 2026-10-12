@@ -58,8 +58,20 @@ comment on column stock_count_lines.explanation_state is
   'their part, and the manager needs to see which is which.';
 
 -- ── counts are immutable once submitted ───────────────────────────────────
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('stock_count_lines_immutable', '019');
+  end if;
+end
+$$;
+
 create or replace function public.stock_count_lines_immutable()
 returns trigger language plpgsql as $$
+  -- fn-version: 019
 declare v_status text;
 begin
   select status into v_status from stock_counts where id = old.count_id;

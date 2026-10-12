@@ -1,47 +1,109 @@
 # Bringing production up to date
 
-Production (**KindOS**, `gwncamipwckpknxpiksv`) has migrations **001–002**.
-UAT (`jgijsurgbciuopicqceo`) has everything through **030**.
+Production (**KindOS**, `gwncamipwckpknxpiksv`) has migrations **001–002**, plus
+`prod/042` and `prod/042b`, applied out of sequence this week to close the
+profile-escalation and leave-privacy holes.
 
-That is **28 migrations pending**, not 15 — I gave the lower figure in
-conversation and it was wrong. `003`–`012` and `014`–`030`, plus the
-production-only `prod/013-company-rename-live-data.sql`. There is no `013` in
-the main sequence.
+UAT (`jgijsurgbciuopicqceo`) has everything through **052**.
 
-**Nothing in this document has been run against production.** The classification
-below comes from reading the files and from applying them to UAT. Treat the
-tiers as a proposal to review, not a verdict — my first automated pass missed
-both `004`'s policy rewrite and `026`'s dynamic `ALTER`, which are two of the
-highest-impact changes here.
+## The count is 49, not 38
 
-## ⚠ The caveat that applies to every migration below
+`003`–`012` is ten, `014`–`052` is thirty-nine. There is no `013` in the main
+sequence. I have given a lower figure twice — 15, then 28, then 38 — and each
+was wrong because I counted at the time and did not recount as the work grew.
+**49.** One of them (`042`) is already live in substance via `prod/042`, and is
+re-runnable, so it will no-op when the sequence reaches it.
 
-**UAT started empty.** It was built from a schema-only dump — 25 `CREATE TABLE`,
-50 `CREATE POLICY`, **0 `INSERT`** — and its data arrived afterwards, from the
-AccCloud sync and from invented people. Production has years of kcp-portal's
-rows.
+---
 
-So a migration passing in UAT proves it is *syntactically* sound and that it
-works on data shaped the way store-ops creates it. It proves **nothing** about
-data that predates it. Every defect in the class "this breaks on rows that were
-already there" is invisible to the entire test suite behind this document.
+## The main risk, stated plainly and then quantified
 
-`014` is the proof, and it is not hypothetical:
+**UAT started empty.** It was built from a schema-only dump of production — 25
+`CREATE TABLE`, 50 `CREATE POLICY`, **0 `INSERT`** — and every row in it since
+arrived either from the AccCloud sync or from scripts I wrote. Production has
+years of kcp-portal's rows in the same tables.
 
-- it leaves `warehouse_id` NULL on every pre-existing row, which UAT could not
-  show because UAT had no pre-existing rows (see `030`);
-- it drops the unique constraint seven live write sites in *each* app depend
-  on, which UAT could not show because nobody exercised those screens after
-  applying it (see below).
+So a green UAT run proves a migration is syntactically sound and that it works
+on data shaped the way store-ops creates it. It proves **nothing** about data
+that predates it. The entire class of defect "this breaks on rows that were
+already there" is invisible to every check in this repo.
 
-Both were found by reading, not by running. Assume there are more of the same
-kind, and read each migration against production's data rather than trusting a
-green UAT run.
+This is not an aside. It is the reason this document exists, and it has already
+produced three defects, two of them found by reading rather than running:
 
-## The one thing that must happen first
+- **`014`** leaves `warehouse_id` NULL on every pre-existing row — invisible in
+  UAT because UAT had no pre-existing rows. `030` then has to deal with it.
+- **`014`** drops a unique constraint that fourteen live write sites name as
+  their conflict target — invisible in UAT because nobody opened those screens
+  after applying it.
+- **`products.type` is NULL on all 735 AccCloud rows**, so the seven screens
+  that filter on it show nothing. In UAT that is total and was mistaken for
+  "no data yet". In production those screens have always worked, because
+  kcp-portal's own products were typed by hand — so the defect is invisible
+  there for exactly the rows production does have. `052` fixes it, and it is
+  the clearest illustration of the risk cutting *both* ways.
 
-`004` replaces row-level security on **14 tables kcp-portal reads**. Its
-STEP 0 dumps every policy in the schema:
+### Which migrations are actually exposed
+
+25 of the 49 touch only tables store-ops created, which are **empty in
+production**. They carry close to zero pre-existing-data risk and most of the
+plan's caution does not apply to them.
+
+The other 24 touch one of the 25 tables that already exist in production:
+
+| Migration | Production table it touches |
+|---|---|
+| `003`, `005`, `042`, `048` | `profiles` |
+| `006`, `008`, `011`, `012`, `032`, `033` | `branches` |
+| `007` | `branches`, `daily_sales_summary`, `pos_money_records`, `sales_records`, `shop_traffic`, `stock_levels` |
+| `009`, `041`, `051` | `work_schedules` |
+| `010` | `shop_traffic` |
+| `014`, `028`, `030` | `stock_levels` |
+| `014`, `036`, `050` | `stock_movements` |
+| `015`, `022`, `052` | `products` |
+
+**Treat the first column as the review list.** Every one of those needs reading
+against production's data before it runs, and the pre-flight queries below are
+how.
+
+---
+
+## The shape of the problem: one blocker holds 39 migrations
+
+The sequence is fixed — they run in order. `014` is blocked. Therefore
+**everything from `014` to `052` is blocked**, which is 39 of the 49.
+
+That makes this not a scheduling problem but a single decision:
+
+> **Either kcp-portal's retail section is switched off, or its seven
+> `stock_levels` upserts are fixed by pull request.**
+
+`014` drops `stock_levels_product_id_branch_id_key`. Fourteen live upserts name
+it as their `onConflict` target; all fail with `42P10` the moment it lands.
+Store-ops' seven are fixed. kcp-portal's seven are not, deliberately — they sit
+under `/retail/*`, which store-ops replaces, so fixing screens due for
+retirement may be wasted work.
+
+Nothing in the ordering of migrations avoids this. It is roughly a day's work
+to fix the seven, or zero if the section is retired first.
+
+---
+
+## What can go out this week
+
+**`003` → `005` → `004`, then `006`–`012`.** Ten migrations, two sessions.
+Nothing else, because `014` stops the queue.
+
+Everything in these two sessions touches `profiles` and `branches` — two of the
+most-used tables in kcp-portal — so they are simultaneously the *only* thing
+that can move and the *highest* blast radius in the whole sequence. That is
+uncomfortable and worth saying out loud rather than presenting as progress.
+
+### Before anything: capture the current access model
+
+`004` replaces row-level security on 14 tables kcp-portal reads. Run its STEP 0
+and **save the output somewhere durable** — it is the only record of what
+production's access model was, and `004` is not cleanly reversible without it.
 
 ```sql
 select tablename, policyname, cmd, roles, qual, with_check
@@ -49,199 +111,256 @@ from pg_policies where schemaname = 'public'
 order by tablename, policyname;
 ```
 
-**Save that output somewhere durable before running anything.** It is the only
-record of what production's access model was, and `004` is not cleanly
-reversible without it.
+---
 
-## Why this is not one long session
+## Session 1 — roles and the permission model
 
-Both apps share one database. Half of these migrations change tables
-kcp-portal reads and writes, so each one is a change to a live application
-made from this repo. The grouping below is by blast radius, but the *order* is
-fixed — they must run in sequence.
+Run `003` → `005` → `004`. **This order, not numeric.** `003` widens the role
+values, `005` moves `staff` → `ka`, `004` rebuilds the model on top.
 
-## Sessions
+### Pre-flight, on production, before you start
 
-### Session 1 — the role and permission model
+```sql
+-- 003 adds a CHECK on profiles.portal_role, which VALIDATES EVERY EXISTING ROW
+-- and aborts if one fails. Anything here not in the new list stops the session.
+select coalesce(portal_role,'<null>') as role, count(*)
+from profiles group by 1 order by 2 desc;
+-- Expect only: superadmin, admin, manager, staff, people, marketing, logistics.
+-- A NULL or an unexpected value must be resolved BEFORE 003 runs.
 
-| Run | Notes |
-|---|---|
-| `003` → `005` → `004` | **This order, not numeric.** `003` widens the role values, `005` moves `staff` → `ka`, `004` rebuilds the model on top. |
-
-Capture `004`'s STEP 0 first. After: sign in to **kcp-portal** and confirm
-reads still work for at least one non-admin account. This is the session most
-likely to lock someone out.
-
-Changes kcp-portal: role values, and every RLS policy.
-
-### Session 2 — branches
-
-| Run | Notes |
-|---|---|
-| `006` | Rewrites the canonical branch list. Deactivates, never deletes. |
-| `007` | Flips FKs to `RESTRICT` on six shared tables — takes locks, changes delete behaviour. |
-| `008` | Adds `store_type` and `branch_monthly_goals`. Additive. |
-| `010` | **Reshapes `shop_traffic`** into nationality rows. kcp-portal's traffic page reads and writes this table. |
-| `011`, `012` | Store-type data and the `office` constraint value. |
-
-Maintenance window. `010` is the one to test kcp-portal against afterwards.
-
-### Session 3 — warehouses 🛑 BLOCKED
-
-| Run | Notes |
-|---|---|
-| `014` | Adds warehouses; **changes the `stock_levels` unique key** to `(product, warehouse)`; installs `check_warehouse_matches_branch()`. |
-| `015` | AccCloud sync plumbing. Additive columns on `products`. |
-
-**Do not run `014` until the write sites below are fixed.** It drops
-`stock_levels_product_id_branch_id_key`, and **fourteen** live upserts name
-that constraint as their conflict target. Every one fails the moment it lands:
-
-```
-[42P10] there is no unique or exclusion constraint matching
-        the ON CONFLICT specification
+-- 005 moves staff -> ka and needs a branch for each. These people will see
+-- NOTHING until they have one.
+select count(*) filter (where portal_role='staff')                       as to_move,
+       count(*) filter (where portal_role='staff' and branch_id is null)  as will_see_nothing
+from profiles;
 ```
 
-Reproduced against UAT, which already has `014`.
+### Test in production immediately after
 
-**kcp-portal — 7 sites** (all `onConflict: "product_id,branch_id"`):
-`retail/settings` ×2, `retail/sales` ×2, `retail/stock` ×2, `retail/consumables` ×1
+1. **Sign in as a non-admin** — a `ka` or `people` account — and load the
+   kcp-portal home page. This session is the one most likely to lock someone
+   out, and an admin account will not show it.
+2. Confirm that account can still read the screens it could before: leave,
+   training, the retail dashboard.
+3. `select portal_role, count(*) from profiles group by 1` — no `staff` left,
+   nobody stranded without a branch.
+4. Have **one real person other than you** sign in before you stop watching.
 
-**store-ops — 7 sites**, the same code, ported: `settings` ×2, `sales` ×2,
-`stock` ×2, `consumables` ×1. These are among the thirteen screens still on the
-legacy theme. **They are already broken against UAT** and have been since `014`
-was applied there; nothing surfaced it because nobody has used those screens
-since.
+**Roll back by**: restoring the policies from the STEP 0 capture. There is no
+other route, which is why the capture is not optional.
 
-None of these write central stock — every one is scoped to a selected branch —
-so the central-warehouse trigger is *not* the problem here. The conflict target
-is. (The central boundary is still real and is documented in
-`docs/acccloud-findings.md`; it simply is not what breaks these.)
+---
 
-The new store-ops screens — stock count, receiving, units sold — are unaffected:
-they scope by `warehouse_id` and never use that conflict target.
+## Session 2 — branches and the shared tables
 
-Options, in the order I would consider them:
+Run `006`, `007`, `008`, `009`, `010`, `011`, `012`.
 
-**store-ops' side is fixed.** All seven now resolve the branch's default
-in-scope warehouse and target `(product_id, warehouse_id)`; a branch with no
-warehouse gets a plain message instead of a failed write. The paired
-`stock_movements` inserts now carry `warehouse_id` too, which they never did —
-without it those movements were invisible to the chain, which filters on it.
+### Pre-flight, on production
 
-**kcp-portal's seven are deliberately NOT fixed, and that blocks `014`.** They
-are all under `/retail/*`, which store-ops replaces, so fixing screens intended
-for retirement may be wasted work. The decision is the retirement timing, not
-the code. Until one of these is true, `014` cannot go to production:
+```sql
+-- 006 rewrites the branch list, deactivating rather than deleting. Anything
+-- pointing at a branch it retires keeps pointing at it.
+select b.name, b.active,
+       (select count(*) from profiles      p where p.branch_id = b.id) as staff,
+       (select count(*) from stock_levels  s where s.branch_id = b.id) as stock_rows,
+       (select count(*) from work_schedules w where w.branch_id = b.id) as shifts
+from branches b order by b.name;
 
-1. **kcp-portal's retail section is switched off**, in or before the same
-   window — the preferred route, since the work is thrown away otherwise; or
-2. **kcp-portal's seven write sites are fixed** by pull request, gaining a
-   `warehouse_id` and the new conflict target.
+-- 007 recreates six FKs as RESTRICT. An ORPHAN row — a branch_id pointing at
+-- no branch — makes the FK fail to create and aborts the session.
+select 'daily_sales_summary' t, count(*) from daily_sales_summary d
+  where d.branch_id is not null and not exists (select 1 from branches b where b.id=d.branch_id)
+union all select 'pos_money_records', count(*) from pos_money_records x
+  where x.branch_id is not null and not exists (select 1 from branches b where b.id=x.branch_id)
+union all select 'sales_records', count(*) from sales_records x
+  where x.branch_id is not null and not exists (select 1 from branches b where b.id=x.branch_id)
+union all select 'shop_traffic', count(*) from shop_traffic x
+  where x.branch_id is not null and not exists (select 1 from branches b where b.id=x.branch_id)
+union all select 'stock_levels', count(*) from stock_levels x
+  where x.branch_id is not null and not exists (select 1 from branches b where b.id=x.branch_id);
+-- Every count must be 0.
 
-There is no ordering of the migrations alone that avoids this.
+-- 008 backfills branches.store_type then SETs IT NOT NULL. Any branch the
+-- backfill does not cover aborts the migration.
+select count(*) from branches where store_type is null;  -- after reading 008's backfill list
 
-`014` also adds `warehouse_id` as nullable **and does not backfill it**, so
-every pre-existing production row gets `NULL`. That is what `030` then has to
-deal with.
+-- 010 is the dangerous one. It reshapes shop_traffic into nationality rows and
+-- SETs NOT NULL on two columns. kcp-portal has been writing this table for
+-- years.
+select count(*)                                    as rows_total,
+       count(*) filter (where visitor_count is null) as null_count,
+       min(date), max(date)
+from shop_traffic;
+-- A single NULL in visitor_count aborts 010. Decide what it should become
+-- BEFORE the window, not during it.
+```
 
-### Session 4 — the store-ops tables
+### Test in production immediately after
 
-| Run | Notes |
-|---|---|
-| `016`–`021` | Stock counts, product groups, countable products, variance and adjustment flow, recounts, the chain view. |
-| `022` | Fixes `acccloud_master_id` and syncs units. Touches `products`. |
-| `023` | Pack-factor worksheet, 27 rows, factors blank for you to fill. |
-| `024` + `025` | **Pair them.** `025` fails on a database without `024`'s `skipped` column. |
+1. **kcp-portal's traffic page** — `010` changed the table's shape underneath
+   it. Load it, then record one traffic entry and read it back.
+2. **kcp-portal's retail dashboard** — `007` changed delete semantics on six
+   tables it reads.
+3. Try to delete a branch that has children. It should be **refused**, not
+   cascade. That is what `007` is for.
+4. `select name, store_type, active from branches order by name` — the list
+   matches the business, and `store_type` is right. A consignment branch
+   weighted as an own store is wrong in a way that first appears in a payslip.
 
-Low risk — these are store-ops' own tables. The longest session, the least
-likely to break anything.
+---
 
-### Session 5 — the Bangkok business day
+## Session 3 — warehouses 🛑 BLOCKED
 
-| Run | Notes |
-|---|---|
-| `026` | Moves date defaults to `business_today()`. |
+Run `014`, `015` — **only once the kcp-portal decision is made.**
 
-**Changes kcp-portal.** It re-dates the defaults on `daily_sales_summary`,
-`sales_records`, `fg_stock_withdrawals` and `pos_money_records` — four tables
-kcp-portal writes. Same bug, same fix, same direction, but it is kcp-portal's
-behaviour changing. Only affects inserts that omit the date; kcp-portal
-usually sends one explicitly.
+### Pre-flight, on production
 
-### Session 6 — receiving, sales posting, and the invariant
+```sql
+-- How much data 014 is about to leave with a NULL warehouse. This is the
+-- number 030 will later have to resolve, and it is better known now.
+select b.name, b.store_type, count(*) as level_rows,
+       count(*) filter (where sl.quantity > 0) as rows_with_stock,
+       max(sl.updated_at) as last_touched
+from stock_levels sl left join branches b on b.id = sl.branch_id
+group by b.name, b.store_type order by level_rows desc;
 
-| Run | Notes |
-|---|---|
-| `027` + `028` + `029` | **Pair them.** New tables; they touch `stock_levels` / `stock_movements` only by inserting. `029` amends `027`'s function. |
-| `030` | `stock_levels.warehouse_id` → `NOT NULL`. |
+-- 015 adds a CHECK on products.source. Existing rows must satisfy it.
+select coalesce(source,'<null>'), count(*) from products group by 1;
+```
 
-**`030` is not free on production, and it is a business decision, not a
-cleanup.** See "The consignment rows" below before running it.
+### Test in production immediately after
 
-**`030` is not free on production.** Because `014` left every pre-existing row
-with a `NULL` warehouse, `030` backfills from `branch_id` and then *refuses to
-continue* if any remain. Rows it cannot resolve belong to branches with no
-warehouse — consignment branches, where the partner holds the stock. Those are
-a decision for you: delete them, or leave `030` unapplied. Do not invent a
-warehouse for them. Run its STEP 0 and read the second query before deciding.
+1. **Every one of the fourteen write sites**, or the seven that remain if
+   kcp-portal's retail is still live. A `42P10` here is the predicted failure,
+   not a surprise.
+2. Save a stock level from store-ops `/settings`, `/stock` and `/consumables`.
+3. Confirm `stock_levels` has a `warehouse_id` column and that it is NULL
+   everywhere — that is expected at this point, and `030` is what fixes it.
 
-### Separately — the company rename
+---
+
+## Session 4 — store-ops' own tables
+
+Run `016`–`029`, skipping nothing. Sixteen migrations.
+
+**This is the low-risk session and the long one.** Every table involved is one
+store-ops created, which means it is empty in production, which means the
+pre-existing-data risk that dominates this document barely applies. The CHECK
+constraints in `019`, `020`, `024` and `029` validate against zero rows.
+
+Pair `024` with `025`: `025` fails on a database without `024`'s `skipped`
+column.
+
+### Test in production immediately after
+
+1. Run a stock count end to end at one branch — open, count a line, submit.
+2. Receive a delivery with one short line and confirm the shortage is raised.
+3. `select * from movement_chain limit 5` — the chain renders.
+4. Nothing in kcp-portal needs testing after this session. That is the point of
+   grouping it this way.
+
+---
+
+## Session 5 — `030`, and a decision that is not mine
+
+`030` sets `stock_levels.warehouse_id` NOT NULL. It backfills from `branch_id`
+and then **refuses to continue** if any row remains unresolved. Those rows
+belong to branches with no warehouse — the consignment branches, where the
+partner holds the stock.
+
+**Run the pre-flight from Session 3 again and read `last_touched`.** Rows
+nobody has written in a year are residue; rows written last week are in use.
+
+Deleting them blanks live screens for four branches — kcp-portal's retail
+dashboard, stock, consumables, sales and settings all read them, as do
+store-ops' ported legacy screens. Store-ops genuinely does not manage
+consignment stock, so deletion is the right *end state*, but only once those
+screens are gone.
+
+**Recommendation: defer `030` until the legacy retail screens are retired.** It
+blocks nothing — everything after it needs the *column*, which `014` already
+added, not the constraint. Apply it as a tidy-up afterwards. The NOT NULL is
+worth having; it is not worth four branches' stock figures a fortnight early.
+
+---
+
+## Session 6 — transfers, sales import, dashboard, shifts
+
+Run `031`–`041`.
+
+Mostly store-ops tables. Two things to read first:
+
+```sql
+-- 033 sets branches.pos_branch_code. It decides POS-fed vs hand-keyed, and
+-- therefore which branches may import and which must key in by hand. Getting
+-- it wrong double-counts or silently drops a branch's sales.
+select name, store_type, pos_branch_code from branches order by name;
+
+-- 041 adds published_at/published_by to work_schedules, which kcp-portal has
+-- been writing for years, and a CHECK that they move together. New columns are
+-- NULL on every existing row, so the CHECK is satisfied — but confirm the row
+-- count you are about to touch.
+select count(*) from work_schedules;
+```
+
+### Test in production immediately after
+
+1. **kcp-portal's shift screen** — `041` added columns to `work_schedules`
+   underneath it.
+2. Import one real AdaPOS export and reconcile the bill and line counts against
+   the file.
+3. Open `/dashboard` and confirm the metrics render rather than erroring.
+
+---
+
+## Session 7 — security, swaps, overtime, commission
+
+Run `042`–`052`. `042` will no-op: `prod/042` already applied its STEP 1.
+
+```sql
+-- 052 backfills products.type, but ONLY where it is null. kcp-portal's own
+-- products were typed by hand and must not be touched. Confirm the split
+-- before and after.
+select coalesce(type,'<null>') as type, coalesce(source,'<null>') as source, count(*)
+from products group by 1,2 order by 3 desc;
+-- Expect: kcp-portal's rows already typed, AccCloud's rows null. After 052,
+-- the AccCloud rows classify and the hand-typed ones are unchanged.
+```
+
+### Test in production immediately after
+
+1. Sign in as a **KA** and confirm `/overtime` and `/commission` are refused,
+   and that `pay_rates` returns nothing through the API — not just that the nav
+   item is hidden. Check the network payload, not the rendered page.
+2. Raise a swap, accept it, approve it, and confirm the roster row moved.
+3. **Do not enter real salaries until this session is done and verified.**
+   Pay is the only data here that cannot be un-leaked.
+
+---
+
+## Separately — the company rename
 
 `supabase/prod/013-company-rename-live-data.sql` updates
-`company_settings.company_name` on live data. Independent of everything above;
-run it whenever.
+`company_settings.company_name` on live data. Independent of everything above.
+Run it whenever.
 
-## Summary: what changes kcp-portal's behaviour
+---
+
+## What changes kcp-portal's behaviour
 
 `003`, `005` (role values) · `004` (every RLS policy) · `006` (branch rows) ·
-`007` (delete semantics) · `010` (table shape) · `014` (new write rejection) ·
-`022` (`products` columns) · `026` (date defaults)
+`007` (delete semantics) · `010` (table shape) · `014` (write rejection) ·
+`022` (`products` columns) · `026` (date defaults) · `041`, `051`
+(`work_schedules` columns) · `042` (profile self-update) · `052`
+(`products.type`, and therefore what its retail screens list)
 
 Everything else is additive or store-ops-only.
 
+## What I would want to be true before starting
 
-## The consignment rows
-
-`030` blocks on any `stock_levels` row whose branch has no warehouse. On
-production those will be the consignment branches — **Ecotopia, Gaysorn,
-Lofteyes, Siam Discovery** — and possibly the Vanich House office.
-
-**I cannot give you the counts.** UAT has zero such rows, because UAT started
-empty and only ever received Song Wat and Talat Noi stock from the AccCloud
-sync. The numbers exist only on production. Run this there:
-
-```sql
-select b.name, b.store_type, b.active,
-       count(*)                          as level_rows,
-       count(*) filter (where sl.quantity > 0) as rows_with_stock,
-       sum(sl.quantity)                  as total_units,
-       max(sl.updated_at)                as last_touched
-from stock_levels sl
-left join branches b on b.id = sl.branch_id
-left join warehouses w on w.branch_id = b.id and w.is_default and w.in_scope
-where w.id is null
-group by b.name, b.store_type, b.active
-order by level_rows desc;
-```
-
-`last_touched` is the one that decides it: rows nobody has written in a year
-are residue, rows written last week are in use.
-
-**Does anything read them? Yes — today.** This is the part that makes deleting
-them premature rather than tidy:
-
-| Reader | Reads consignment levels? |
-|---|---|
-| kcp-portal `/retail` dashboard, `/retail/stock`, `/retail/consumables`, `/retail/sales`, `/retail/settings` | **Yes**, scoped by `branch_id`, all branches |
-| store-ops legacy screens (`stock`, `consumables`, `sales`, `settings`) | **Yes**, same code, ported |
-| store-ops count / receiving / units sold | No — scoped by `warehouse_id` |
-
-So deleting them blanks live screens for four branches. Store-ops genuinely
-does not manage consignment stock, so deletion is the right *end state* — but
-it is correct only once the screens that read them are retired.
-
-**Recommendation:** leave `030` unapplied until the legacy retail screens are
-gone. It is the last migration in the sequence and blocks nothing else. The
-`NOT NULL` is worth having; it is not worth having a fortnight early at the
-cost of four branches' stock figures.
+- The `004` STEP 0 capture is saved somewhere that is not this repo.
+- A second person can sign in and is available during sessions 1 and 2.
+- The kcp-portal retail decision is made, because 39 migrations wait on it and
+  sessions 1 and 2 are only ten.
+- Every pre-flight query above has been run **on production** and read, not
+  assumed from UAT. UAT cannot answer any of them.

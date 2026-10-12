@@ -122,8 +122,18 @@ where table_schema='public' and table_name='stock_levels' and column_name='wareh
 -- Expect is_nullable = NO.
 
 do $$
-declare v_p uuid; v_central uuid; v_ok boolean; v_err text;
+declare v_sl_snapshot jsonb; v_p uuid; v_central uuid; v_ok boolean; v_err text;
 begin
+
+  -- ── snapshot stock_levels so this block leaves none of its own arithmetic ──
+  -- The cleanup below removes the movements, deliveries and postings this
+  -- block creates, but receive_delivery/post_sales_units also UPSERT
+  -- stock_levels, and nothing was putting those back. Two test rows reached
+  -- production that way. 212 rows on UAT, 4 on production — the snapshot is
+  -- cheap and the restore is exact.
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'q', quantity)), '[]'::jsonb)
+    into v_sl_snapshot
+    from stock_levels;
   select id into v_p from products where active order by sku limit 1;
 
   -- 1. a row with no warehouse is now impossible
@@ -153,6 +163,18 @@ begin
   raise notice '% | shop warehouses still writable         |',
     exists (select 1 from warehouses w join branches b on b.id = w.branch_id
              where w.is_default and w.in_scope);
+  -- ── restore stock_levels to the snapshot ──────────────────────────────────
+  -- Rows this block created go; rows it changed go back to the quantity they
+  -- held. A verify block must leave the database as it found it.
+  delete from stock_levels sl
+   where not exists (select 1 from jsonb_array_elements(v_sl_snapshot) e
+                      where (e->>'id')::uuid = sl.id);
+  update stock_levels sl
+     set quantity = (e->>'q')::int
+    from jsonb_array_elements(v_sl_snapshot) e
+   where (e->>'id')::uuid = sl.id
+     and sl.quantity is distinct from (e->>'q')::int;
+
 end $$;
 
 

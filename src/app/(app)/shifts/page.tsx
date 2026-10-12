@@ -119,16 +119,19 @@ export default async function ShiftsPage({
 
   let q = supabase
     .from("work_schedules")
-    .select("staff_id, branch_id, date, shift, shift_template_id, published_at")
+    .select("id, staff_id, branch_id, date, shift, shift_template_id, published_at, not_worked_reason")
     .gte("date", rangeFrom)
     .lte("date", rangeTo)
   if (branchId && tab !== "coverage") q = q.eq("branch_id", branchId)
   const { data: schedRows } = await q
 
   const assignments: Assignment[] = ((schedRows ?? []) as {
-    staff_id: string; branch_id: string; date: string; shift: string
+    id: string; staff_id: string; branch_id: string; date: string; shift: string
     shift_template_id: string | null; published_at: string | null
+    not_worked_reason: string | null
   }[]).map((s) => ({
+    id: s.id,
+    notWorked: s.not_worked_reason,
     staffId: s.staff_id,
     branchId: s.branch_id,
     date: s.date,

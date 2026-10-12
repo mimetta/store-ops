@@ -2,12 +2,18 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { setShift, publishRoster, discardDraft, copyPreviousMonth, saveShiftTimes } from "./actions"
+import { setShift, publishRoster, discardDraft, copyPreviousMonth, saveShiftTimes,
+         markNotWorked } from "./actions"
 
 export interface Person { id: string; name: string; role: string; branch: string; isMe: boolean }
 export interface Assignment {
+  id: string
   staffId: string; branchId: string; date: string; shift: string
   templateId: string | null; draft: boolean
+  /** A reason set here means the person was rostered but did not work it.
+   *  Commission counts attendance from the roster, so this is the only way an
+   *  unplanned absence reaches the pool split. */
+  notWorked: string | null
 }
 export interface Template {
   id: string; name: string; start: string; end: string; crossesMidnight: boolean
@@ -518,6 +524,40 @@ export default function ShiftsClient({
             <button onClick={() => { act(() => setShift({ staffId: picking.staffId, branchId: branchId!, date: picking.date, shift: null }), () => "Cleared."); setPicking(null) }}
                     disabled={busy} className="pill min-h-[44px] text-subtle">Clear</button>
           </div>
+
+          {/* Rostered but did not work. Not the same as "off": off is a plan,
+              this is what actually happened, and commission counts it. */}
+          {(() => {
+            const row = assignments.find(
+              (a) => a.staffId === picking.staffId && a.date === picking.date)
+            if (!row || !["am", "pm", "full"].includes(row.shift)) return null
+            return row.notWorked ? (
+              <div className="note note-a mt-3">
+                <span aria-hidden="true">!</span>
+                <span className="flex-1">
+                  Marked as not worked — {row.notWorked}. This day does not count
+                  towards their commission.
+                </span>
+                <button
+                  onClick={() => { act(() => markNotWorked(row.id, ""), () => "They worked it after all."); setPicking(null) }}
+                  disabled={busy} className="pill min-h-[34px] text-muted">Undo</button>
+              </div>
+            ) : (
+              <div className="mt-3 pt-3 border-t border-sand">
+                <p className="text-[12px] text-muted mb-1.5">
+                  Rostered but did not work it? Say why, and the day stops
+                  counting towards their commission.
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  {["Called in sick", "Did not come in", "Sent home", "Branch closed"].map((r) => (
+                    <button key={r}
+                      onClick={() => { act(() => markNotWorked(row.id, r), () => `Marked: ${r}.`); setPicking(null) }}
+                      disabled={busy} className="pill min-h-[38px] text-muted">{r}</button>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       )}
     </div>

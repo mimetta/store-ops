@@ -183,9 +183,21 @@ create trigger delivery_lines_no_edit
 --
 -- SECURITY DEFINER because it writes stock_movements and stock_levels, which a
 -- KA cannot write directly. The capability and the branch are checked INSIDE.
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('receive_delivery', '027');
+  end if;
+end
+$$;
+
 create or replace function public.receive_delivery(p_delivery uuid)
 returns table (lines_received integer, shortages_raised integer, units_added bigint)
 language plpgsql security definer set search_path = public, pg_temp as $$
+  -- fn-version: 027
 declare
   v_branch uuid; v_wh uuid; v_status text;
   v_unchecked integer; v_noreason integer;
@@ -280,8 +292,20 @@ comment on function public.receive_delivery is
   'difference, and marks the delivery received — in one transaction.';
 
 -- ── resolving a shortage ──────────────────────────────────────────────────
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('resolve_shortage', '027');
+  end if;
+end
+$$;
+
 create or replace function public.resolve_shortage(p_shortage uuid, p_note text default null)
 returns void language plpgsql security definer set search_path = public, pg_temp as $$
+  -- fn-version: 027
 begin
   if not public.has_capability('delivery.schedule') then
     raise exception 'you do not have permission to resolve a shortage';
@@ -454,10 +478,21 @@ commit;
 
 do $$
 declare
+  v_sl_snapshot jsonb;
   v_b uuid; v_w uuid; v_d uuid; v_p1 uuid; v_p2 uuid; v_l1 uuid; v_l2 uuid;
   v_before integer; v_after integer; v_err text; v_ok boolean;
   v_lines integer; v_shorts integer; v_actor uuid;
 begin
+
+  -- ── snapshot stock_levels so this block leaves none of its own arithmetic ──
+  -- The cleanup below removes the movements, deliveries and postings this
+  -- block creates, but receive_delivery/post_sales_units also UPSERT
+  -- stock_levels, and nothing was putting those back. Two test rows reached
+  -- production that way. 212 rows on UAT, 4 on production — the snapshot is
+  -- cheap and the restore is exact.
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'q', quantity)), '[]'::jsonb)
+    into v_sl_snapshot
+    from stock_levels;
   select b.id, w.id into v_b, v_w from branches b
     join warehouses w on w.branch_id = b.id and w.is_default and w.in_scope
    where b.name = 'Song Wat';
@@ -476,7 +511,44 @@ begin
 
   -- Act as a real admin for the rest: receive_delivery() reads auth.uid(),
   -- which is NULL under a direct psql connection.
-  select id into v_actor from profiles where portal_role = 'admin' limit 1;
+  -- Pick somebody who actually HOLDS the capability and sees every branch,
+  -- rather than assuming a row with portal_role = 'admin' exists.
+  --
+  -- Production has none. Session 1's step 2e deactivated the only account
+  -- holding 'admin', and the remaining administrator holds 'superadmin'. The
+  -- old select returned NULL, auth.uid() became NULL, and every capability
+  -- check refused — which read as a permission bug rather than an absent test
+  -- user. This is the same shape as 057's commission assertion.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role
+                        and rc.capability = 'receiving'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  -- Then TEST the choice rather than trusting it. Whether a role sees every
+  -- branch depends on which version of sees_all_branches() is installed —
+  -- 054 removes 'superadmin' from it, so the same account qualifies before
+  -- that migration and not after. Asking the database beats assuming.
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('receiving')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "receiving" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
 
@@ -504,8 +576,14 @@ begin
   raise notice '% | short line with a reason accepted      | difference=%',
     true, (select difference from delivery_lines where id = v_l1);
 
-  select coalesce(quantity, 0) into v_before from stock_levels
-   where product_id = v_p1 and warehouse_id = v_w;
+  -- coalesce() must wrap the SUBQUERY, not the column. `select coalesce(q,0)
+  -- into v` leaves v NULL when no row matches at all — the SELECT returns no
+  -- rows and INTO assigns NULL regardless. On production, where this product
+  -- has no stock row yet, that made the assertion print <NULL>: neither pass
+  -- nor fail, proving nothing.
+  select coalesce((select quantity from stock_levels
+                    where product_id = v_p1 and warehouse_id = v_w), 0)
+    into v_before;
 
   -- 3. confirming
   select lines_received, shortages_raised into v_lines, v_shorts
@@ -514,8 +592,9 @@ begin
     (v_lines = 2 and v_shorts = 1), v_lines, v_shorts;
 
   -- 4. stock went up by what ARRIVED, not by what was expected
-  select quantity into v_after from stock_levels
-   where product_id = v_p1 and warehouse_id = v_w;
+  select coalesce((select quantity from stock_levels
+                    where product_id = v_p1 and warehouse_id = v_w), 0)
+    into v_after;
   raise notice '% | stock rose by 9, not 12                | % -> %',
     (v_after - v_before = 9), v_before, v_after;
 
@@ -558,13 +637,72 @@ begin
   delete from delivery_shortages where delivery_line_id in (v_l1, v_l2);
   delete from delivery_lines where delivery_id = v_d;
   delete from deliveries where id = v_d;
+  -- ── restore stock_levels to the snapshot ──────────────────────────────────
+  -- Rows this block created go; rows it changed go back to the quantity they
+  -- held. A verify block must leave the database as it found it.
+  delete from stock_levels sl
+   where not exists (select 1 from jsonb_array_elements(v_sl_snapshot) e
+                      where (e->>'id')::uuid = sl.id);
+  update stock_levels sl
+     set quantity = (e->>'q')::int
+    from jsonb_array_elements(v_sl_snapshot) e
+   where (e->>'id')::uuid = sl.id
+     and sl.quantity is distinct from (e->>'q')::int;
+
 end $$;
 
 -- An unchecked line blocks the confirm.
 do $$
-declare v_b uuid; v_w uuid; v_d uuid; v_p uuid; v_ok boolean; v_err text; v_actor uuid;
+declare v_sl_snapshot jsonb; v_b uuid; v_w uuid; v_d uuid; v_p uuid; v_ok boolean; v_err text; v_actor uuid;
 begin
-  select id into v_actor from profiles where portal_role = 'admin' limit 1;
+
+  -- ── snapshot stock_levels so this block leaves none of its own arithmetic ──
+  -- The cleanup below removes the movements, deliveries and postings this
+  -- block creates, but receive_delivery/post_sales_units also UPSERT
+  -- stock_levels, and nothing was putting those back. Two test rows reached
+  -- production that way. 212 rows on UAT, 4 on production — the snapshot is
+  -- cheap and the restore is exact.
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'q', quantity)), '[]'::jsonb)
+    into v_sl_snapshot
+    from stock_levels;
+  -- Pick somebody who actually HOLDS the capability and sees every branch,
+  -- rather than assuming a row with portal_role = 'admin' exists.
+  --
+  -- Production has none. Session 1's step 2e deactivated the only account
+  -- holding 'admin', and the remaining administrator holds 'superadmin'. The
+  -- old select returned NULL, auth.uid() became NULL, and every capability
+  -- check refused — which read as a permission bug rather than an absent test
+  -- user. This is the same shape as 057's commission assertion.
+  select p.id into v_actor
+    from profiles p
+   where p.portal_role in ('superadmin','admin','manager','people','marketing','logistics')
+     and (p.portal_role = 'superadmin'
+          or exists (select 1 from role_capabilities rc
+                      where rc.role = p.portal_role
+                        and rc.capability = 'receiving'))
+   order by case p.portal_role when 'admin' then 1 when 'superadmin' then 2 else 3 end
+   limit 1;
+
+  -- Then TEST the choice rather than trusting it. Whether a role sees every
+  -- branch depends on which version of sees_all_branches() is installed —
+  -- 054 removes 'superadmin' from it, so the same account qualifies before
+  -- that migration and not after. Asking the database beats assuming.
+  if v_actor is not null then
+    perform set_config('request.jwt.claims',
+                       json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
+    if not (public.has_capability('receiving')
+            and public.can_access_branch(
+                  (select id from branches where name = 'Song Wat'))) then
+      v_actor := null;
+    end if;
+  end if;
+
+  if v_actor is null then
+    raise notice 'SKIPPED | no account can exercise "receiving" at Song Wat, so the';
+    raise notice 'SKIPPED | positive path is untested here. The schema is installed';
+    raise notice 'SKIPPED | and every refusal above was verified.';
+    return;
+  end if;
   perform set_config('request.jwt.claims',
                      json_build_object('sub', v_actor, 'role', 'authenticated')::text, true);
   select b.id, w.id into v_b, v_w from branches b
@@ -587,6 +725,18 @@ begin
   update deliveries set status = 'cancelled' where id = v_d;
   delete from delivery_lines where delivery_id = v_d;
   delete from deliveries where id = v_d;
+  -- ── restore stock_levels to the snapshot ──────────────────────────────────
+  -- Rows this block created go; rows it changed go back to the quantity they
+  -- held. A verify block must leave the database as it found it.
+  delete from stock_levels sl
+   where not exists (select 1 from jsonb_array_elements(v_sl_snapshot) e
+                      where (e->>'id')::uuid = sl.id);
+  update stock_levels sl
+     set quantity = (e->>'q')::int
+    from jsonb_array_elements(v_sl_snapshot) e
+   where (e->>'id')::uuid = sl.id
+     and sl.quantity is distinct from (e->>'q')::int;
+
 end $$;
 
 select count(*) as reasons from delivery_difference_reasons where active;

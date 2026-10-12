@@ -10,9 +10,9 @@ import type { TrainingSession, TrainingProgress, TrainingStatus } from "@/types/
 import type { Profile } from "@/types/database"
 
 const STATUS_STYLES: Record<TrainingStatus, { bg: string; text: string; label: string }> = {
-  not_started: { bg: "bg-brand-700",       text: "text-brand-400",    label: "Not started" },
-  in_progress: { bg: "bg-blue-500/20",     text: "text-blue-300",     label: "In progress" },
-  completed:   { bg: "bg-emerald-500/20",  text: "text-emerald-300",  label: "Completed" },
+  not_started: { bg: "bg-panel",       text: "text-muted",    label: "Not started" },
+  in_progress: { bg: "bg-info-50",     text: "text-info-65",     label: "In progress" },
+  completed:   { bg: "bg-sage/20",  text: "text-good-70",  label: "Completed" },
 }
 
 const STATUS_ORDER: TrainingStatus[] = ["not_started", "in_progress", "completed"]
@@ -113,7 +113,7 @@ export default function TrainingPage() {
   const displaySessions = canManageTraining ? sessions : sessions.filter((s) => myProgress.some((p) => p.session_id === s.id))
 
   if (!canViewTraining) return (
-    <div className="flex items-center justify-center h-64 text-brand-400 flex-col gap-2">
+    <div className="flex items-center justify-center h-64 text-muted flex-col gap-2">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       <p className="text-sm">You do not have access to Training.</p>
     </div>
@@ -136,13 +136,13 @@ export default function TrainingPage() {
         />
 
         {/* Tabs */}
-        <div className="flex border-b border-brand-700 gap-1">
+        <div className="flex border-b border-sand gap-1">
           {(["sessions", "progress"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-                tab === t ? "border-white text-white" : "border-transparent text-brand-400 hover:text-white"
+                tab === t ? "border-sand text-ink" : "border-transparent text-muted hover:text-ink"
               }`}
             >
               {t === "sessions" ? "Sessions" : "Staff Progress"}
@@ -151,12 +151,12 @@ export default function TrainingPage() {
         </div>
 
         {loading ? (
-          <p className="text-brand-500 text-sm py-12 text-center">Loading…</p>
+          <p className="text-subtle text-sm py-12 text-center">Loading…</p>
         ) : tab === "sessions" ? (
           /* Sessions tab */
           <div className="space-y-3">
             {displaySessions.length === 0 && (
-              <p className="text-brand-500 text-sm py-12 text-center">
+              <p className="text-subtle text-sm py-12 text-center">
                 {canManageTraining ? "No sessions yet. Create one to get started." : "No training sessions assigned to you."}
               </p>
             )}
@@ -166,10 +166,10 @@ export default function TrainingPage() {
               return (
                 <div key={session.id} className="card p-4 flex items-start gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold">{session.title}</p>
-                    {session.description && <p className="text-brand-400 text-sm mt-0.5">{session.description}</p>}
+                    <p className="text-ink font-semibold">{session.title}</p>
+                    {session.description && <p className="text-muted text-sm mt-0.5">{session.description}</p>}
                     <div className="flex items-center gap-3 mt-2">
-                      <span className="badge bg-brand-700 text-brand-300 border border-brand-600 text-[10px]">For: {session.required_for}</span>
+                      <span className="badge bg-panel text-muted border border-sand text-[10px]">For: {session.required_for}</span>
                       {!canManageTraining && myProg && (
                         <span className={`badge ${STATUS_STYLES[myProg.status].bg} ${STATUS_STYLES[myProg.status].text} text-[10px]`}>
                           {STATUS_STYLES[myProg.status].label}
@@ -180,15 +180,15 @@ export default function TrainingPage() {
                   {canManageTraining && (
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">
-                        <p className="text-xs text-brand-400 mb-1">Completion</p>
-                        <p className="text-lg font-bold text-white">{pct}%</p>
-                        <div className="w-16 h-1.5 bg-brand-700 rounded-full overflow-hidden mt-1">
-                          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        <p className="text-xs text-muted mb-1">Completion</p>
+                        <p className="text-lg font-bold text-ink">{pct}%</p>
+                        <div className="w-16 h-1.5 bg-panel rounded-full overflow-hidden mt-1">
+                          <div className="h-full bg-sage rounded-full transition-all" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
                       <button
                         onClick={() => { setAssignSession(session); setAssignDrawerOpen(true) }}
-                        className="btn-ghost border border-brand-700 text-xs px-3 py-1.5"
+                        className="btn-ghost border border-sand text-xs px-3 py-1.5"
                       >
                         Assign
                       </button>
@@ -204,10 +204,10 @@ export default function TrainingPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-brand-700">
-                    <th className="text-left px-4 py-3 text-brand-400 font-medium">Staff</th>
+                  <tr className="border-b border-sand">
+                    <th className="text-left px-4 py-3 text-muted font-medium">Staff</th>
                     {sessions.map((s) => (
-                      <th key={s.id} className="text-center px-3 py-3 text-brand-400 font-medium max-w-[100px]">
+                      <th key={s.id} className="text-center px-3 py-3 text-muted font-medium max-w-[100px]">
                         <span className="block truncate text-xs" title={s.title}>{s.title}</span>
                       </th>
                     ))}
@@ -215,16 +215,16 @@ export default function TrainingPage() {
                 </thead>
                 <tbody>
                   {staff.map((member) => (
-                    <tr key={member.id} className="border-b border-brand-800 hover:bg-brand-800/20 transition-colors">
+                    <tr key={member.id} className="border-b border-sand hover:bg-panel transition-colors">
                       <td className="px-4 py-2.5">
-                        <p className="text-white font-medium">{member.nickname ?? member.full_name ?? member.email}</p>
-                        {member.chapter && <p className="text-brand-500 text-xs">{member.chapter}</p>}
+                        <p className="text-ink font-medium">{member.nickname ?? member.full_name ?? member.email}</p>
+                        {member.chapter && <p className="text-subtle text-xs">{member.chapter}</p>}
                       </td>
                       {sessions.map((session) => {
                         const prog = allProgress.find((p) => p.session_id === session.id && p.staff_id === member.id)
                         if (!prog) return (
                           <td key={session.id} className="px-3 py-2.5 text-center">
-                            <span className="text-brand-700 text-xs">—</span>
+                            <span className="text-ink text-xs">—</span>
                           </td>
                         )
                         const style = STATUS_STYLES[prog.status]
@@ -246,7 +246,7 @@ export default function TrainingPage() {
               </table>
             </div>
             {canManageTraining && (
-              <div className="px-4 py-2 border-t border-brand-700 text-xs text-brand-500">
+              <div className="px-4 py-2 border-t border-sand text-xs text-subtle">
                 Click a status cell to cycle: Not started → In progress → Completed
               </div>
             )}
@@ -258,20 +258,20 @@ export default function TrainingPage() {
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="New Training Session">
         <form onSubmit={handleCreateSession} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Title *</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Title *</label>
             <input required type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Product Knowledge Q3" className="input-field" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Description</label>
             <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} rows={3} className="input-field resize-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Required for</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Required for</label>
             <input type="text" value={newRequired} onChange={(e) => setNewRequired(e.target.value)} placeholder="all / managers / new-staff" className="input-field" />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={submitting} className="btn-primary flex-1 py-2.5">{submitting ? "Creating…" : "Create Session"}</button>
-            <button type="button" onClick={() => setDrawerOpen(false)} className="btn-ghost flex-1 py-2.5 border border-brand-700">Cancel</button>
+            <button type="button" onClick={() => setDrawerOpen(false)} className="btn-ghost flex-1 py-2.5 border border-sand">Cancel</button>
           </div>
         </form>
       </Drawer>
@@ -280,7 +280,7 @@ export default function TrainingPage() {
       <Drawer open={assignDrawerOpen} onClose={() => setAssignDrawerOpen(false)} title={`Assign: ${assignSession?.title ?? ""}`}>
         <form onSubmit={handleAssign} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Staff member *</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Staff member *</label>
             <select required value={assignStaffId} onChange={(e) => setAssignStaffId(e.target.value)} className="input-field">
               <option value="">Select staff…</option>
               {staff.map((s) => (
@@ -290,7 +290,7 @@ export default function TrainingPage() {
           </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" className="btn-primary flex-1 py-2.5">Assign</button>
-            <button type="button" onClick={() => setAssignDrawerOpen(false)} className="btn-ghost flex-1 py-2.5 border border-brand-700">Cancel</button>
+            <button type="button" onClick={() => setAssignDrawerOpen(false)} className="btn-ghost flex-1 py-2.5 border border-sand">Cancel</button>
           </div>
         </form>
       </Drawer>

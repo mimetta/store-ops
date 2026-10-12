@@ -15,9 +15,9 @@ const ANNUAL_DAYS = 10
 const SICK_DAYS = 30
 
 const STATUS_STYLES: Record<LeaveStatus, { bg: string; text: string }> = {
-  pending:  { bg: "bg-amber-500/10 border-amber-500/20",     text: "text-amber-400" },
-  approved: { bg: "bg-emerald-500/10 border-emerald-500/20", text: "text-emerald-400" },
-  rejected: { bg: "bg-red-500/10 border-red-500/20",         text: "text-red-400" },
+  pending:  { bg: "bg-amber-50 border-amber-60",     text: "text-amber-70" },
+  approved: { bg: "bg-good-50 border-sage", text: "text-good-70" },
+  rejected: { bg: "bg-danger-50 border-danger-60",         text: "text-danger-70" },
 }
 
 const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
@@ -246,7 +246,7 @@ export default function LeavePage() {
   const colCount = canApproveLeave ? 8 : 6
 
   if (!canRequestLeave) return (
-    <div className="flex items-center justify-center h-64 text-brand-400 flex-col gap-2">
+    <div className="flex items-center justify-center h-64 text-muted flex-col gap-2">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       <p className="text-sm">You do not have access to Leave.</p>
     </div>
@@ -272,18 +272,18 @@ export default function LeavePage() {
             type="month"
             value={monthYear}
             onChange={(e) => setMonthYear(e.target.value)}
-            className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40"
+            className="bg-panel border border-sand text-ink text-sm rounded-lg px-3 py-1.5 outline-none focus:border-sand/40"
           />
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-brand-800">
+        <div className="flex gap-1 border-b border-sand">
           {(["requests", "hr"] as const).filter((t) => t === "requests" || canApproveLeave).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                tab === t ? "border-white text-white" : "border-transparent text-brand-400 hover:text-brand-200"
+                tab === t ? "border-sand text-ink" : "border-transparent text-muted hover:text-ink"
               }`}
             >
               {t === "requests" ? "Leave requests" : "HR summary"}
@@ -296,38 +296,38 @@ export default function LeavePage() {
           <>
             <div className="grid grid-cols-3 gap-4">
               <div className="card p-4">
-                <p className="text-brand-400 text-xs font-medium mb-1">Pending</p>
-                <p className="text-2xl font-bold text-amber-400">{pendingCount}</p>
-                <p className="text-xs text-brand-500 mt-1">awaiting approval</p>
+                <p className="text-muted text-xs font-medium mb-1">Pending</p>
+                <p className="text-2xl font-bold text-amber-70">{pendingCount}</p>
+                <p className="text-xs text-subtle mt-1">awaiting approval</p>
               </div>
               <div className="card p-4">
-                <p className="text-brand-400 text-xs font-medium mb-1">Approved this month</p>
-                <p className="text-2xl font-bold text-emerald-400">{approvedThisMonth}</p>
-                <p className="text-xs text-brand-500 mt-1">requests approved</p>
+                <p className="text-muted text-xs font-medium mb-1">Approved this month</p>
+                <p className="text-2xl font-bold text-good-70">{approvedThisMonth}</p>
+                <p className="text-xs text-subtle mt-1">requests approved</p>
               </div>
               <div className="card p-4">
-                <p className="text-brand-400 text-xs font-medium mb-1">Rejected this month</p>
-                <p className="text-2xl font-bold text-red-400">{rejectedThisMonth}</p>
-                <p className="text-xs text-brand-500 mt-1">requests rejected</p>
+                <p className="text-muted text-xs font-medium mb-1">Rejected this month</p>
+                <p className="text-2xl font-bold text-danger-70">{rejectedThisMonth}</p>
+                <p className="text-xs text-subtle mt-1">requests rejected</p>
               </div>
             </div>
 
             {!canApproveLeave && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="card p-4">
-                  <p className="text-brand-400 text-xs font-medium mb-1">Annual Leave</p>
-                  <p className="text-2xl font-bold text-white">{ANNUAL_DAYS - annualUsed} <span className="text-sm text-brand-400 font-normal">days remaining</span></p>
-                  <p className="text-xs text-brand-500 mt-1">{annualUsed} of {ANNUAL_DAYS} used</p>
-                  <div className="mt-2 h-1.5 bg-brand-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${(annualUsed / ANNUAL_DAYS) * 100}%` }} />
+                  <p className="text-muted text-xs font-medium mb-1">Annual Leave</p>
+                  <p className="text-2xl font-bold text-ink">{ANNUAL_DAYS - annualUsed} <span className="text-sm text-muted font-normal">days remaining</span></p>
+                  <p className="text-xs text-subtle mt-1">{annualUsed} of {ANNUAL_DAYS} used</p>
+                  <div className="mt-2 h-1.5 bg-panel rounded-full overflow-hidden">
+                    <div className="h-full bg-info-60 rounded-full transition-all" style={{ width: `${(annualUsed / ANNUAL_DAYS) * 100}%` }} />
                   </div>
                 </div>
                 <div className="card p-4">
-                  <p className="text-brand-400 text-xs font-medium mb-1">Sick Leave</p>
-                  <p className="text-2xl font-bold text-white">{sickUsed} <span className="text-sm text-brand-400 font-normal">days used</span></p>
-                  <p className="text-xs text-brand-500 mt-1">Up to {SICK_DAYS} days per year</p>
-                  <div className="mt-2 h-1.5 bg-brand-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${Math.min((sickUsed / SICK_DAYS) * 100, 100)}%` }} />
+                  <p className="text-muted text-xs font-medium mb-1">Sick Leave</p>
+                  <p className="text-2xl font-bold text-ink">{sickUsed} <span className="text-sm text-muted font-normal">days used</span></p>
+                  <p className="text-xs text-subtle mt-1">Up to {SICK_DAYS} days per year</p>
+                  <div className="mt-2 h-1.5 bg-panel rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-60 rounded-full transition-all" style={{ width: `${Math.min((sickUsed / SICK_DAYS) * 100, 100)}%` }} />
                   </div>
                 </div>
               </div>
@@ -337,47 +337,47 @@ export default function LeavePage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-brand-700">
-                      {canApproveLeave && <th className="text-left px-4 py-3 text-brand-400 font-medium">Staff</th>}
-                      <th className="text-left px-4 py-3 text-brand-400 font-medium">Type</th>
-                      <th className="text-left px-4 py-3 text-brand-400 font-medium">Branch</th>
-                      <th className="text-left px-4 py-3 text-brand-400 font-medium">Dates</th>
-                      <th className="text-right px-4 py-3 text-brand-400 font-medium">Days</th>
-                      <th className="text-left px-4 py-3 text-brand-400 font-medium">Reason</th>
-                      <th className="text-left px-4 py-3 text-brand-400 font-medium">Status</th>
+                    <tr className="border-b border-sand">
+                      {canApproveLeave && <th className="text-left px-4 py-3 text-muted font-medium">Staff</th>}
+                      <th className="text-left px-4 py-3 text-muted font-medium">Type</th>
+                      <th className="text-left px-4 py-3 text-muted font-medium">Branch</th>
+                      <th className="text-left px-4 py-3 text-muted font-medium">Dates</th>
+                      <th className="text-right px-4 py-3 text-muted font-medium">Days</th>
+                      <th className="text-left px-4 py-3 text-muted font-medium">Reason</th>
+                      <th className="text-left px-4 py-3 text-muted font-medium">Status</th>
                       {canApproveLeave && <th className="px-4 py-3" />}
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={colCount} className="px-4 py-12 text-center text-brand-500">Loading…</td></tr>
+                      <tr><td colSpan={colCount} className="px-4 py-12 text-center text-subtle">Loading…</td></tr>
                     ) : requests.length === 0 ? (
-                      <tr><td colSpan={colCount} className="px-4 py-12 text-center text-brand-500">No leave requests for this period.</td></tr>
+                      <tr><td colSpan={colCount} className="px-4 py-12 text-center text-subtle">No leave requests for this period.</td></tr>
                     ) : requests.map((r) => {
                       const ss = STATUS_STYLES[r.status]
                       return (
-                        <tr key={r.id} className="border-b border-brand-800 hover:bg-brand-800/40 transition-colors">
+                        <tr key={r.id} className="border-b border-sand hover:bg-panel transition-colors">
                           {canApproveLeave && (
-                            <td className="px-4 py-3 text-white">
+                            <td className="px-4 py-3 text-ink">
                               {(r.profiles as { full_name: string | null; nickname: string | null } | undefined)?.nickname ??
                                (r.profiles as { full_name: string | null; nickname: string | null } | undefined)?.full_name ?? "—"}
                             </td>
                           )}
-                          <td className="px-4 py-3 text-brand-300">{LEAVE_TYPE_LABELS[r.leave_type]}</td>
-                          <td className="px-4 py-3 text-brand-400 text-xs">
+                          <td className="px-4 py-3 text-muted">{LEAVE_TYPE_LABELS[r.leave_type]}</td>
+                          <td className="px-4 py-3 text-muted text-xs">
                             {(r.branches as { name: string } | undefined)?.name ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-white">{r.start_date} → {r.end_date}</td>
-                          <td className="px-4 py-3 text-right text-white font-semibold">{r.total_days ?? "—"}</td>
-                          <td className="px-4 py-3 text-brand-400 max-w-xs truncate">{r.reason ?? "—"}</td>
+                          <td className="px-4 py-3 text-ink">{r.start_date} → {r.end_date}</td>
+                          <td className="px-4 py-3 text-right text-ink font-semibold">{r.total_days ?? "—"}</td>
+                          <td className="px-4 py-3 text-muted max-w-xs truncate">{r.reason ?? "—"}</td>
                           <td className="px-4 py-3">
                             <span className={`badge border ${ss.bg} ${ss.text} capitalize`}>{r.status}</span>
                           </td>
                           {canApproveLeave && r.status === "pending" && (
                             <td className="px-4 py-3">
                               <div className="flex gap-2">
-                                <button onClick={() => handleApprove(r.id, "approved")} className="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors cursor-pointer">Approve</button>
-                                <button onClick={() => handleApprove(r.id, "rejected")} className="badge bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors cursor-pointer">Reject</button>
+                                <button onClick={() => handleApprove(r.id, "approved")} className="badge bg-good-50 text-good-70 border border-sage hover:bg-sage/20 transition-colors cursor-pointer">Approve</button>
+                                <button onClick={() => handleApprove(r.id, "rejected")} className="badge bg-danger-50 text-danger-70 border border-danger-60 hover:bg-danger-50 transition-colors cursor-pointer">Reject</button>
                               </div>
                             </td>
                           )}
@@ -399,15 +399,15 @@ export default function LeavePage() {
               <select
                 value={hrBranch}
                 onChange={(e) => setHrBranch(e.target.value)}
-                className="bg-brand-800 border border-brand-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-white/40"
+                className="bg-panel border border-sand text-ink text-sm rounded-lg px-3 py-1.5 outline-none focus:border-sand/40"
               >
                 {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
-              <span className="text-brand-400 text-sm">{hrRows.length} staff</span>
+              <span className="text-muted text-sm">{hrRows.length} staff</span>
               <button
                 onClick={exportCSV}
                 disabled={hrRows.length === 0}
-                className="ml-auto flex items-center gap-1.5 bg-brand-800 border border-brand-700 text-brand-300 text-sm rounded-lg px-3 py-1.5 hover:bg-brand-700 transition-colors disabled:opacity-40"
+                className="ml-auto flex items-center gap-1.5 bg-panel border border-sand text-muted text-sm rounded-lg px-3 py-1.5 hover:bg-panel transition-colors disabled:opacity-40"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Export for HR
@@ -415,9 +415,9 @@ export default function LeavePage() {
             </div>
 
             {hrLoading ? (
-              <div className="card p-12 text-center text-brand-500">Loading…</div>
+              <div className="card p-12 text-center text-subtle">Loading…</div>
             ) : hrRows.length === 0 ? (
-              <div className="card p-12 text-center text-brand-500">No staff found for this branch.</div>
+              <div className="card p-12 text-center text-subtle">No staff found for this branch.</div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {hrRows.map((r) => {
@@ -427,48 +427,48 @@ export default function LeavePage() {
                   return (
                     <div key={r.staff.id} className="card p-4 space-y-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-brand-700 flex items-center justify-center text-sm font-bold text-brand-300 shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-panel flex items-center justify-center text-sm font-bold text-muted shrink-0">
                           {displayName.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-white font-semibold text-sm">{displayName}</p>
-                          <p className="text-brand-500 text-xs capitalize">{r.staff.portal_role ?? "staff"}</p>
+                          <p className="text-ink font-semibold text-sm">{displayName}</p>
+                          <p className="text-subtle text-xs capitalize">{r.staff.portal_role ?? "staff"}</p>
                         </div>
                         <div className="ml-auto text-right">
-                          <p className="text-brand-400 text-xs">Total leave</p>
-                          <p className="text-white font-bold text-lg">{totalLeave}</p>
+                          <p className="text-muted text-xs">Total leave</p>
+                          <p className="text-ink font-bold text-lg">{totalLeave}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="bg-brand-800/60 rounded-lg px-2 py-2">
-                          <p className="text-emerald-400 font-semibold text-base">{r.workDays}</p>
-                          <p className="text-brand-500 text-[10px] mt-0.5">Work days</p>
+                        <div className="bg-panel/60 rounded-lg px-2 py-2">
+                          <p className="text-good-70 font-semibold text-base">{r.workDays}</p>
+                          <p className="text-subtle text-[10px] mt-0.5">Work days</p>
                         </div>
-                        <div className="bg-brand-800/60 rounded-lg px-2 py-2">
-                          <p className="text-brand-300 font-semibold text-base">{r.offDays}</p>
-                          <p className="text-brand-500 text-[10px] mt-0.5">Off days</p>
+                        <div className="bg-panel/60 rounded-lg px-2 py-2">
+                          <p className="text-muted font-semibold text-base">{r.offDays}</p>
+                          <p className="text-subtle text-[10px] mt-0.5">Off days</p>
                         </div>
-                        <div className="bg-brand-800/60 rounded-lg px-2 py-2">
-                          <p className="text-brand-300 font-semibold text-base">{totalScheduled}</p>
-                          <p className="text-brand-500 text-[10px] mt-0.5">Scheduled</p>
+                        <div className="bg-panel/60 rounded-lg px-2 py-2">
+                          <p className="text-muted font-semibold text-base">{totalScheduled}</p>
+                          <p className="text-subtle text-[10px] mt-0.5">Scheduled</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-4 gap-1.5 text-center">
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg px-1.5 py-1.5">
-                          <p className="text-blue-400 font-semibold text-sm">{r.annualUsed}</p>
-                          <p className="text-brand-500 text-[10px] mt-0.5">Annual</p>
+                        <div className="bg-info-50 border border-info-60 rounded-lg px-1.5 py-1.5">
+                          <p className="text-info-65 font-semibold text-sm">{r.annualUsed}</p>
+                          <p className="text-subtle text-[10px] mt-0.5">Annual</p>
                         </div>
-                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-1.5 py-1.5">
-                          <p className="text-amber-400 font-semibold text-sm">{r.sickUsed}</p>
-                          <p className="text-brand-500 text-[10px] mt-0.5">Sick</p>
+                        <div className="bg-amber-50 border border-amber-60 rounded-lg px-1.5 py-1.5">
+                          <p className="text-amber-70 font-semibold text-sm">{r.sickUsed}</p>
+                          <p className="text-subtle text-[10px] mt-0.5">Sick</p>
                         </div>
-                        <div className="bg-violet-500/10 border border-violet-500/20 rounded-lg px-1.5 py-1.5">
-                          <p className="text-violet-400 font-semibold text-sm">{r.personalUsed}</p>
-                          <p className="text-brand-500 text-[10px] mt-0.5">Personal</p>
+                        <div className="bg-info-50 border border-info-60 rounded-lg px-1.5 py-1.5">
+                          <p className="text-info-65 font-semibold text-sm">{r.personalUsed}</p>
+                          <p className="text-subtle text-[10px] mt-0.5">Personal</p>
                         </div>
-                        <div className="bg-brand-700/60 rounded-lg px-1.5 py-1.5">
-                          <p className="text-brand-300 font-semibold text-sm">{r.otherUsed}</p>
-                          <p className="text-brand-500 text-[10px] mt-0.5">Other</p>
+                        <div className="bg-panel/60 rounded-lg px-1.5 py-1.5">
+                          <p className="text-muted font-semibold text-sm">{r.otherUsed}</p>
+                          <p className="text-subtle text-[10px] mt-0.5">Other</p>
                         </div>
                       </div>
                     </div>
@@ -484,54 +484,54 @@ export default function LeavePage() {
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Request Leave">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Leave type *</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Leave type *</label>
             <select required value={form.leave_type} onChange={(e) => setForm({ ...form, leave_type: e.target.value as LeaveType })} className="input-field">
               {(Object.entries(LEAVE_TYPE_LABELS) as [LeaveType, string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Branch *</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Branch *</label>
             <select
               value={form.branch_id}
               onChange={(e) => { setForm({ ...form, branch_id: e.target.value }); setBranchError(false) }}
-              className={`input-field ${branchError && !form.branch_id ? "border-red-500" : ""}`}
+              className={`input-field ${branchError && !form.branch_id ? "border-danger-60" : ""}`}
             >
               <option value="">Select branch…</option>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            {branchError && !form.branch_id && <p className="text-red-400 text-xs mt-1">Please select a branch</p>}
+            {branchError && !form.branch_id && <p className="text-danger-70 text-xs mt-1">Please select a branch</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-brand-300 mb-1.5">Start date *</label>
+              <label className="block text-sm font-medium text-muted mb-1.5">Start date *</label>
               <input required type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="input-field" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-brand-300 mb-1.5">End date *</label>
+              <label className="block text-sm font-medium text-muted mb-1.5">End date *</label>
               <input required type="date" value={form.end_date} min={form.start_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="input-field" />
             </div>
           </div>
           {form.start_date && form.end_date && (
             <div>
-              <label className="block text-sm font-medium text-brand-300 mb-1.5">Total days</label>
-              <input readOnly type="text" value={`${days} day${days !== 1 ? "s" : ""}`} className="input-field bg-brand-800/50 cursor-default text-brand-300" />
+              <label className="block text-sm font-medium text-muted mb-1.5">Total days</label>
+              <input readOnly type="text" value={`${days} day${days !== 1 ? "s" : ""}`} className="input-field bg-panel/50 cursor-default text-muted" />
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Reason</label>
+            <label className="block text-sm font-medium text-muted mb-1.5">Reason</label>
             <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={3} placeholder="Brief reason for leave…" className="input-field resize-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-brand-300 mb-1.5">Attachment <span className="text-brand-600 font-normal">(optional)</span></label>
-            <div className="border border-dashed border-brand-600 rounded-lg px-4 py-3 text-center text-brand-500 text-sm cursor-not-allowed">
+            <label className="block text-sm font-medium text-muted mb-1.5">Attachment <span className="text-subtle font-normal">(optional)</span></label>
+            <div className="border border-dashed border-sand rounded-lg px-4 py-3 text-center text-subtle text-sm cursor-not-allowed">
               File upload coming soon
             </div>
           </div>
-          {submitError && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">{submitError}</p>}
-          {submitOk && <p className="text-emerald-400 text-sm bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-lg">Request submitted!</p>}
+          {submitError && <p className="text-danger-70 text-sm bg-danger-50 border border-danger-60 px-3 py-2 rounded-lg">{submitError}</p>}
+          {submitOk && <p className="text-good-70 text-sm bg-good-50 border border-sage px-3 py-2 rounded-lg">Request submitted!</p>}
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={submitting || !form.branch_id} className="btn-primary flex-1 py-2.5">{submitting ? "Submitting…" : "Submit Request"}</button>
-            <button type="button" onClick={() => setDrawerOpen(false)} className="btn-ghost flex-1 py-2.5 border border-brand-700">Cancel</button>
+            <button type="button" onClick={() => setDrawerOpen(false)} className="btn-ghost flex-1 py-2.5 border border-sand">Cancel</button>
           </div>
         </form>
       </Drawer>

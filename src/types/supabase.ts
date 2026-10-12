@@ -88,6 +88,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       announcements: {
@@ -134,6 +141,13 @@ export type Database = {
             columns: ["posted_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -200,6 +214,13 @@ export type Database = {
             columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_nationalities_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -271,6 +292,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "branch_monthly_goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -377,6 +405,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "calendar_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       chapters: {
@@ -399,6 +434,84 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      commission_branches: {
+        Row: {
+          branch_id: string
+          created_at: string
+          created_by: string | null
+          staff_id: string
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string
+          created_by?: string | null
+          staff_id: string
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string
+          created_by?: string | null
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_branches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_branches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
+            foreignKeyName: "commission_branches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_branches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_branches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_branches_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_branches_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_branches_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_settings: {
         Row: {
@@ -441,6 +554,189 @@ export type Database = {
           sku?: string
         }
         Relationships: []
+      }
+      customer_feedback: {
+        Row: {
+          barrier_code: string | null
+          created_at: string
+          customer_type_code: string | null
+          happened_on: string
+          id: string
+          nationality: string | null
+          outcome_code: string | null
+          product_category_code: string | null
+          reason_code: string | null
+          recorded_by: string
+          sentiment_code: string
+          staff_id: string
+          statement: string
+          touchpoint_code: string
+          updated_at: string | null
+        }
+        Insert: {
+          barrier_code?: string | null
+          created_at?: string
+          customer_type_code?: string | null
+          happened_on?: string
+          id?: string
+          nationality?: string | null
+          outcome_code?: string | null
+          product_category_code?: string | null
+          reason_code?: string | null
+          recorded_by: string
+          sentiment_code: string
+          staff_id: string
+          statement: string
+          touchpoint_code: string
+          updated_at?: string | null
+        }
+        Update: {
+          barrier_code?: string | null
+          created_at?: string
+          customer_type_code?: string | null
+          happened_on?: string
+          id?: string
+          nationality?: string | null
+          outcome_code?: string | null
+          product_category_code?: string | null
+          reason_code?: string | null
+          recorded_by?: string
+          sentiment_code?: string
+          staff_id?: string
+          statement?: string
+          touchpoint_code?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_feedback_barrier_code_fkey"
+            columns: ["barrier_code"]
+            isOneToOne: false
+            referencedRelation: "feedback_barriers"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_feedback_customer_type_code_fkey"
+            columns: ["customer_type_code"]
+            isOneToOne: false
+            referencedRelation: "feedback_customer_types"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_feedback_nationality_fkey"
+            columns: ["nationality"]
+            isOneToOne: false
+            referencedRelation: "nationalities"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_feedback_outcome_code_fkey"
+            columns: ["outcome_code"]
+            isOneToOne: false
+            referencedRelation: "feedback_outcomes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_feedback_product_category_code_fkey"
+            columns: ["product_category_code"]
+            isOneToOne: false
+            referencedRelation: "feedback_product_categories"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_feedback_reason_code_fkey"
+            columns: ["reason_code"]
+            isOneToOne: false
+            referencedRelation: "feedback_reasons"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_feedback_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_feedback_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_feedback_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_feedback_sentiment_code_fkey"
+            columns: ["sentiment_code"]
+            isOneToOne: false
+            referencedRelation: "feedback_sentiments"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_feedback_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_feedback_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_feedback_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_feedback_touchpoint_code_fkey"
+            columns: ["touchpoint_code"]
+            isOneToOne: false
+            referencedRelation: "feedback_touchpoints"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      customer_feedback_categories: {
+        Row: {
+          category_code: string
+          feedback_id: string
+        }
+        Insert: {
+          category_code: string
+          feedback_id: string
+        }
+        Update: {
+          category_code?: string
+          feedback_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_feedback_categories_category_code_fkey"
+            columns: ["category_code"]
+            isOneToOne: false
+            referencedRelation: "feedback_categories"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "customer_feedback_categories_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "customer_feedback"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_sales_summary: {
         Row: {
@@ -512,6 +808,79 @@ export type Database = {
             columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_sales_summary_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_sales_value: {
+        Row: {
+          branch_id: string
+          entry_date: string
+          id: string
+          recorded_at: string
+          recorded_by: string | null
+          total_sales: number
+          vip_sales: number
+        }
+        Insert: {
+          branch_id: string
+          entry_date: string
+          id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          total_sales: number
+          vip_sales?: number
+        }
+        Update: {
+          branch_id?: string
+          entry_date?: string
+          id?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          total_sales?: number
+          vip_sales?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_sales_value_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_sales_value_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
+            foreignKeyName: "daily_sales_value_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_sales_value_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_sales_value_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -592,6 +961,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "deliveries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "deliveries_received_by_fkey"
             columns: ["received_by"]
             isOneToOne: false
@@ -603,6 +979,13 @@ export type Database = {
             columns: ["received_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -692,11 +1075,108 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "delivery_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "delivery_lines_reason_code_fkey"
             columns: ["reason_code"]
             isOneToOne: false
             referencedRelation: "delivery_difference_reasons"
             referencedColumns: ["code"]
+          },
+        ]
+      }
+      delivery_shortages: {
+        Row: {
+          delivery_line_id: string
+          id: string
+          raised_at: string
+          raised_by: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          delivery_line_id: string
+          id?: string
+          raised_at?: string
+          raised_by?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          delivery_line_id?: string
+          id?: string
+          raised_at?: string
+          raised_by?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_shortages_delivery_line_id_fkey1"
+            columns: ["delivery_line_id"]
+            isOneToOne: true
+            referencedRelation: "delivery_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_raised_by_fkey1"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_raised_by_fkey1"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_raised_by_fkey1"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_resolved_by_fkey1"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_resolved_by_fkey1"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_resolved_by_fkey1"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -820,6 +1300,202 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "erp_sync_runs_triggered_by_fkey"
+            columns: ["triggered_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_barriers: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      feedback_categories: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      feedback_customer_types: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      feedback_outcomes: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      feedback_product_categories: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      feedback_reasons: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      feedback_sentiments: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      feedback_touchpoints: {
+        Row: {
+          active: boolean
+          branch_id: string | null
+          code: string
+          kind: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          branch_id?: string | null
+          code: string
+          kind: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          branch_id?: string | null
+          code?: string
+          kind?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_touchpoints_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_touchpoints_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
         ]
       }
       fg_stock_withdrawals: {
@@ -878,6 +1554,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fg_stock_withdrawals_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fg_stock_withdrawals_branch_id_fkey"
             columns: ["branch_id"]
             isOneToOne: false
@@ -906,6 +1589,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fg_stock_withdrawals_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fg_stock_withdrawals_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fg_stock_withdrawals_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
@@ -917,6 +1614,13 @@ export type Database = {
             columns: ["requested_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fg_stock_withdrawals_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -983,6 +1687,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leave_requests_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "leave_requests_branch_id_fkey"
             columns: ["branch_id"]
             isOneToOne: false
@@ -1010,6 +1721,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "leave_requests_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       nationalities: {
@@ -1017,18 +1735,21 @@ export type Database = {
           active: boolean
           code: string
           label: string
+          offer_in_counts: boolean
           sort_order: number
         }
         Insert: {
           active?: boolean
           code: string
           label: string
+          offer_in_counts?: boolean
           sort_order?: number
         }
         Update: {
           active?: boolean
           code?: string
           label?: string
+          offer_in_counts?: boolean
           sort_order?: number
         }
         Relationships: []
@@ -1077,6 +1798,227 @@ export type Database = {
             columns: ["posted_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "news_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      overtime_records: {
+        Row: {
+          actual_end: string
+          actual_start: string
+          approved_at: string | null
+          approved_by: string | null
+          branch_id: string
+          hours: number
+          id: string
+          multiplier: number
+          reason: string | null
+          recorded_at: string
+          recorded_by: string | null
+          scheduled_end: string | null
+          scheduled_start: string | null
+          staff_id: string
+          status: string
+          work_date: string
+        }
+        Insert: {
+          actual_end: string
+          actual_start: string
+          approved_at?: string | null
+          approved_by?: string | null
+          branch_id: string
+          hours: number
+          id?: string
+          multiplier: number
+          reason?: string | null
+          recorded_at?: string
+          recorded_by?: string | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          staff_id: string
+          status?: string
+          work_date: string
+        }
+        Update: {
+          actual_end?: string
+          actual_start?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          branch_id?: string
+          hours?: number
+          id?: string
+          multiplier?: number
+          reason?: string | null
+          recorded_at?: string
+          recorded_by?: string | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          staff_id?: string
+          status?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_records_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
+            foreignKeyName: "overtime_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pay_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          hourly_rate: number | null
+          id: string
+          monthly_salary: number | null
+          note: string | null
+          staff_id: string
+          work_days_per_month: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          hourly_rate?: number | null
+          id?: string
+          monthly_salary?: number | null
+          note?: string | null
+          staff_id: string
+          work_days_per_month?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          hourly_rate?: number | null
+          id?: string
+          monthly_salary?: number | null
+          note?: string | null
+          staff_id?: string
+          work_days_per_month?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_rates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_rates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_rates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_rates_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_rates_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_rates_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -1177,6 +2119,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pos_money_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       product_groups: {
@@ -1203,6 +2152,24 @@ export type Database = {
           name?: string | null
           notes?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      product_pack_factor_seed: {
+        Row: {
+          notes: string | null
+          pack_unit: string
+          sku: string
+        }
+        Insert: {
+          notes?: string | null
+          pack_unit: string
+          sku: string
+        }
+        Update: {
+          notes?: string | null
+          pack_unit?: string
+          sku?: string
         }
         Relationships: []
       }
@@ -1253,6 +2220,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "product_pack_factors_filled_by_fkey"
+            columns: ["filled_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "product_pack_factors_sku_fkey"
             columns: ["sku"]
             isOneToOne: true
@@ -1270,7 +2244,21 @@ export type Database = {
             foreignKeyName: "product_pack_factors_sku_fkey"
             columns: ["sku"]
             isOneToOne: true
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["sku"]
+          },
+          {
+            foreignKeyName: "product_pack_factors_sku_fkey"
+            columns: ["sku"]
+            isOneToOne: true
             referencedRelation: "sales_posted_today"
+            referencedColumns: ["sku"]
+          },
+          {
+            foreignKeyName: "product_pack_factors_sku_fkey"
+            columns: ["sku"]
+            isOneToOne: true
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["sku"]
           },
           {
@@ -1341,6 +2329,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "product_reorder_points_filled_by_fkey"
+            columns: ["filled_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "product_reorder_points_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -1355,6 +2350,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "product_reorder_points_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_reorder_points_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "product_reorder_points_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
@@ -1362,6 +2371,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      product_units: {
+        Row: {
+          active: boolean
+          code: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       products: {
         Row: {
@@ -1427,7 +2457,15 @@ export type Database = {
           unit?: string | null
           unit_name?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_unit_fkey"
+            columns: ["unit"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1435,6 +2473,7 @@ export type Database = {
           branch_id: string | null
           chapter: string | null
           created_at: string | null
+          default_work_days: number | null
           email: string
           employment_type: string | null
           full_name: string | null
@@ -1443,6 +2482,7 @@ export type Database = {
           nickname: string | null
           portal_role: string | null
           role: string | null
+          role_before_inactive: string | null
           start_date: string | null
           updated_at: string | null
         }
@@ -1451,6 +2491,7 @@ export type Database = {
           branch_id?: string | null
           chapter?: string | null
           created_at?: string | null
+          default_work_days?: number | null
           email: string
           employment_type?: string | null
           full_name?: string | null
@@ -1459,6 +2500,7 @@ export type Database = {
           nickname?: string | null
           portal_role?: string | null
           role?: string | null
+          role_before_inactive?: string | null
           start_date?: string | null
           updated_at?: string | null
         }
@@ -1467,6 +2509,7 @@ export type Database = {
           branch_id?: string | null
           chapter?: string | null
           created_at?: string | null
+          default_work_days?: number | null
           email?: string
           employment_type?: string | null
           full_name?: string | null
@@ -1475,6 +2518,7 @@ export type Database = {
           nickname?: string | null
           portal_role?: string | null
           role?: string | null
+          role_before_inactive?: string | null
           start_date?: string | null
           updated_at?: string | null
         }
@@ -1512,6 +2556,13 @@ export type Database = {
             columns: ["line_manager_id"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_line_manager_id_fkey"
+            columns: ["line_manager_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -1564,6 +2615,7 @@ export type Database = {
           product_id: string | null
           quantity: number
           sku_text: string
+          unit_price: number | null
         }
         Insert: {
           bill_id: string
@@ -1573,6 +2625,7 @@ export type Database = {
           product_id?: string | null
           quantity?: number
           sku_text: string
+          unit_price?: number | null
         }
         Update: {
           bill_id?: string
@@ -1582,6 +2635,7 @@ export type Database = {
           product_id?: string | null
           quantity?: number
           sku_text?: string
+          unit_price?: number | null
         }
         Relationships: [
           {
@@ -1603,6 +2657,20 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -1775,6 +2843,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sales_import_mappings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       sales_imports: {
@@ -1849,6 +2924,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sales_imports_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       sales_posting_lines: {
@@ -1893,6 +2975,20 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_posting_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_posting_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -1961,6 +3057,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_postings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sales_postings_posted_by_fkey"
             columns: ["posted_by"]
             isOneToOne: false
@@ -1972,6 +3075,13 @@ export type Database = {
             columns: ["posted_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_postings_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -2041,6 +3151,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_records_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_records_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sales_records_recorded_by_fkey"
             columns: ["recorded_by"]
             isOneToOne: false
@@ -2052,6 +3176,13 @@ export type Database = {
             columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -2157,6 +3288,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "shift_swap_days_counterparty_id_fkey"
+            columns: ["counterparty_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "shift_swap_days_decided_by_fkey"
             columns: ["decided_by"]
             isOneToOne: false
@@ -2168,6 +3306,13 @@ export type Database = {
             columns: ["decided_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_swap_days_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -2243,6 +3388,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "shift_swap_requests_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       shift_templates: {
@@ -2314,6 +3466,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "shift_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       shop_traffic: {
@@ -2374,6 +3533,13 @@ export type Database = {
             columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shop_traffic_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -2440,6 +3606,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_adjustments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_adjustments_branch_id_fkey"
             columns: ["branch_id"]
             isOneToOne: false
@@ -2489,6 +3662,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_adjustments_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_adjustments_requested_by_fkey"
             columns: ["requested_by"]
             isOneToOne: false
@@ -2500,6 +3687,13 @@ export type Database = {
             columns: ["requested_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_adjustments_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -2608,6 +3802,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_count_lines_counted_by_fkey"
+            columns: ["counted_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_count_lines_explained_by_fkey"
             columns: ["explained_by"]
             isOneToOne: false
@@ -2619,6 +3820,13 @@ export type Database = {
             columns: ["explained_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_lines_explained_by_fkey"
+            columns: ["explained_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -2636,6 +3844,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_count_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_count_lines_recounted_by_fkey"
             columns: ["recounted_by"]
             isOneToOne: false
@@ -2650,6 +3872,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_count_lines_recounted_by_fkey"
+            columns: ["recounted_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_count_lines_skipped_by_fkey"
             columns: ["skipped_by"]
             isOneToOne: false
@@ -2661,6 +3890,13 @@ export type Database = {
             columns: ["skipped_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_lines_skipped_by_fkey"
+            columns: ["skipped_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -2724,6 +3960,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_counts_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_counts_branch_id_fkey"
             columns: ["branch_id"]
             isOneToOne: false
@@ -2749,6 +3992,13 @@ export type Database = {
             columns: ["counted_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_counts_counted_by_fkey"
+            columns: ["counted_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -2817,6 +4067,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "delivery_shortages_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "delivery_shortages_resolved_by_fkey"
             columns: ["resolved_by"]
             isOneToOne: false
@@ -2828,6 +4085,13 @@ export type Database = {
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_shortages_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -2894,6 +4158,20 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_levels_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_levels_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -2975,6 +4253,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_movements_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -2986,6 +4271,20 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -3078,6 +4377,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "training_progress_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "training_progress_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
@@ -3096,6 +4402,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_progress_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -3138,6 +4451,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -3189,6 +4509,20 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -3293,6 +4627,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transfers_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "transfers_sent_by_fkey"
             columns: ["sent_by"]
             isOneToOne: false
@@ -3304,6 +4645,13 @@ export type Database = {
             columns: ["sent_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfers_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -3373,6 +4721,13 @@ export type Database = {
             referencedRelation: "roster_staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_departments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
         ]
       }
       warehouses: {
@@ -3435,6 +4790,9 @@ export type Database = {
           created_by: string | null
           date: string
           id: string
+          not_worked_at: string | null
+          not_worked_by: string | null
+          not_worked_reason: string | null
           notes: string | null
           published_at: string | null
           published_by: string | null
@@ -3448,6 +4806,9 @@ export type Database = {
           created_by?: string | null
           date: string
           id?: string
+          not_worked_at?: string | null
+          not_worked_by?: string | null
+          not_worked_reason?: string | null
           notes?: string | null
           published_at?: string | null
           published_by?: string | null
@@ -3461,6 +4822,9 @@ export type Database = {
           created_by?: string | null
           date?: string
           id?: string
+          not_worked_at?: string | null
+          not_worked_by?: string | null
+          not_worked_reason?: string | null
           notes?: string | null
           published_at?: string | null
           published_by?: string | null
@@ -3499,6 +4863,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_schedules_not_worked_by_fkey"
+            columns: ["not_worked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_schedules_not_worked_by_fkey"
+            columns: ["not_worked_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_schedules_not_worked_by_fkey"
+            columns: ["not_worked_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_schedules_published_by_fkey"
             columns: ["published_by"]
             isOneToOne: false
@@ -3510,6 +4902,13 @@ export type Database = {
             columns: ["published_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_schedules_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -3531,6 +4930,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_schedules_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -3579,6 +4985,165 @@ export type Database = {
         }
         Relationships: []
       }
+      overtime_with_cost: {
+        Row: {
+          actual_end: string | null
+          actual_start: string | null
+          approved_at: string | null
+          approved_by: string | null
+          branch_id: string | null
+          hourly_cost: number | null
+          hours: number | null
+          id: string | null
+          multiplier: number | null
+          overtime_pay: number | null
+          reason: string | null
+          recorded_at: string | null
+          recorded_by: string | null
+          scheduled_end: string | null
+          scheduled_start: string | null
+          staff_id: string | null
+          status: string | null
+          work_date: string | null
+        }
+        Insert: {
+          actual_end?: string | null
+          actual_start?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          branch_id?: string | null
+          hourly_cost?: never
+          hours?: number | null
+          id?: string | null
+          multiplier?: number | null
+          overtime_pay?: never
+          reason?: string | null
+          recorded_at?: string | null
+          recorded_by?: string | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          staff_id?: string | null
+          status?: string | null
+          work_date?: string | null
+        }
+        Update: {
+          actual_end?: string | null
+          actual_start?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          branch_id?: string | null
+          hourly_cost?: never
+          hours?: number | null
+          id?: string | null
+          multiplier?: number | null
+          overtime_pay?: never
+          reason?: string | null
+          recorded_at?: string | null
+          recorded_by?: string | null
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          staff_id?: string | null
+          status?: string | null
+          work_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "overtime_records_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
+            foreignKeyName: "overtime_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "overtime_records_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pack_factor_seed_unmatched: {
+        Row: {
+          notes: string | null
+          pack_unit: string | null
+          sku: string | null
+        }
+        Insert: {
+          notes?: string | null
+          pack_unit?: string | null
+          sku?: string | null
+        }
+        Update: {
+          notes?: string | null
+          pack_unit?: string | null
+          sku?: string | null
+        }
+        Relationships: []
+      }
       pack_factors_outstanding: {
         Row: {
           name: string | null
@@ -3605,7 +5170,21 @@ export type Database = {
             foreignKeyName: "product_pack_factors_sku_fkey"
             columns: ["sku"]
             isOneToOne: true
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["sku"]
+          },
+          {
+            foreignKeyName: "product_pack_factors_sku_fkey"
+            columns: ["sku"]
+            isOneToOne: true
             referencedRelation: "sales_posted_today"
+            referencedColumns: ["sku"]
+          },
+          {
+            foreignKeyName: "product_pack_factors_sku_fkey"
+            columns: ["sku"]
+            isOneToOne: true
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["sku"]
           },
           {
@@ -3624,6 +5203,33 @@ export type Database = {
           group_code: string | null
           product_id: string | null
           sku: string | null
+        }
+        Relationships: []
+      }
+      products_without_selling_price: {
+        Row: {
+          countable: boolean | null
+          ever_sold: boolean | null
+          group_code: string | null
+          id: string | null
+          name: string | null
+          sku: string | null
+        }
+        Insert: {
+          countable?: never
+          ever_sold?: never
+          group_code?: string | null
+          id?: string | null
+          name?: string | null
+          sku?: string | null
+        }
+        Update: {
+          countable?: never
+          ever_sold?: never
+          group_code?: string | null
+          id?: string | null
+          name?: string | null
+          sku?: string | null
         }
         Relationships: []
       }
@@ -3678,6 +5284,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "products_unit_fkey"
+            columns: ["unit"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["code"]
+          },
+          {
             foreignKeyName: "sales_posting_lines_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -3689,6 +5302,20 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_posting_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_posting_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -3740,6 +5367,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sales_bills_branch_id_fkey"
             columns: ["branch_id"]
             isOneToOne: false
@@ -3754,6 +5395,46 @@ export type Database = {
             referencedColumns: ["branch_id"]
           },
         ]
+      }
+      selling_prices_outstanding: {
+        Row: {
+          countable: boolean | null
+          ever_sold: boolean | null
+          group_code: string | null
+          id: string | null
+          name: string | null
+          sku: string | null
+        }
+        Insert: {
+          countable?: never
+          ever_sold?: never
+          group_code?: string | null
+          id?: string | null
+          name?: string | null
+          sku?: string | null
+        }
+        Update: {
+          countable?: never
+          ever_sold?: never
+          group_code?: string | null
+          id?: string | null
+          name?: string | null
+          sku?: string | null
+        }
+        Relationships: []
+      }
+      staff_details_outstanding: {
+        Row: {
+          branch: string | null
+          default_work_days: number | null
+          employment_type: string | null
+          id: string | null
+          needs_employment_type: boolean | null
+          needs_work_days: boolean | null
+          portal_role: string | null
+          who: string | null
+        }
+        Relationships: []
       }
       stock_below_reorder_point: {
         Row: {
@@ -3781,6 +5462,20 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_levels_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_levels_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
             referencedColumns: ["id"]
           },
           {
@@ -3814,6 +5509,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "products_unit_fkey"
+            columns: ["unit"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["code"]
+          },
+          {
             foreignKeyName: "stock_count_lines_count_id_fkey"
             columns: ["count_id"]
             isOneToOne: false
@@ -3842,6 +5544,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_count_lines_explained_by_fkey"
+            columns: ["explained_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_count_lines_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -3856,6 +5565,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_count_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_count_lines_recounted_by_fkey"
             columns: ["recounted_by"]
             isOneToOne: false
@@ -3867,6 +5590,13 @@ export type Database = {
             columns: ["recounted_by"]
             isOneToOne: false
             referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_lines_recounted_by_fkey"
+            columns: ["recounted_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
             referencedColumns: ["id"]
           },
         ]
@@ -3928,6 +5658,10 @@ export type Database = {
       }
     }
     Functions: {
+      answer_shift_swap_day: {
+        Args: { p_accept: boolean; p_day: string }
+        Returns: string
+      }
       approve_stock_adjustment: {
         Args: { p_adjustment: string }
         Returns: string
@@ -3938,11 +5672,58 @@ export type Database = {
       branch_is_pos_fed: { Args: { p_branch: string }; Returns: boolean }
       business_today: { Args: never; Returns: string }
       can_access_branch: { Args: { target: string }; Returns: boolean }
+      check_function_version: {
+        Args: { p_function: string; p_migration: string }
+        Returns: undefined
+      }
+      commission_attendance: {
+        Args: { p_month: string }
+        Returns: {
+          branch_id: string
+          days: number
+          earns_here: boolean
+          staff_id: string
+        }[]
+      }
+      commission_for_month: {
+        Args: { p_month: string }
+        Returns: {
+          amount: number
+          branch_days: number
+          branch_id: string
+          branch_name: string
+          days: number
+          pool: number
+          share: number
+          staff_id: string
+          who: string
+        }[]
+      }
+      commission_inputs: {
+        Args: { p_month: string }
+        Returns: {
+          achievement: number
+          branch_id: string
+          branch_name: string
+          goal: number
+          net_revenue: number
+          pool: number
+          pos_fed: boolean
+          revenue: number
+          revenue_source: string
+          store_type: string
+          tier: number
+          unpriced_units: number
+          vip_revenue: number
+        }[]
+      }
+      commission_tier: { Args: { p_achievement: number }; Returns: number }
       copy_roster_from_previous: {
         Args: { p_branch: string; p_month: string }
         Returns: number
       }
       count_unresolved_lines: { Args: { p_count: string }; Returns: number }
+      current_profile_id: { Args: never; Returns: string }
       dashboard_availability: {
         Args: never
         Returns: {
@@ -3954,6 +5735,18 @@ export type Database = {
           traffic_available: boolean
         }[]
       }
+      decide_day_off: {
+        Args: { p_approve: boolean; p_request: string }
+        Returns: string
+      }
+      decide_overtime: {
+        Args: { p_approve: boolean; p_record: string }
+        Returns: string
+      }
+      decide_shift_swap_day: {
+        Args: { p_approve: boolean; p_day: string }
+        Returns: string
+      }
       default_warehouse_for_branch: {
         Args: { p_branch: string }
         Returns: string
@@ -3963,6 +5756,10 @@ export type Database = {
         Returns: number
       }
       has_capability: { Args: { cap: string }; Returns: boolean }
+      hourly_cost_on: {
+        Args: { p_on: string; p_staff: string }
+        Returns: number
+      }
       import_sales_bills: {
         Args: { p_bills: Json; p_branch: string; p_import: string }
         Returns: {
@@ -3974,11 +5771,38 @@ export type Database = {
           units_out: number
         }[]
       }
+      is_swap_counterparty: { Args: { p_request: string }; Returns: boolean }
+      is_swap_requester: { Args: { p_request: string }; Returns: boolean }
       lapse_expired_shift_swap_days: { Args: never; Returns: number }
+      mark_not_worked: {
+        Args: { p_reason: string; p_schedule: string }
+        Returns: string
+      }
+      next_delivery_reference: { Args: { p_branch: string }; Returns: string }
       next_transfer_reference: { Args: never; Returns: string }
       open_count_for_today: {
         Args: { p_branch: string; p_warehouse: string }
         Returns: string
+      }
+      pay_rate_on: {
+        Args: { p_on: string; p_staff: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          hourly_rate: number | null
+          id: string
+          monthly_salary: number | null
+          note: string | null
+          staff_id: string
+          work_days_per_month: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pay_rates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       post_sales_units: {
         Args: { p_acknowledge_existing?: boolean; p_posting: string }
@@ -3987,6 +5811,11 @@ export type Database = {
           units_total: number
         }[]
       }
+      product_type_from_group: {
+        Args: { p_group: string; p_sold?: boolean }
+        Returns: string
+      }
+      profile_actor_is_admin: { Args: never; Returns: boolean }
       publish_roster: {
         Args: { p_branch: string; p_month: string }
         Returns: {
@@ -4010,11 +5839,29 @@ export type Database = {
           units_added: number
         }[]
       }
+      record_overtime: {
+        Args: {
+          p_actual_end: string
+          p_actual_start: string
+          p_date: string
+          p_reason: string
+          p_staff: string
+        }
+        Returns: string
+      }
       reject_stock_adjustment: {
         Args: { p_adjustment: string; p_reason?: string }
         Returns: undefined
       }
+      request_day_off: {
+        Args: { p_dates: string[]; p_reason: string; p_type: string }
+        Returns: number
+      }
       request_recount: { Args: { p_line: string }; Returns: undefined }
+      request_shift_swap: {
+        Args: { p_days: Json; p_reason: string }
+        Returns: string
+      }
       resolve_shortage: {
         Args: { p_note?: string; p_shortage: string }
         Returns: undefined
@@ -4035,8 +5882,10 @@ export type Database = {
           p_bills?: Json
           p_branch: string
           p_date: string
+          p_total_sales?: number
           p_traffic?: Json
           p_units?: Json
+          p_vip_sales?: number
         }
         Returns: {
           bills_recorded: number
@@ -4044,9 +5893,32 @@ export type Database = {
           imported_bills: number
           moved_stock: boolean
           reconciles: boolean
+          sales_value_saved: boolean
           traffic_recorded: number
           units_posted: number
           units_total: number
+        }[]
+      }
+      schedule_delivery: {
+        Args: {
+          p_branch: string
+          p_date: string
+          p_lines?: Json
+          p_notes?: string
+          p_reference?: string
+          p_slot?: string
+        }
+        Returns: {
+          delivery: string
+          delivery_ref: string
+          lines_added: number
+        }[]
+      }
+      seed_selling_prices_from_sales: {
+        Args: never
+        Returns: {
+          priced: number
+          still_unpriced: number
         }[]
       }
       sees_all_branches: { Args: never; Returns: boolean }
@@ -4058,9 +5930,21 @@ export type Database = {
           units_sent: number
         }[]
       }
+      set_delivery_status: {
+        Args: { p_delivery: string; p_status: string }
+        Returns: string
+      }
       shift_swap_day_is_lapsed: {
         Args: { d: Database["public"]["Tables"]["shift_swap_days"]["Row"] }
         Returns: boolean
+      }
+      swap_candidates: {
+        Args: { p_branch: string; p_date: string }
+        Returns: {
+          full_name: string
+          id: string
+          nickname: string
+        }[]
       }
       today_count_id: { Args: { p_warehouse: string }; Returns: string }
       units_entry_window: { Args: never; Returns: number }
@@ -4072,6 +5956,7 @@ export type Database = {
           units: number
         }[]
       }
+      withdraw_shift_swap: { Args: { p_request: string }; Returns: number }
     }
     Enums: {
       [_ in never]: never

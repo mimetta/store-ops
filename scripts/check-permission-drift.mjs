@@ -32,7 +32,12 @@ for (const line of tsBlock[1].split("\n")) {
 }
 
 // --- SQL matrix ---
-const sqlBlock = sql.match(/insert into role_capabilities \(role, capability\) values([\s\S]*?);/);
+// Strip `-- …` comments before looking for the statement's terminating `;`.
+// A semicolon inside a comment in the values list used to truncate the block
+// silently, and every grant after it then reported as drifted — a confusing
+// failure that looks like the matrix fell apart rather than like a typo.
+const sqlNoComments = sql.replace(/--[^\n]*/g, "");
+const sqlBlock = sqlNoComments.match(/insert into role_capabilities \(role, capability\) values([\s\S]*?);/);
 if (!sqlBlock) {
   console.error("FAIL: could not find the role_capabilities insert in 004-rbac-rls.sql");
   process.exit(1);

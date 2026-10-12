@@ -1,4 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
+-- REQUIRES: 002   (company_settings is in the baseline)
 -- Live-data rename: Kind Collective → Mimetta, and a stale-seed audit
 -- ═══════════════════════════════════════════════════════════════════════════
 --

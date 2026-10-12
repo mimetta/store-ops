@@ -58,8 +58,20 @@ comment on column stock_count_lines.skipped is
   'closes the day, the second holds it open.';
 
 -- ── closing the day ───────────────────────────────────────────────────────
+-- Refuse to revert a newer version of this function. 066's checker reads the
+-- marker below out of the INSTALLED function; the to_regprocedure guard is so
+-- this migration still applies to a database that has not reached 066 yet.
+do $$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('count_unresolved_lines', '024');
+  end if;
+end
+$$;
+
 create or replace function public.count_unresolved_lines(p_count uuid)
 returns integer language sql stable as $$
+  -- fn-version: 024
   select count(*)::integer from stock_count_lines
    where count_id = p_count
      and (
@@ -149,6 +161,7 @@ end $$;
 -- drop view if exists stock_count_progress;
 -- create or replace function public.count_unresolved_lines(p_count uuid)
 -- returns integer language sql stable as $$
+  -- fn-version: 024
 --   select count(*)::integer from stock_count_lines
 --    where count_id = p_count and variance is not null and variance <> 0
 --      and explanation_state in ('pending','recount_requested')

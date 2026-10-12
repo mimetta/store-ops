@@ -78,6 +78,13 @@ export const CAPABILITIES = [
   "delivery.schedule",
   "calendar.manage",
   "acccloud.sync",
+  // Managing people: roles, branch, employment type, work days. Distinct
+  // from `settings`, which is shops and products and excludes `people`.
+  // Customer feedback: everyone records, a smaller set may edit anybody's
+  // entry or change the vocabularies. Same split as leave and swaps.
+  "feedback.record",
+  "feedback.manage",
+  "people.manage",
   "settings",
 ] as const
 
@@ -105,7 +112,9 @@ const CAPABILITY_ROLES: Record<Capability, readonly Role[]> = {
   "receiving":                ["admin", "manager", "supervisor", "ka", "logistics"],
   "transfers":                ["admin", "manager", "supervisor", "logistics"],
 
-  "shifts.view_own":          ["ka"],
+  // supervisor added in 045: a supervisor is rostered like anyone else, and
+  // without this cannot see their own shifts, let alone swap one.
+  "shifts.view_own":          ["ka", "supervisor"],
   "shifts.manage":            ["admin", "manager", "people"],
 
   // every role — written out rather than via a constant so the matrix stays
@@ -123,6 +132,9 @@ const CAPABILITY_ROLES: Record<Capability, readonly Role[]> = {
   "calendar.manage":          ["admin", "manager", "people", "marketing"],
 
   "acccloud.sync":            ["admin"],
+  "feedback.record":          ["admin", "manager", "supervisor", "ka", "people", "marketing", "logistics"],
+  "feedback.manage":          ["admin", "manager", "people"],
+  "people.manage":            ["admin", "manager", "people"],
   "settings":                 ["admin", "manager"],
 }
 
