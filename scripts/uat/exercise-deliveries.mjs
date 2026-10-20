@@ -47,7 +47,10 @@ async function makeUser(role) {
      returning id`, [email, PASSWORD])
   const { rows: [b] } = await db.query(`select id from branches where name='Song Wat'`)
   await db.query(`insert into profiles (id, email, full_name, portal_role, branch_id)
-                  values ($1,$2,$3,$4,$5)`, [u.id, email, `Probe ${role}`, role, b.id])
+                  values ($1,$2,$3,$4,$5)
+     on conflict (id) do update
+       set email = excluded.email, full_name = excluded.full_name,
+           portal_role = excluded.portal_role, branch_id = excluded.branch_id`, [u.id, email, `Probe ${role}`, role, b.id])
   const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   const { error } = await sb.auth.signInWithPassword({ email, password: PASSWORD })
   if (error) throw new Error(`${email}: ${error.message}`)

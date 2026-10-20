@@ -4,7 +4,7 @@ import { can } from "@/lib/permissions"
 import { bangkokToday } from "@/lib/day"
 import type { Profile } from "@/types/database"
 import FeedbackClient, {
-  type Vocab, type Touchpoint, type StaffOption, type FeedbackRow,
+  type Vocab, type CategoryVocab, type Touchpoint, type StaffOption, type FeedbackRow,
 } from "./FeedbackClient"
 
 /**
@@ -67,7 +67,11 @@ export default async function FeedbackPage({
     supabase.from("feedback_touchpoints")
       .select("code, label, kind, branch_id").eq("active", true).order("sort_order"),
     v("feedback_sentiments"), v("feedback_outcomes"), v("feedback_barriers"),
-    v("feedback_categories"), v("feedback_reasons"),
+    // Categories carry a hint and an owner (073), so the person filing knows
+    // what belongs in the box and who will read it.
+    supabase.from("feedback_categories")
+      .select("code, label, hint, owner_name").eq("active", true).order("sort_order"),
+    v("feedback_reasons"),
     v("feedback_product_categories"), v("feedback_customer_types"),
     // `active` alone — see 068. One customer's nationality need not add up.
     supabase.from("nationalities").select("code, label").eq("active", true).order("sort_order"),
@@ -114,7 +118,7 @@ export default async function FeedbackPage({
         sentiments: (sentRes.data ?? []) as Vocab[],
         outcomes: (outRes.data ?? []) as Vocab[],
         barriers: (barRes.data ?? []) as Vocab[],
-        categories: (catRes.data ?? []) as Vocab[],
+        categories: (catRes.data ?? []) as CategoryVocab[],
         reasons: (reasonRes.data ?? []) as Vocab[],
         products: (prodRes.data ?? []) as Vocab[],
         customerTypes: (custRes.data ?? []) as Vocab[],

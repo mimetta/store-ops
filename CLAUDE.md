@@ -112,7 +112,360 @@ node scripts/uat/exercise-overtime.mjs # drives overtime, with fabricated pay
 node scripts/uat/seed-pay-rates.mjs [--remove]   # FABRICATED salaries, UAT only
 node scripts/uat/exercise-commission.mjs # pools and splits, on real revenue
 node scripts/uat/check-prod-sql.mjs <file> # validate a PROD script correctly
+npm run build && PORT=3999 npm start &     # then:
+node scripts/uat/exercise-shift-tabs.mjs   # fetches /shifts/* as 4 real roles
+node scripts/uat/exercise-leave.mjs        # books, approves, checks the roster
+node scripts/uat/exercise-daily-money.mjs  # keys the day's money, then edits it
+node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
+node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
 ```
+
+## A cleanup the user cannot perform is not a cleanup
+
+`uploadPhoto` put the file in the bucket, then wrote the row, and on a row
+failure removed the file so a retry would not collide with its own orphan.
+Correct reasoning, and it did not work: **078 requires `delivery.schedule`
+to delete, and a KA holds only `receiving`.** The remove was silently refused
+for the one role that uses the screen, the orphan stayed, and the retry hit
+*"The resource already exists"* — **retry was broken for exactly the person
+retry exists for.**
+
+Found by exercising the failure path, which is the path nobody tries by hand.
+
+The fix is not to widen the delete policy — evidence should not be deletable
+by whoever took it. It is to **give every ATTEMPT its own path**
+(`{photoId}-r1.jpg`), so a retry never depends on cleaning up after the last
+one. The orphan is harmless: nothing references it, `delivery_photos` is what
+makes a file evidence, and the retention job sweeps by age.
+
+Two general rules:
+
+- **A rollback that needs a permission the actor lacks is not a rollback.**
+  Check who will actually run it. A `remove()` that returns an error nobody
+  reads looks identical to one that worked.
+- **Design so the retry needs no cleanup at all.** Idempotency by fresh
+  identity beats idempotency by tidying up, because tidying can fail and
+  freshness cannot.
+
+The same trap bit the probe's own teardown: it deleted the profiles and then
+used that user's session to clear the bucket. `can_access_branch()` reads the
+profile, so the session could no longer delete anything — **the tidy-up
+orphaned the files it was written to remove.** Delete files BEFORE the
+identities that may delete them.
+
+## Storage is a SECOND permission system, and nothing in this repo reached it
+
+Measured before the first bucket was created (078):
+
+- `storage.objects` has RLS on and started with **zero policies** — deny by
+  default. Nothing is reachable until a migration says so.
+- It is owned by **`supabase_storage_admin`**, not `postgres`. But `postgres`
+  can still `create policy` on it — tested — so **storage policies belong in
+  a numbered migration**, not a dashboard click nobody can review.
+- `postgres` holds `rolbypassrls`, so **a verify block cannot prove a storage
+  policy any more than a table one.** 078's block asserts the policies EXIST
+  and that the path CHECK binds. That is all it claims.
+- The `storage` schema is **not exposed to PostgREST**, so `check:rls`'s
+  mechanism (`sb.from(table)`) could never address a bucket. It needed
+  `sb.storage.from(bucket)` — different API, same real signed-in users.
+
+`check:rls` gained a storage section **in the same change as the bucket**, and
+it was proved to fire: removing `can_access_branch` from the upload policy
+turns "KA cannot write into Talat Noi's folder" into a FAIL.
+
+Three things that section checks which a table test would not have:
+
+1. **The bucket is private.** The policies can be perfect and the file still
+   leak, because a public bucket bypasses them entirely. Asserted by fetching
+   the public URL with no credentials and requiring a non-200.
+2. **A signed URL does serve it** — otherwise "private" could mean "broken"
+   and nothing would tell them apart.
+3. **Every storage policy names its `bucket_id`.** One that forgets applies
+   to every bucket the project ever adds, and that is invisible until the
+   second bucket exists.
+
+### The path is the permission
+
+    {branch_id}/{delivery_line_id}/{uuid}.jpg
+
+Branch first, so the policy is one `can_access_branch(foldername(name)[1])`
+call rather than a join from the object name through two tables on every
+read. The uploader controls the path, so the branch in it is a CLAIM — and
+the claim is checked, which is the assertion that proves the design.
+
+### A bucket cannot be deleted by SQL
+
+`storage.buckets` and `storage.objects` both carry `protect_delete` triggers:
+*"Direct deletion from storage tables is not allowed. Use the Storage API
+instead."* This governs the retention job — a cron'd `delete from
+storage.objects` fails every month, and a deletion job that silently fails
+looks exactly like one that works.
+
+It also means **a probe that creates a bucket cannot clean it up** without a
+service-role key. Do not create buckets to find things out.
+
+## Record what a person OBSERVED. Read everything else.
+
+Three migrations have now applied the same rule, which makes it a rule rather
+than three decisions:
+
+| | keyed, because somebody observed it | read, because a system already knows |
+|---|---|---|
+| `036` | units at a hand-keyed branch | units at a POS branch — the import says |
+| `069` | the money a hand-keyed shop took | the money at a POS branch — the bills say |
+| `077` | the CASH in the drawer, counted | card / QR / Alipay / WeChat — the import says |
+
+A second place to enter the same fact is a second answer free to drift from
+the first, and nothing in the system can say which one is right. So the rule
+is not "key less"; it is:
+
+**A person keys what they personally observed. Everything derivable from a
+record the system already holds is READ, and the screen must refuse the
+keystroke rather than accept a duplicate answer.**
+
+`save_daily_entry` raises *"this branch takes its sales value from the POS
+import"* rather than silently ignoring the field — a refusal teaches, an
+ignored input does not.
+
+The test for whether something is observable: **could the person be wrong in
+a way the other source would not be?** A drawer count can disagree with the
+till — that disagreement IS the information, and the whole reason to count.
+Transcribing "card ฿20,008" off the same AdaPOS report you are reconciling
+against cannot disagree with it, so it is copying, not observing.
+
+D7 asked for card and QR to be keyed by a KA. They are not, deliberately, and
+the departure is recorded in the backlog rather than made silently.
+
+## A figure with nothing beside it is not a check
+
+`/pos-money` counted the drawer — eight Thai denominations, a generated
+total, three real rows — and showed the number back. That is not a
+reconciliation; it is transcription with arithmetic. The point of counting a
+drawer is the VARIANCE, and there was nothing to vary from.
+
+AdaPOS already imported the answer: 1,235 payments across five methods, in
+Thai as the POS writes them (`เงินสด`, `บัตรเครดิต`, `QR Code`, `Alipay+`,
+`WeChat`). `077`'s `branch_payment_mix` totals them per branch per day.
+
+Three decisions worth keeping:
+
+- **The mapping lives in the view, not the screen.** Hardcoding `เงินสด` in a
+  `.tsx` would put a Thai string the POS controls in the one place nobody
+  greps. An unrecognised method falls into `other` and still counts toward
+  the total — a payment that vanishes from a reconciliation is worse than one
+  labelled vaguely, and the verify block asserts the split adds up.
+- **Only cash is keyed.** D7 asked for amounts by cash / card / QR keyed by a
+  KA; card and QR must NOT be, because transcribing them off the same AdaPOS
+  report you are reconciling against is copying, not checking. A drawer count
+  is independent because it is PHYSICAL. Same rule as `069` (money at a POS
+  branch) and `036` (units) — one answer per fact.
+- **Saving must not require reconciling.** A difference is the thing worth
+  recording, so a screen that refuses to save an unbalanced drawer guarantees
+  nobody ever records one. The probe asserts a non-reconciling count saves.
+
+And the absence distinction, again: **no row means no bills were imported —
+nothing to check against. A null `cash` means bills WERE imported and none
+was cash, so the drawer should be empty.** Collapsing those would draw a
+variance of minus the whole drawer on a day the import had not run yet.
+
+## Clearing a field after saving it makes a saved day look unkeyed
+
+`/daily`'s Money card did three things that compound:
+
+1. the page never loaded `daily_sales_value` back, so the card was always blank
+2. the save handler ran `setTotalSales(""); setVipSales("")` on success, so
+   the figure vanished the instant it was stored
+3. a blank sends `p_total_sales = null`, which SKIPS the money block — so the
+   next save left the old figure standing while the screen showed nothing
+
+Any one is survivable. Together, a day with ฿61,500 recorded looked exactly
+like a day nobody had touched, and "correcting" it by typing in the blank
+form changed nothing. Bills and traffic had been loaded back since they were
+built; money was added two sessions later and nothing carried the pattern
+across.
+
+**Null and zero are different answers here**, and the fix depends on it: null
+means "I am not touching the money on this save", zero means "the shop took
+nothing". Both are real; only one is an absence.
+
+One React trap worth keeping: **a `useState` initialiser runs once per mount,
+and changing the date on `/daily` is a `router.push` that keeps the component
+mounted.** Seeding the money from props in `useState` would carry yesterday's
+takings into today's form. The existing `draftKey` effect is where seeding
+belongs — bills and traffic already do it there.
+
+## Three commission inputs have been silently wrong. Exercise, do not read.
+
+Recorded because the pattern matters more than any of the three:
+
+| | what it did | found by |
+|---|---|---|
+| VIP hardcoded 0 (`069`) | a hand-keyed branch's whole VIP turnover sat in the pool | exercising the keyed path |
+| approved leave never cleared the roster (`074`) | a day off was paid as a day worked | folding two screens together |
+| `coalesce(employment_type,'')` (`075`) | anyone nobody had asked about earned a FULL share | auditing the inputs |
+| `coalesce(hourly_cost, 0)` (`076`) | overtime with no known rate reported as costing ฿0.00 | grepping the class |
+
+**All four looked right. All four produced a plausible number. Not one was
+found by reading the code.** The arithmetic was never the problem — it has
+been hand-checked repeatedly and is correct. The problem each time was an
+INPUT that had never produced a figure somebody looked at.
+
+So the standing rule for anything that decides money:
+
+- **An input that has never produced a real figure is an untested input**,
+  however many assertions pass around it. `daily_sales_value` existed for two
+  sessions with zero rows — it was the fix for the VIP bug, and the fix
+  itself had never run.
+- **A probe that seeds its own fixtures proves the code, not the setup.**
+  `exercise-commission.mjs` seeds `commission_branches` and deletes it, so
+  the split had passed for weeks while the real table was empty.
+- **Ask "has a human recognised this number?"** GO-LIVE D24 is the blocker
+  that question became: one month, real people, real goals, real attendance,
+  agreed line by line against a payslip someone recognises.
+
+## An expression can hold a default too
+
+`commission_attendance` decided who earns with
+
+    coalesce(p.employment_type, '') <> 'part_time'
+
+which READS as "exclude part-timers" and DOES "include anyone we have not
+asked about". A person whose employment type nobody had set earned a full
+share of the pool.
+
+It is the same defect as `products.unit DEFAULT 'piece'` and
+`reorder_threshold DEFAULT 20` — a claim the database makes on your behalf —
+except there is no column default to find. It is in a WHERE clause, so
+nothing that audits defaults would ever see it. **Grep for `coalesce(` around
+anything that decides money or permission; each one is a default in hiding.**
+
+Harmless until `071`'s invite started creating people with no role, no branch
+and no employment type on purpose. `075` makes it refuse:
+
+- a TRIGGER on `commission_branches` refuses to add somebody whose type is
+  unset, the same refusal and the same wording as `record_overtime` (047) —
+  the write is where the question is being asked and where a person is there
+  to answer it
+- the READ stops assuming, for the two cases a trigger cannot reach: a row
+  that predates it, and a type cleared afterwards
+
+The read does NOT raise, deliberately. `commission_attendance` is called as
+`supabase.rpc(...)` from a server component, where an error arrives as
+`{ data: null, error }` and renders as an empty grid. **A refusal that becomes
+a blank is worse than the assumption it replaced.** So it returns
+`earns_here = false` and the screen says "employment type not set" in the tick
+column — not a dash, because a dash already means part-time and the two need
+opposite actions.
+
+## A probe outside `npm test` is a probe that can die quietly
+
+`071` put a trigger on `auth.users` that creates the profile. Four scripts
+did `insert into auth.users` then `insert into profiles`, and all four became
+wrong the moment it applied. Only ONE failed visibly — and it was the worst
+one to lose: `exercise-commission.mjs`, the single harness that produces a
+commission figure from real revenue. It had been dead for two migrations.
+
+The other three were worse in a quieter way. They take an "if it does not
+already exist" branch, or had rows left from an earlier run, so they **passed
+while being broken for anyone starting from a clean database**.
+
+These scripts create real auth users, so they are deliberately outside
+`npm test` — which is the right call and also the reason nothing noticed.
+`npm run check:probe-profiles` closes it: a source check, in the suite, that
+fails on any `insert into profiles` without an on-conflict clause in a file
+that creates auth users. No database, no auth user, so it can live in the
+suite that actually runs.
+
+The general shape: **when a migration changes what a trigger does, the things
+that break are the ones outside the suite.** Grep for the pattern it changed,
+do not wait for the next person to run the probe.
+
+## A row must mean the same thing whichever screen wrote it
+
+Two screens wrote `leave_requests`. `/shifts/leave` inserted one row spanning
+a date RANGE; the swaps screen's "Day off" form called `request_day_off` and
+wrote one row PER DAY. One table, two meanings, and nothing said so — the rows
+look alike.
+
+Permissions were never the gap: `004`'s three policies cover a direct insert
+exactly as they cover the function. What differed was everything else, and the
+worst of it only showed up downstream:
+
+| | direct insert | `request_day_off` / `decide_day_off` |
+|---|---|---|
+| a day already past | accepted | refused, in words |
+| the same day twice | accepted | refused, in words |
+| re-deciding a decided request | allowed | refused |
+| **approving clears the roster** | **no** | yes — sets `shift = 'leave'` |
+
+The last line is the one that cost something. Commission counts attendance
+from the roster, so leave approved on the cheaper path left the person
+rostered as working and the split was wrong, silently.
+
+`074` settles it: **a leave request is one day.** A CHECK
+(`start_date = end_date`) and a partial unique index
+(`staff_id, start_date` where status is live) make it unbypassable, and both
+screens now go through the functions. The range PICKER stays — it expands on
+submit, and the form says "3 days — 3 separate requests" before you send it,
+because a person told "Tuesday was declined" needs to have known it was three.
+
+Why per day and not per range: a manager can approve three of five; "you have
+already asked for 14 Oct" is only expressible per day; `total_days` on a range
+was `daysBetween`, a calendar-day count that the HR summary then SUMMED into
+"annual used"; and a day is already the unit in `work_schedules` and in `045`.
+
+Two things measured rather than assumed while doing it:
+
+- `decide_day_off`'s `can_access_branch` check is currently a **no-op**. All
+  three roles holding `leave.approve` are in `sees_all_branches()`. It guards
+  a scope that does not exist yet — worth knowing before somebody grants
+  `leave.approve` to a branch-scoped role.
+- `can_access_branch(null)` is **false** unless you see all branches, and
+  every profile on production is branchless. Leave there holds only because no
+  approver is branch-scoped. It holds by coincidence, so it is written down.
+
+And one thing the old form made impossible: it REQUIRED a branch, so the five
+office roles — who have none — could not submit it at all. The function reads
+the branch from the profile and `branch_id` is nullable.
+
+## `can(profile, …)` answers FALSE while the profile is still loading
+
+`useProfile()` returns `{ profile, loading }`. Six screens destructured only
+`profile`, so for the length of the fetch `can()` said no to everything — and
+three of them render a REFUSAL rather than a blank on no:
+
+    You do not have access to Leave.
+    You do not have access to Training.
+    Activity log is accessible to managers and admins only.
+
+Every visitor saw that, including the ones who do have access. It is not a
+leak — it refuses too much, never too little — but "you do not have access" is
+the single worst thing to show someone who does, and it is indistinguishable
+from the real refusal.
+
+**Swept, not spot-fixed.** Six screens called `can()` on a fetched profile;
+one was right. Three rendered a refusal (leave, training, activity) and three
+hid or disabled controls and then changed their mind (calendar, pos-money,
+stock). All six now wait. `npm run check:loading-gates` fails on any file that
+calls `useProfile()` and `can(profile, …)` without returning early on
+`loading` — a source check, because after the fetch resolves the bug is
+invisible at runtime, which is how it survived in six places.
+
+`/settings` already had the right shape and nothing carried it across:
+
+```tsx
+const { profile, loading: profileLoading } = useProfile()
+if (profileLoading) return <div …>Loading…</div>
+if (!canViewTraining) return <div …>You do not have access…</div>
+```
+
+**A gate needs three answers, not two: yes, no, and not yet.** Collapsing "not
+yet" into "no" is what produces a confident wrong answer — the same shape as
+`<NULL>` reading as a pass in a verify block.
+
+Found by fetching the moved screens as four signed-in roles. The matrix test
+beside it (`tests/shift-tabs.test.ts`) could not have found it: it reads the
+nav files and the capability table, and both were right.
 
 ## `begin;`/`commit;` inside a migration defeats an outer transaction
 

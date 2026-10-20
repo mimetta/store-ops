@@ -11,7 +11,7 @@
     "uat:sql": "node scripts/uat/run-sql.mjs",
     "test:day": "tsx tests/day.test.ts",
     "test:guard": "NODE_ENV=development tsx tests/guard.test.ts && NODE_ENV=production tsx tests/guard.test.ts",
-    "test": "npm run test:day && npm run test:guard && npm run test:import && npm run test:adapos && npm run test:filename && npm run test:reports && npm run test:import-units && node scripts/check-permission-drift.mjs && npm run check:migration-order && npm run check:write-paths && npm run check:types && npm run check:cascades && npm run check:nav && npm run check:state && npm run check:lint",
+    "test": "npm run test:day && npm run test:guard && npm run test:import && npm run test:adapos && npm run test:filename && npm run test:reports && npm run test:import-units && npm run test:shift-tabs && npm run test:phone-reach && node scripts/check-permission-drift.mjs && npm run check:migration-order && npm run check:write-paths && npm run check:types && npm run check:cascades && npm run check:nav && npm run check:loading-gates && npm run check:probe-profiles && npm run check:state && npm run check:lint",
     "check:write-paths": "node scripts/uat/check-write-paths.mjs",
     "check:rls": "node scripts/uat/check-rls.mjs",
     "types:generate": "scripts/uat/gen-types.sh",
@@ -27,7 +27,11 @@
     "exercise:feedback": "node scripts/uat/exercise-feedback.mjs",
     "exercise:deliveries": "node scripts/uat/exercise-deliveries.mjs",
     "check:state": "node scripts/uat/check-state-query.mjs",
-    "check:lint": "next lint"
+    "check:lint": "next lint",
+    "test:shift-tabs": "tsx tests/shift-tabs.test.ts",
+    "check:loading-gates": "node scripts/uat/check-loading-gates.mjs",
+    "check:probe-profiles": "node scripts/uat/check-probe-profiles.mjs",
+    "test:phone-reach": "tsx tests/phone-reach.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

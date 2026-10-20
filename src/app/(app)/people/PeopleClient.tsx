@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react"
 import {
   ASSIGNABLE_ROLES, EMPLOYMENT_TYPES, employmentLabel, roleBadgeClass, roleLabel,
 } from "@/lib/roles"
-import { updatePerson, deactivatePerson, reactivatePerson } from "./actions"
+import { updatePerson, deactivatePerson, reactivatePerson, invitePerson } from "./actions"
 
 export interface BranchOption { id: string; name: string }
 
@@ -13,7 +13,7 @@ export interface Person {
   full_name: string | null
   nickname: string | null
   email: string
-  portal_role: string
+  portal_role: string | null
   branch_id: string | null
   employment_type: string | null
   default_work_days: number | null
@@ -37,6 +37,9 @@ export default function PeopleClient({
   const [open, setOpen] = useState<Person | null>(null)
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null)
   const [pending, startTransition] = useTransition()
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [inviteName, setInviteName] = useState("")
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -55,13 +58,19 @@ export default function PeopleClient({
   // is a person who cannot do anything — worth surfacing rather than leaving
   // for whoever notices their app is blank.
   const strandedCount = people.filter((p) => p.portal_role === "staff").length
+  // 071: invited, no role yet. Different from `staff` — nobody has decided
+  // what they are, rather than nobody having reassigned them.
+  const awaitingRole = people.filter((p) => p.portal_role === null).length
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>, okText: string) {
     setMsg(null)
     startTransition(async () => {
       const r = await fn()
       setMsg(r.ok ? { tone: "ok", text: okText } : { tone: "err", text: r.error ?? "Failed." })
-      if (r.ok) setOpen(null)
+      if (r.ok) {
+        setOpen(null)
+        setInviteOpen(false); setInviteEmail(""); setInviteName("")
+      }
     })
   }
 
@@ -90,7 +99,57 @@ export default function PeopleClient({
           />
           Show inactive
         </label>
+        <button onClick={() => { setMsg(null); setInviteOpen((v) => !v) }}
+                className="btn btn-primary">
+          {inviteOpen ? "Cancel" : "Invite someone"}
+        </button>
       </header>
+
+      {inviteOpen && (
+        <div className="card card-pad flex flex-col gap-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label>
+              <span className="text-xs text-muted">Email</span>
+              <input type="email" inputMode="email" autoComplete="off"
+                     value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
+                     placeholder="name@example.com" className="input-field mt-1" />
+            </label>
+            <label>
+              <span className="text-xs text-muted">Name (optional)</span>
+              <input value={inviteName} onChange={(e) => setInviteName(e.target.value)}
+                     placeholder="What people call them" className="input-field mt-1" />
+            </label>
+          </div>
+          <p className="note note-i">
+            <span>
+              They get an email and set their own password — nobody types one for
+              them, and nothing goes over chat. They arrive with{" "}
+              <strong>no role and no branch</strong>, and can sign in and see
+              nothing until you give them one here. That is deliberate: inviting
+              somebody and deciding what they are are two decisions.
+            </span>
+          </p>
+          <button
+            onClick={() => run(
+              () => invitePerson({ email: inviteEmail, fullName: inviteName }),
+              "Invited. They appear below once the account is made.")}
+            disabled={pending || !inviteEmail.trim()}
+            className="btn btn-primary"
+          >
+            {pending ? "Sending…" : "Send the invite"}
+          </button>
+        </div>
+      )}
+
+      {awaitingRole > 0 && (
+        <p className="note note-a">
+          <span>
+            {awaitingRole} {awaitingRole === 1 ? "person has" : "people have"} been
+            invited and {awaitingRole === 1 ? "has" : "have"} no role yet — they can
+            sign in and will see nothing until an administrator gives them one.
+          </span>
+        </p>
+      )}
 
       {strandedCount > 0 && (
         <p className="note note-a">
@@ -172,7 +231,7 @@ function PersonDrawer({
   onDeactivate: () => void
   onReactivate: () => void
 }) {
-  const [role, setRole] = useState(person.portal_role)
+  const [role, setRole] = useState(person.portal_role ?? "")
   const [branchId, setBranchId] = useState(person.branch_id ?? "")
   const [employment, setEmployment] = useState(person.employment_type ?? "")
   const [workDays, setWorkDays] = useState(
@@ -190,6 +249,15 @@ function PersonDrawer({
           <div>
             <h2 className="text-ink">{displayName(person)}</h2>
             <p className="text-xs text-muted">{person.email}</p>
+            {/* profiles.email and the auth account's email are two different
+                columns and can diverge. Saying so beats letting somebody
+                assume this is what they type to sign in — 042 pins this field
+                to an administrator precisely because it is identity-adjacent,
+                and changing it here would NOT change how they log in. */}
+            <p className="text-[11px] text-subtle mt-0.5">
+              A label, not the login — signing in uses the address on their
+              account, which is changed in Supabase Auth.
+            </p>
           </div>
 
           {/* ── role ─────────────────────────────────────────────────────── */}
@@ -197,6 +265,13 @@ function PersonDrawer({
             <label className="block text-xs text-muted mb-1.5">Role</label>
             {isAdmin && !inactive ? (
               <select value={role} onChange={(e) => setRole(e.target.value)} className="input-field">
+                {/* An invited person has no role, and "" is that state. It is
+                    offered so the select has something true to show — not as
+                    something you can choose, which is why saving it is a
+                    no-op below. */}
+                {person.portal_role === null && (
+                  <option value="">— no role yet, choose one —</option>
+                )}
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r} value={r}>{roleLabel(r)}</option>
                 ))}
@@ -295,7 +370,8 @@ function PersonDrawer({
           <div className="flex flex-wrap gap-2 pt-1">
             <button
               onClick={() => onSave({
-                ...(isAdmin && !inactive && role !== person.portal_role ? { portalRole: role } : {}),
+                ...(isAdmin && !inactive && role !== "" && role !== person.portal_role
+                  ? { portalRole: role } : {}),
                 ...(mayEditEmployment ? {
                   branchId: branchId || null,
                   employmentType: employment || null,

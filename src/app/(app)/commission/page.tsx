@@ -131,6 +131,10 @@ export default async function CommissionPage({
       role: s.portal_role,
       homeBranch: s.branch_name ?? "—",
       partTime: empType.get(s.id) === "part_time",
+      // Distinct from part-time, and NOT the same as "not part-time". An
+      // unset employment type used to earn a FULL share; 075 makes it earn
+      // nothing. The grid has to say which of the two a dash means.
+      noEmploymentType: !empType.get(s.id),
       branches: pools.map((p) => ({
         branchId: p.branchId,
         branch: p.branch,
@@ -138,7 +142,12 @@ export default async function CommissionPage({
         days: days.get(`${s.id}|${p.branchId}`) ?? 0,
       })),
     }))
-    .sort((a, b) => Number(a.partTime) - Number(b.partTime) || a.who.localeCompare(b.who))
+    // People who cannot be ticked sort last, and the ones needing an answer
+    // (no employment type) sort above the ones that are simply part-time.
+    .sort((a, b) => Number(a.partTime || a.noEmploymentType)
+                  - Number(b.partTime || b.noEmploymentType)
+                  || Number(a.partTime) - Number(b.partTime)
+                  || a.who.localeCompare(b.who))
 
   return (
     <CommissionClient

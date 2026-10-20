@@ -92,7 +92,7 @@ Recorded as given. The notes are what each touches, not a design.
 | D4 | **Member count + Xiaohongshu review count, keyed daily by KA** | new daily-entry fields. Two counts, per branch per day, same shape as `shop_traffic` |
 | D5 | **VIP sales amount keyed separately on manual entry** | today VIP is *derived* from the discount ≥ 20% on imported bills. Hand-keyed branches have no bills, so VIP has no source there — this supplies it. Commission reads `sales_excl_vip`, so it changes commission for hand-keyed branches |
 | D6 | **A note field on daily entry** | cancelled bill, tax invoice requested, good/bad day. Free text on the daily entry row |
-| D7 | **POS cash reconciliation** | drawer count vs AdaPOS end-of-shift report, plus amounts by cash / card / QR, keyed by KA. Overlaps `pos_money_records`, which already exists from the kcp-portal era — check before adding a table |
+| D7 | ✅ **POS cash reconciliation — DONE (`077`)** | `pos_money_records` already held all eight denominations and a generated total; what was missing was anything to compare against. `branch_payment_mix` supplies it from the AdaPOS import. **One correction to the requirement as given:** amounts by card / QR are NOT keyed by a KA — AdaPOS imports them, and keying them would be a second answer free to drift from the first. Only CASH is counted, because only cash is physically countable; the rest is read. `pos_money_records.pay_cash … pay_other` stay unused and all-zero — kcp-portal-era columns on a shared table, removing them is a separate decision. Evidence: `scripts/uat/exercise-pos-money.mjs`, 8 assertions on real imported bills |
 | D8 | **Consignment branches record a sales amount** | `branch_daily_metrics` reports `sales_value_available = false` for hand-keyed branches by design. This gives them a figure, which also feeds commission revenue |
 | D9 | **Photo attached to a delivery** | assessed below |
 
@@ -127,6 +127,36 @@ What is missing is in the screen: `src/app/(app)/shifts/page.tsx:103` loads
   `stock_levels` — that is the part not to build on. Product master sync is
   unaffected.
 
+## DONE — the two leave paths, consolidated
+
+Item 12's fold put two writers of `leave_requests` a click apart and that is
+how the difference was noticed. Settled by `074` plus the screens:
+
+> **A leave request is one day, however it was booked.**
+
+- `/shifts/leave` calls `request_day_off` and `decide_day_off`. No more direct
+  insert, no more direct status UPDATE.
+- The Swaps screen is only swaps. Its "Day off" form and its leave lists have
+  gone; it still reads which of your own days are already asked off, so the
+  picker does not offer a day the database would refuse.
+- `074` adds a CHECK (`start_date = end_date`) and a partial unique index, so
+  the rule survives the next screen somebody writes.
+- The range picker stays and expands on submit. The form says what it is about
+  to create before you send it.
+
+Three things this fixed that were not on the list:
+
+1. **Approving on `/shifts/leave` never cleared the roster.** The direct
+   UPDATE changed only the request. Commission counts attendance from the
+   roster, so approved leave still counted as a day worked.
+2. **The five office roles could not submit the form at all** — it required a
+   branch and they have none.
+3. A decided request could be flipped from approved to rejected with nothing
+   recording the change.
+
+Evidence: `scripts/uat/exercise-leave.mjs`, 12 assertions, real signed-in
+users through PostgREST.
+
 ## STILL DEFERRED
 
 - Monthly goals from the expense portal API. `049` already records
@@ -134,6 +164,57 @@ What is missing is in the screen: `src/app/(app)/shifts/page.tsx:103` loads
   be added later without rewriting what is there.
 
 ---
+
+## D9 — DECIDED, ahead of building (2026-10-14)
+
+Measured on UAT before any of this was built, because storage is the first
+permission system in this project that nothing verifies:
+
+- `storage.objects` has RLS on and **zero policies** today — deny by default.
+- It is owned by `supabase_storage_admin`, not `postgres`. **But `postgres`
+  can still create policies on it** — tested, created and dropped cleanly —
+  so the policies CAN live in a numbered migration.
+- `postgres` holds `rolbypassrls`, so **a verify block bypasses storage
+  policies exactly as it does table policies**. A DO-block assertion about a
+  storage policy proves nothing. Same trap as D14.
+- The `storage` schema is **not exposed to PostgREST**, so `check:rls`'s whole
+  mechanism (`sb.from(table)`) cannot address it. It needs
+  `sb.storage.from(bucket)` — a different HTTP API, same assertions.
+
+### The retention job cannot be SQL
+
+`storage.objects` carries a trigger `protect_objects_delete`:
+
+    Direct deletion from storage tables is not allowed. Use the Storage API instead.
+
+Measured as `postgres`. So a cron'd `delete from storage.objects` fails every
+month, and a deletion job that silently fails looks exactly like one that
+works. `pg_cron` (1.6.4) and `pg_net` (0.20.4) are both AVAILABLE and NOT
+INSTALLED.
+
+**DECIDED: a Vercel cron route**, not pg_cron+pg_net — it keeps the service
+role key in the Vercel environment and out of the database. There is no
+`vercel.json`/`vercel.ts` today, so this is the first scheduled job in the
+system. It needs a shared-secret header: `/api/acccloud/sync` is the
+precedent for a privileged server route, but it authenticates a USER and a
+cron has none, so that part is new rather than copied. **A run log in the
+`erp_sync_runs` shape is part of the job, not a nicety** — a deletion job that
+has silently stopped must look different from one that is working.
+
+### DECIDED, the rest
+
+- **Several photos per line.** One per line is the common case and the screen
+  shows one by default, but a KA may want two angles of a crushed box, so the
+  schema permits many. Still hung off `delivery_lines`, not `deliveries`.
+- **The `check:rls` storage section ships WITH the bucket migration.** Not
+  after. Every permission defect found this fortnight came from a rule nothing
+  was checking; the first storage policy does not get created without the
+  first storage test.
+- **The failure that matters is a lost receiving draft, not a failed upload.**
+  A photo that did not attach is a retry. A check-in somebody has to redo at
+  the shop door is what makes people stop using the system. So the draft
+  survives an upload failure, and a line is never shown as evidenced until the
+  file is actually there.
 
 ## D9 — the delivery photo, assessed
 

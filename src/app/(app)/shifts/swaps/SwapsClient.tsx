@@ -4,8 +4,9 @@ import { useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   requestSwap, answerDay, decideDay, withdrawRequest,
-  requestDayOff, decideDayOff,
 } from "./actions"
+import ShiftTabs from "@/components/retail/ShiftTabs"
+import type { Profile } from "@/types/database"
 
 export interface SwapDay {
   id: string
@@ -34,28 +35,6 @@ export interface SwapRequest {
 
 export interface RosterDay { date: string; label: string }
 export interface Candidate { id: string; name: string }
-
-export interface DayOff {
-  id: string
-  staffId: string
-  who: string
-  branch: string
-  type: string
-  date: string
-  endDate: string
-  status: "pending" | "approved" | "rejected"
-  reason: string | null
-  mine: boolean
-}
-
-const LEAVE_TYPES: [string, string][] = [
-  ["annual", "Annual leave"],
-  ["sick", "Sick leave"],
-  ["personal", "Personal"],
-  ["other", "Other"],
-]
-const typeLabel = (t: string) =>
-  LEAVE_TYPES.find(([k]) => k === t)?.[1] ?? t
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -117,24 +96,19 @@ function Empty({ title, body }: { title: string; body: string }) {
 }
 
 export default function SwapsClient({
-  meId, isManager, tab, inbox, mine, toApprove, roster, offRoster, candidates,
-  myLeave, leaveToApprove, canRequestLeave, canApproveLeave,
-  hasBranch, noticeHours,
+  meId, isManager, profile, tab, inbox, mine, toApprove, roster, candidates,
+  noticeHours,
 }: {
   meId: string
   isManager: boolean
+  /** For the section tabs only — every gate on this screen uses the booleans. */
+  profile: Profile | null
   tab: "inbox" | "mine" | "approve"
   inbox: SwapRequest[]
   mine: SwapRequest[]
   toApprove: SwapRequest[]
   roster: RosterDay[]
-  offRoster: RosterDay[]
   candidates: Record<string, Candidate[]>
-  myLeave: DayOff[]
-  leaveToApprove: DayOff[]
-  canRequestLeave: boolean
-  canApproveLeave: boolean
-  hasBranch: boolean
   noticeHours: number
 }) {
   const router = useRouter()
@@ -144,17 +118,13 @@ export default function SwapsClient({
   const [err, setErr] = useState("")
   const [note, setNote] = useState("")
   const [form, setForm] = useState(false)
-  /** "swap" asks a colleague; "off" asks the manager. */
-  const [kind, setKind] = useState<"swap" | "off">("swap")
   /** date → chosen counterparty id */
   const [picked, setPicked] = useState<Record<string, string>>({})
-  const [offDays, setOffDays] = useState<string[]>([])
-  const [leaveType, setLeaveType] = useState("annual")
 
   const go = (t: string) => {
     const q = new URLSearchParams(params.toString())
     q.set("tab", t)
-    router.push(`/swaps?${q}`)
+    router.push(`/shifts/swaps?${q}`)
   }
 
   const run = async (key: string, fn: () => Promise<{ ok: boolean; error?: string }>) => {
@@ -169,38 +139,28 @@ export default function SwapsClient({
   const chosenDays = Object.entries(picked).filter(([, v]) => v)
 
   const submit = async () => {
-    const ok = kind === "swap"
-      ? await run("new", () => requestSwap({
-          reason: note,
-          days: chosenDays.map(([date, counterpartyId]) => ({ date, counterpartyId })),
-        }))
-      : await run("new", () => requestDayOff({
-          dates: offDays, type: leaveType, reason: note,
-        }))
-    if (ok) {
-      setForm(false); setPicked({}); setOffDays([]); setNote("")
-    }
+    const ok = await run("new", () => requestSwap({
+      reason: note,
+      days: chosenDays.map(([date, counterpartyId]) => ({ date, counterpartyId })),
+    }))
+    if (ok) { setForm(false); setPicked({}); setNote("") }
   }
-
-  const toggleOff = (date: string) =>
-    setOffDays((d) => d.includes(date) ? d.filter((x) => x !== date) : [...d, date])
-
-  const approveCount = toApprove.length + leaveToApprove.length
-  const canSeeApprovals = isManager || canApproveLeave
 
   const tabs: [string, string, number][] = [
     ["inbox", "Asked of me", inbox.length],
-    ["mine", "Mine", mine.length + myLeave.length],
-    ...(canSeeApprovals
-      ? [["approve", "To approve", approveCount] as [string, string, number]]
+    ["mine", "Mine", mine.length],
+    ...(isManager
+      ? [["approve", "To approve", toApprove.length] as [string, string, number]]
       : []),
   ]
 
   return (
     <div className="max-w-3xl">
+      <ShiftTabs profile={profile} className="mb-4" />
+
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <h1 className="text-lg font-medium text-ink flex-1">Shift swaps</h1>
-        {(roster.length > 0 || offRoster.length > 0) && (
+        {roster.length > 0 && (
           <button className="btn-primary min-h-[40px]" onClick={() => setForm((f) => !f)}>
             {form ? "Cancel" : "New request"}
           </button>
@@ -229,26 +189,11 @@ export default function SwapsClient({
       {/* ── new request ─────────────────────────────────────────────────── */}
       {form && (
         <div className="card card-pad mb-3">
-          <div className="flex gap-2 mb-3">
-            {([["swap", "Shift swap"], ["off", "Day off"]] as const).map(([k, label]) => {
-              const allowed = k === "swap" ? hasBranch : canRequestLeave
-              return (
-                <button
-                  key={k}
-                  disabled={!allowed}
-                  onClick={() => setKind(k)}
-                  className={`rounded-full px-3 py-1.5 text-[13px] border ${
-                    kind === k
-                      ? "border-brown bg-brown text-white"
-                      : "border-sand bg-white text-muted"
-                  } ${allowed ? "" : "opacity-40"}`}
-                >{label}</button>
-              )
-            })}
-          </div>
-
-          {kind === "swap" ? (
-            <>
+          {/* The "Day off" half of this form has moved to the Leave tab.
+              It wrote `leave_requests` through request_day_off while the
+              Leave screen inserted a date range directly — one table, two
+              meanings. 074 made one day the rule; booking leave now has one
+              door. */}
           <p className="font-medium text-ink mb-1">Which shifts do you need covered?</p>
           <p className="text-[12px] text-muted mb-3">
             Each colleague accepts their own day. Only accepted days go to your
@@ -291,47 +236,6 @@ export default function SwapsClient({
               </div>
             )
           })}
-            </>
-          ) : (
-            <>
-          <p className="font-medium text-ink mb-1">Which days do you need off?</p>
-          <p className="text-[12px] text-muted mb-3">
-            This goes straight to your manager — there is no colleague to ask.
-            Approving it marks the day as leave on the roster.
-          </p>
-
-          <select
-            className="w-full rounded border border-sand bg-white px-2 py-1.5 text-[13px] text-ink mb-1"
-            value={leaveType}
-            onChange={(e) => setLeaveType(e.target.value)}
-          >
-            {LEAVE_TYPES.map(([k, label]) => (
-              <option key={k} value={k}>{label}</option>
-            ))}
-          </select>
-
-          {offRoster.length === 0 && (
-            <p className="text-[12px] text-muted py-2">
-              You have no upcoming shifts left to ask off.
-            </p>
-          )}
-
-          {offRoster.map((r) => (
-            <label
-              key={r.date}
-              className="flex items-center gap-2.5 py-2.5 border-t border-sand cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={offDays.includes(r.date)}
-                onChange={() => toggleOff(r.date)}
-              />
-              <span className="text-[13px] text-ink w-[104px]">{pretty(r.date)}</span>
-              <span className="text-[12px] text-muted flex-1">{r.label}</span>
-            </label>
-          ))}
-            </>
-          )}
 
           <input
             className="mt-3 w-full rounded border border-sand bg-white px-2 py-1.5 text-[13px] text-ink"
@@ -339,22 +243,15 @@ export default function SwapsClient({
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
-          {(() => {
-            const n = kind === "swap" ? chosenDays.length : offDays.length
-            return (
-              <button
-                className="btn-primary w-full mt-3"
-                disabled={n === 0 || busy === "new"}
-                onClick={submit}
-              >
-                {busy === "new" ? "Sending…"
-                  : n === 0 ? "Choose at least one day"
-                  : kind === "swap"
-                    ? `Ask for ${n === 1 ? "1 day" : `${n} days`}`
-                    : `Request ${n === 1 ? "1 day" : `${n} days`} off`}
-              </button>
-            )
-          })()}
+          <button
+            className="btn-primary w-full mt-3"
+            disabled={chosenDays.length === 0 || busy === "new"}
+            onClick={submit}
+          >
+            {busy === "new" ? "Sending…"
+              : chosenDays.length === 0 ? "Choose at least one day"
+              : `Ask for ${chosenDays.length === 1 ? "1 day" : `${chosenDays.length} days`}`}
+          </button>
         </div>
       )}
 
@@ -400,33 +297,14 @@ export default function SwapsClient({
       )}
 
       {/* ── mine ────────────────────────────────────────────────────────── */}
-      {tab === "mine" && myLeave.length > 0 && (
-        <div className="card card-pad mb-3">
-          <p className="font-medium text-ink mb-1">Days off you have asked for</p>
-          {myLeave.map((l) => (
-            <div key={l.id} className="flex items-center gap-2.5 py-2 border-t border-sand flex-wrap">
-              <span className="text-[13px] text-ink w-[104px]">{pretty(l.date)}</span>
-              <span className="text-[12px] text-muted w-[92px] truncate">{typeLabel(l.type)}</span>
-              <span className="flex-1">
-                {l.status === "approved" ? <Tag tone="good">Approved — marked as leave</Tag>
-                  : l.status === "rejected" ? <Tag tone="bad">Declined</Tag>
-                  : <Tag tone="warn">With your manager</Tag>}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {tab === "mine" && (
         mine.length === 0 ? (
-          myLeave.length > 0 ? null : (
           <Empty
-            title="You have not asked for anything"
-            body={roster.length > 0 || offRoster.length > 0
-              ? "Ask for a swap and each day goes to the colleague you choose, or ask for a day off and it goes to your manager."
-              : "You have no upcoming shifts to swap or take off."}
+            title="You have not asked anyone to cover a shift"
+            body={roster.length > 0
+              ? "Ask for a swap and each day goes to the colleague you choose. To ask for a day off instead, use the Leave tab."
+              : "You have no upcoming shifts far enough away to swap."}
           />
-          )
         ) : mine.map((r) => {
           const live = r.days.some((d) =>
             d.state === "pending" || (d.state === "accepted" && d.managerDecision === "pending"))
@@ -470,43 +348,12 @@ export default function SwapsClient({
       )}
 
       {/* ── to approve ──────────────────────────────────────────────────── */}
-      {tab === "approve" && canApproveLeave && leaveToApprove.length > 0 && (
-        <div className="card card-pad mb-3">
-          <p className="font-medium text-ink mb-1">Days off</p>
-          <p className="text-[12px] text-muted mb-1">
-            No colleague is involved — approving marks the day as leave on the roster.
-          </p>
-          {leaveToApprove.map((l) => (
-            <div key={l.id} className="flex items-center gap-2.5 py-2.5 border-t border-sand flex-wrap">
-              <span className="text-[13px] text-ink w-[104px]">{pretty(l.date)}</span>
-              <span className="text-[12px] text-muted flex-1 truncate">
-                {l.who} · {typeLabel(l.type)}{l.reason ? ` · “${l.reason}”` : ""}
-              </span>
-              <span className="flex gap-1.5">
-                <button
-                  className="btn-primary min-h-[36px] px-3"
-                  disabled={busy === l.id}
-                  onClick={() => run(l.id, () => decideDayOff(l.id, true))}
-                >Approve</button>
-                <button
-                  className="btn-ghost min-h-[36px] px-3"
-                  disabled={busy === l.id}
-                  onClick={() => run(l.id, () => decideDayOff(l.id, false))}
-                >Decline</button>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "approve" && canSeeApprovals && (
+      {tab === "approve" && isManager && (
         toApprove.length === 0 ? (
-          leaveToApprove.length > 0 ? null : (
           <Empty
-            title="Nothing waiting on you"
-            body="A swap day appears here once a colleague has agreed to cover it — days nobody accepted never reach you. Days off appear as soon as they are asked for."
+            title="No swaps waiting on you"
+            body="A swap day appears here once a colleague has agreed to cover it — days nobody accepted never reach you. Leave requests are answered on the Leave tab."
           />
-          )
         ) : toApprove.map((r) => {
           const ready = r.days.filter(
             (d) => d.state === "accepted" && d.managerDecision === "pending")

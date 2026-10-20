@@ -65,7 +65,7 @@ const MODULE_COLORS: Record<string, string> = {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ActivityPage() {
-  const { profile } = useProfile()
+  const { profile, loading: profileLoading } = useProfile()
   const supabase = createClient()
   // TODO(role-model): 'activity' is not named in the capability spec.
   // 'settings' is the closest fit — confirm or correct.
@@ -138,6 +138,14 @@ export default function ActivityPage() {
       hour: "2-digit", minute: "2-digit",
     })
   }
+
+  // Until the profile arrives, `can()` answers false for everything — which
+  // rendered a REFUSAL, not a blank. Every visitor was told they had no
+  // access for as long as the fetch took, including the ones who do.
+  // /settings had the right shape already; this is the rest of the class.
+  if (profileLoading) return (
+    <div className="flex items-center justify-center h-64 text-muted">Loading…</div>
+  )
 
   if (!canViewActivity) {
     return (

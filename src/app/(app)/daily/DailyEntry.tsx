@@ -33,6 +33,7 @@ const fmtDay = (iso: string) => {
 export default function DailyEntry({
   branches, branch, date, minDate, maxDate, products, bills,
   thaiVisitors, foreignVisitors, importedBills, priorBatches, priorUnits,
+  savedTotalSales, savedVipSales,
   canUnits, canBills, canTraffic,
 }: {
   branches: DailyBranch[]
@@ -47,6 +48,10 @@ export default function DailyEntry({
   importedBills: number
   priorBatches: number
   priorUnits: number
+  /** What is already in daily_sales_value for this branch and day, or null
+   *  if nothing has been keyed. Null and 0 are different answers here. */
+  savedTotalSales: number | null
+  savedVipSales: number | null
   canUnits: boolean
   canBills: boolean
   canTraffic: boolean
@@ -57,6 +62,14 @@ export default function DailyEntry({
   const [billCounts, setBillCounts] = useState<Record<string, string>>({})
   const [thai, setThai] = useState("")
   const [foreign, setForeign] = useState("")
+  // ── the Money card's state ──────────────────────────────────────────
+  // Declared here with the rest of the form state because the draft-saving
+  // effect below reads it. Seeded in the draftKey effect, NOT by a useState
+  // initialiser: that runs once per mount, and changing the date is a
+  // router.push that keeps this component mounted — initialising here would
+  // carry yesterday's takings into today's form.
+  const [totalSales, setTotalSales] = useState("")
+  const [vipSales, setVipSales] = useState("")
   const [acknowledged, setAcknowledged] = useState(false)
   const [restored, setRestored] = useState(false)
   const [query, setQuery] = useState("")
@@ -75,6 +88,12 @@ export default function DailyEntry({
     setBillCounts(seededBills)
     setThai(thaiVisitors === null ? "" : String(thaiVisitors))
     setForeign(foreignVisitors === null ? "" : String(foreignVisitors))
+    // null means nothing was keyed; 0 means somebody keyed zero, which is a
+    // real answer for a day the shop took nothing. VIP shows blank at zero
+    // because zero VIP is the ordinary case and a field reading "0" invites
+    // nobody to change it.
+    setTotalSales(savedTotalSales === null ? "" : String(savedTotalSales))
+    setVipSales(savedVipSales ? String(savedVipSales) : "")
     setUnits({})
 
     try {
@@ -83,26 +102,30 @@ export default function DailyEntry({
         const d = JSON.parse(saved) as {
           units?: Record<string, string>; bills?: Record<string, string>
           thai?: string; foreign?: string
+          totalSales?: string; vipSales?: string
         }
         if (d.units) setUnits(d.units)
         if (d.bills) setBillCounts((prev) => ({ ...prev, ...d.bills }))
         if (d.thai !== undefined) setThai(d.thai)
         if (d.foreign !== undefined) setForeign(d.foreign)
+        if (d.totalSales !== undefined) setTotalSales(d.totalSales)
+        if (d.vipSales !== undefined) setVipSales(d.vipSales)
       }
     } catch {
       // A corrupt draft should cost the draft, not the screen.
     }
     setRestored(true)
-  }, [draftKey, bills, thaiVisitors, foreignVisitors])
+  }, [draftKey, bills, thaiVisitors, foreignVisitors, savedTotalSales, savedVipSales])
 
   // Gated on state, not a ref: a ref is already true when this runs in the
   // same commit, and the values in that closure are the pre-restore ones.
   useEffect(() => {
     if (!restored) return
     try {
-      window.localStorage.setItem(draftKey, JSON.stringify({ units, bills: billCounts, thai, foreign }))
+      window.localStorage.setItem(draftKey, JSON.stringify({
+        units, bills: billCounts, thai, foreign, totalSales, vipSales }))
     } catch {}
-  }, [units, billCounts, thai, foreign, draftKey, restored])
+  }, [units, billCounts, thai, foreign, totalSales, vipSales, draftKey, restored])
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -117,8 +140,8 @@ export default function DailyEntry({
   // was split. Without it a hand-keyed branch's commission revenue is an
   // ESTIMATE from list prices and its VIP is zero, so the whole VIP turnover
   // sits in the pool.
-  const [totalSales, setTotalSales] = useState("")
-  const [vipSales, setVipSales] = useState("")
+
+  const moneyAlreadySaved = savedTotalSales !== null
 
   const billTotal = Object.values(billCounts).reduce((a, v) => a + (v === "" ? 0 : Number(v)), 0)
   const anyBills = Object.values(billCounts).some((v) => v !== "")
@@ -177,7 +200,12 @@ export default function DailyEntry({
         if (r.trafficRecorded) parts.push("traffic")
         if (r.salesValueSaved) {
           parts.push(`฿${Number(totalSales).toLocaleString()} taken`)
-          setTotalSales(""); setVipSales("")
+          // Deliberately NOT cleared. Blanking the field the instant the
+          // figure is stored makes a saved day look identical to one nobody
+          // has keyed — and because a blank sends null, which skips the money
+          // block entirely, the next save would silently leave the old figure
+          // standing. router.refresh() re-runs the effect above and re-seeds
+          // from what was actually written.
         }
         setMessage({
           ok: true,
@@ -261,7 +289,13 @@ export default function DailyEntry({
         <div className="card card-pad mb-3">
           <div className="flex items-baseline gap-2.5 mb-3 flex-wrap">
             <h2 className="text-[15px] font-medium flex-1 min-w-0">Money</h2>
-            <span className="text-xs text-muted">What the shop took today</span>
+            {moneyAlreadySaved ? (
+              <span className="badge bg-good-50 text-good-70 border border-sage text-[11px]">
+                recorded — saving replaces it
+              </span>
+            ) : (
+              <span className="text-xs text-muted">What the shop took today</span>
+            )}
           </div>
           <div className="flex gap-3 flex-wrap">
             <label className="flex-1 min-w-[150px]">

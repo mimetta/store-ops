@@ -18,7 +18,7 @@ const STATUS_STYLES: Record<TrainingStatus, { bg: string; text: string; label: s
 const STATUS_ORDER: TrainingStatus[] = ["not_started", "in_progress", "completed"]
 
 export default function TrainingPage() {
-  const { profile } = useProfile()
+  const { profile, loading: profileLoading } = useProfile()
   const [tab, setTab] = useState<"sessions" | "progress">("sessions")
   const [sessions, setSessions] = useState<TrainingSession[]>([])
   const [allProgress, setAllProgress] = useState<TrainingProgress[]>([])
@@ -111,6 +111,14 @@ export default function TrainingPage() {
   // Sessions the current staff member is assigned to
   const myProgress = allProgress.filter((p) => p.staff_id === profile?.id)
   const displaySessions = canManageTraining ? sessions : sessions.filter((s) => myProgress.some((p) => p.session_id === s.id))
+
+  // Until the profile arrives, `can()` answers false for everything — which
+  // rendered a REFUSAL, not a blank. Every visitor was told they had no
+  // access for as long as the fetch took, including the ones who do.
+  // /settings had the right shape already; this is the rest of the class.
+  if (profileLoading) return (
+    <div className="flex items-center justify-center h-64 text-muted">Loading…</div>
+  )
 
   if (!canViewTraining) return (
     <div className="flex items-center justify-center h-64 text-muted flex-col gap-2">

@@ -26,7 +26,7 @@ async function rpc(fn: string, args: Record<string, unknown>): Promise<SwapResul
   const { data, error } = await supabase.rpc(fn, args)
   if (error) return { ok: false, error: error.message }
 
-  revalidatePath("/swaps")
+  revalidatePath("/shifts/swaps")
   revalidatePath("/shifts")   // an approved swap changes the roster
   return { ok: true, outcome: typeof data === "string" ? data : undefined }
 }
@@ -65,22 +65,11 @@ export async function withdrawRequest(requestId: string): Promise<SwapResult> {
   return rpc("withdraw_shift_swap", { p_request: requestId })
 }
 
-/**
- * Ask for days off. One request per day — two non-adjacent days are two asks
- * that a manager can answer differently.
- */
-export async function requestDayOff(input: {
-  dates: string[]
-  type: string
-  reason: string
-}): Promise<SwapResult> {
-  if (!input.dates.length) return { ok: false, error: "Choose at least one day." }
-  return rpc("request_day_off", {
-    p_dates: input.dates, p_type: input.type, p_reason: input.reason,
-  })
-}
-
-/** A manager's ruling. Approving marks the rostered day as leave. */
-export async function decideDayOff(id: string, approve: boolean): Promise<SwapResult> {
-  return rpc("decide_day_off", { p_request: id, p_approve: approve })
-}
+// requestDayOff and decideDayOff lived here and have gone. They wrapped
+// `request_day_off` / `decide_day_off`, which the Leave screen now calls
+// directly — booking leave from two screens meant two sets of guards on one
+// table, and 074 settled that a leave request is one day whichever door it
+// came through. Deleted rather than left unused: an exported server action
+// nothing calls is a live endpoint that no screen is testing.
+//
+// The RPCs themselves are unchanged and still the only way leave is written.

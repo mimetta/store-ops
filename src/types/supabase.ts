@@ -1097,6 +1097,82 @@ export type Database = {
           },
         ]
       }
+      delivery_photos: {
+        Row: {
+          branch_id: string
+          byte_size: number | null
+          delivery_line_id: string
+          file_deleted_at: string | null
+          id: string
+          storage_path: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          branch_id: string
+          byte_size?: number | null
+          delivery_line_id: string
+          file_deleted_at?: string | null
+          id?: string
+          storage_path: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          branch_id?: string
+          byte_size?: number | null
+          delivery_line_id?: string
+          file_deleted_at?: string | null
+          id?: string
+          storage_path?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_photos_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_photos_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
+            foreignKeyName: "delivery_photos_delivery_line_id_fkey"
+            columns: ["delivery_line_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_photos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_photos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_photos_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_shortages: {
         Row: {
           delivery_line_id: string
@@ -1334,19 +1410,25 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          hint: string | null
           label: string
+          owner_name: string | null
           sort_order: number
         }
         Insert: {
           active?: boolean
           code: string
+          hint?: string | null
           label: string
+          owner_name?: string | null
           sort_order?: number
         }
         Update: {
           active?: boolean
           code?: string
+          hint?: string | null
           label?: string
+          owner_name?: string | null
           sort_order?: number
         }
         Relationships: []
@@ -4959,6 +5041,37 @@ export type Database = {
           visitors: number | null
         }
         Relationships: []
+      }
+      branch_payment_mix: {
+        Row: {
+          alipay: number | null
+          bills: number | null
+          branch_id: string | null
+          card: number | null
+          cash: number | null
+          entry_date: string | null
+          other: number | null
+          payments: number | null
+          qr: number | null
+          total: number | null
+          wechat: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+        ]
       }
       branch_product_units: {
         Row: {

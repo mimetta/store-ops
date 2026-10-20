@@ -127,6 +127,21 @@ export default async function DailyPage({
       .map((t) => [t.nationality, t.visitor_count])
   )
 
+  // What was already keyed for the money, so the card shows it rather than a
+  // blank. A blank next to a saved figure reads as "nothing recorded", which
+  // is the same thing a day nobody touched looks like — and worse, submitting
+  // blank sends null, which SKIPS the money block and silently leaves the old
+  // figure standing. Bills and traffic have been loaded back since they were
+  // built; money was added later and this was missed.
+  const { data: moneyRow } = await supabase
+    .from("daily_sales_value")
+    .select("total_sales, vip_sales")
+    .eq("branch_id", branch.id)
+    .eq("entry_date", date)
+    .maybeSingle()
+  const savedMoney = moneyRow as
+    | { total_sales: number | null; vip_sales: number | null } | null
+
   // The figure a POS branch's split has to meet.
   const { count: importedBills } = await supabase
     .from("sales_bills")
@@ -187,6 +202,8 @@ export default async function DailyPage({
       importedBills={importedBills ?? 0}
       priorBatches={prior?.batches ?? 0}
       priorUnits={Number(prior?.units ?? 0)}
+      savedTotalSales={savedMoney ? Number(savedMoney.total_sales ?? 0) : null}
+      savedVipSales={savedMoney ? Number(savedMoney.vip_sales ?? 0) : null}
       canUnits={can(profile, "sales.manual")}
       canBills={can(profile, "bills") || can(profile, "sales.manual")}
       canTraffic={can(profile, "traffic") || can(profile, "sales.manual")}

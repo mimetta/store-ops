@@ -5,10 +5,10 @@
  *   node scripts/uat/exercise-swaps.mjs
  *
  * 045's verify block proves the rules in SQL. This proves the SCREEN: it runs
- * the exact queries src/app/(app)/swaps/page.tsx runs, as signed-in users
+ * the exact queries src/app/(app)/shifts/swaps/page.tsx runs, as signed-in users
  * under RLS, and checks each tab would actually have something in it.
  *
- * It leaves one accepted day waiting on a manager, so /swaps has something to
+ * It leaves one accepted day waiting on a manager, so /shifts/swaps has something to
  * click. Re-running resets it.
  */
 import { readFileSync } from "node:fs"
@@ -83,7 +83,13 @@ const { rows: [mgr] } = existing.length ? { rows: existing } : await db.query(
 if (!existing.length) {
   await db.query(
     `insert into profiles (id, email, full_name, portal_role, employment_type)
-     values ($1,$2,'Swap Exercise Manager','manager','full_time')`, [mgr.id, MGR_EMAIL])
+     values ($1,$2,'Swap Exercise Manager','manager','full_time')
+     -- 071 put a trigger on auth.users that creates the profile, so this
+     -- is an upsert, not an insert. A bare insert now hits profiles_pkey.
+     on conflict (id) do update
+       set email = excluded.email, full_name = excluded.full_name,
+           portal_role = excluded.portal_role,
+           employment_type = excluded.employment_type`, [mgr.id, MGR_EMAIL])
 }
 
 // ── a clean slate, and two future published shifts for A ───────────────────
@@ -225,7 +231,9 @@ ok("the published roster day is now marked leave", offRow?.shift === "leave",
 const day2 = bView.days.find((d) => d.work_date === d2)
 await sbB.rpc("answer_shift_swap_day", { p_day: day2.id, p_accept: true })
 
-// A pending day off, so the "To approve" tab has both kinds in it.
+// A pending day off. It is answered on /shifts/leave, not here — 074 made
+// leave one door — but it still belongs in this probe, because the swap
+// picker must not offer a day that has already been asked off.
 const { rows: [{ d4 }] } = await db.query(
   `select ((now() at time zone 'Asia/Bangkok')::date + 17)::text as d4`)
 await db.query(`delete from leave_requests where staff_id = $1 and start_date = $2`, [A.id, d4])
@@ -241,9 +249,9 @@ await sbA.rpc("request_day_off", {
 // and you need a manager login to click Approve on what is left below.
 
 console.log(`\n${pass} passed, ${fail} failed.`)
-console.log(`\nLeft for you in UAT, both in /swaps → "To approve":`)
-console.log(`  · a swap: ${d2}, accepted by ${B.nickname}, waiting on a manager`)
-console.log(`  · a day off: ${d4}, asked by ${A.nickname}, waiting on a manager`)
+console.log(`\nLeft for you in UAT, on two different tabs:`)
+console.log(`  · /shifts/swaps → "To approve": a swap on ${d2}, accepted by ${B.nickname}`)
+console.log(`  · /shifts/leave:                a day off on ${d4}, asked by ${A.nickname}`)
 console.log(`Sign in as ${MGR_EMAIL} to decide them.`)
 console.log(`${A.nickname}/${B.nickname} sign in with the password in seed-two-branches.mjs.`)
 await db.end()

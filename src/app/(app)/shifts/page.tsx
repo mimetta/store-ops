@@ -195,6 +195,7 @@ export default async function ShiftsPage({
   return (
     <ShiftsClient
       isManager={isManager}
+      profile={profile}
       tab={tab}
       view={view}
       anchor={anchor}

@@ -37,6 +37,8 @@ export interface EarnRow {
   role: string
   homeBranch: string
   partTime: boolean
+  /** No employment type set. Cannot be ticked — 075 refuses the write. */
+  noEmploymentType: boolean
   branches: { branchId: string; branch: string; ticked: boolean; days: number }[]
 }
 
@@ -335,13 +337,21 @@ export default function CommissionClient({
                     <td className="py-2 text-ink">
                       {g.who}
                       <span className="block text-[10px] text-muted">
-                        {g.partTime ? "part-time" : g.role} · {g.homeBranch}
+                        {g.partTime ? "part-time"
+                          : g.noEmploymentType ? "employment type not set"
+                          : g.role} · {g.homeBranch}
                       </span>
                     </td>
                     {g.branches.map((b) => (
                       <td key={b.branchId} className="py-2 text-center px-1">
                         {g.partTime ? (
                           <span className="text-subtle">—</span>
+                        ) : g.noEmploymentType ? (
+                          // Not a dash: a dash here would read the same as
+                          // part-time, and these two need opposite actions.
+                          <span className="text-amber-70 text-[10px]" title="Set their employment type on /people before they can earn commission">
+                            set type
+                          </span>
                         ) : (
                           <span className="flex flex-col items-center gap-0.5">
                             <input

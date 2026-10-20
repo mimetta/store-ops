@@ -58,6 +58,11 @@ const COMPOSITION = {
     "a shortage is raised against one line",
   "stock_discrepancies.delivery_line_id -> delivery_lines":
     "a discrepancy is raised against one line",
+  // The FILE outlives nothing — the row is deleted with the line. Retention
+  // is the opposite case and is handled separately: after 12 months the job
+  // deletes the FILE and keeps the row, setting file_deleted_at. 078.
+  "delivery_photos.delivery_line_id -> delivery_lines":
+    "a photo is evidence for one line and has no meaning without it",
   "stock_discrepancies.transfer_line_id -> transfer_lines":
     "same, for the transfer side",
   "transfer_lines.transfer_id -> transfers":

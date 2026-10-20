@@ -191,8 +191,28 @@ try {
 } catch (e) {
   console.error(`\nFAILED — ${e.message}`)
   if (e.where) console.error(`   at: ${e.where.split("\n")[0]}`)
-  console.error(`\nNothing was committed. The whole file ran as one transaction,`)
-  console.error(`so the database is exactly as it was before this started.`)
+
+  // "Nothing was committed" is only true for a file with NO explicit commit.
+  // A migration that ends STEP 1 with `commit;` has already committed by the
+  // time its verify block runs — a failure there rolls back the verify block
+  // and nothing else. Saying otherwise told somebody their fix had not
+  // applied when it had, and they were about to re-run it.
+  const hasExplicitCommit = /^\s*commit\s*;/mi.test(sql)
+
+  if (hasExplicitCommit) {
+    console.error(`\n*** PART OF THIS FILE MAY ALREADY BE COMMITTED ***`)
+    console.error(`\nIt contains an explicit \`commit;\`. Everything before that point is`)
+    console.error(`committed and was NOT rolled back — only the statements after it were.`)
+    console.error(`If the failure was in a verify block, the schema change itself is`)
+    console.error(`probably in. Do not assume either way:`)
+    console.error(`\n   psql … -f supabase/prod/where-is-production.sql`)
+    console.error(`\nFix the file and re-run it — these migrations are written to be`)
+    console.error(`re-runnable, so applying it twice is safe and applying it zero times`)
+    console.error(`is not.`)
+  } else {
+    console.error(`\nNothing was committed. The whole file ran as one transaction,`)
+    console.error(`so the database is exactly as it was before this started.`)
+  }
   process.exitCode = 1
 } finally {
   await db.end()

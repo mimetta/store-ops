@@ -4,6 +4,8 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { setShift, publishRoster, discardDraft, copyPreviousMonth, saveShiftTimes,
          markNotWorked } from "./actions"
+import ShiftTabs from "@/components/retail/ShiftTabs"
+import type { Profile } from "@/types/database"
 
 export interface Person { id: string; name: string; role: string; branch: string; isMe: boolean }
 export interface Assignment {
@@ -64,11 +66,13 @@ function shiftStyle(a: Assignment | undefined, templates: Template[]) {
 }
 
 export default function ShiftsClient({
-  isManager, tab, view, anchor, from, to, monthFrom,
+  isManager, profile, tab, view, anchor, from, to, monthFrom,
   branches, branchId, people, templates, assignments, holidays, conflicts,
   draftCount, coverage,
 }: {
   isManager: boolean
+  /** For the section tabs only — every gate on this screen uses `isManager`. */
+  profile: Profile | null
   tab: "roster" | "coverage"
   view: "week" | "month"
   anchor: string; from: string; to: string
@@ -122,9 +126,11 @@ export default function ShiftsClient({
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <ShiftTabs profile={profile} className="mb-4" />
+
       {/* ── pagebar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <h1 className="text-[22px] font-medium mr-auto">Shifts</h1>
+        <h1 className="text-[22px] font-medium mr-auto">Roster</h1>
 
         {isManager && (
           <div className="flex items-center gap-1 rounded-full border border-sand bg-white p-0.5">

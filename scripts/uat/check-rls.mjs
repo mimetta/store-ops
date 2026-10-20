@@ -136,7 +136,10 @@ async function makeUser(role, branchName, suffix) {
      returning id`, [email, PASSWORD])
   await db.query(
     `insert into profiles (id, email, full_name, portal_role, branch_id)
-     values ($1,$2,$3,$4,$5)`, [u.id, email, `Probe ${role}`, role, branchId])
+     values ($1,$2,$3,$4,$5)
+     on conflict (id) do update
+       set email = excluded.email, full_name = excluded.full_name,
+           portal_role = excluded.portal_role, branch_id = excluded.branch_id`, [u.id, email, `Probe ${role}`, role, branchId])
   const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   const { error } = await sb.auth.signInWithPassword({ email, password: PASSWORD })
   if (error) throw new Error(`${email}: ${error.message}`)
@@ -444,6 +447,163 @@ section("every table with a branch_id, swept")
     console.log(`\n  NOT TESTED — no Talat Noi rows exist to leak (${untested.length}):`)
     console.log("    " + untested.join(", "))
     console.log("    Seed data at two branches to bring these under test.")
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// STORAGE — a SECOND permission system, and the one nothing else here reaches
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Everything above goes through PostgREST (`sb.from(table)`). The `storage`
+// schema is NOT exposed to PostgREST, so none of it can address a bucket —
+// and `postgres` holds BYPASSRLS, so a migration's verify block cannot prove
+// a storage policy either. 078's verify block says so in as many words and
+// asserts only that the policies EXIST.
+//
+// This is where they are proved. Same real signed-in users, same assertions,
+// `sb.storage.from(bucket)` instead of `.from(table)`.
+//
+// The policies under test (078):
+//   read    your branch + receiving | delivery.schedule | stock.reports
+//   insert  your branch + receiving
+//   delete  your branch + delivery.schedule
+//   update  NONE — evidence is not edited in place, deliberately
+section("delivery photos: a private bucket, branch-scoped")
+{
+  const BUCKET = "delivery-photos"
+  const bytes = new Uint8Array([
+    // A 1x1 JPEG. The bucket restricts mime types, so the probe must upload
+    // something that really is an image rather than a text file named .jpg.
+    0xff,0xd8,0xff,0xe0,0x00,0x10,0x4a,0x46,0x49,0x46,0x00,0x01,0x01,0x00,
+    0x00,0x01,0x00,0x01,0x00,0x00,0xff,0xdb,0x00,0x43,0x00,0x03,0x02,0x02,
+    0x02,0x02,0x02,0x03,0x02,0x02,0x02,0x03,0x03,0x03,0x03,0x04,0x06,0x04,
+    0x04,0x04,0x04,0x04,0x08,0x06,0x06,0x05,0x06,0x09,0x08,0x0a,0x0a,0x09,
+    0x08,0x09,0x09,0x0a,0x0c,0x0f,0x0c,0x0a,0x0b,0x0e,0x0b,0x09,0x09,0x0d,
+    0x11,0x0d,0x0e,0x0f,0x10,0x10,0x11,0x10,0x0a,0x0c,0x12,0x13,0x12,0x10,
+    0x13,0x0f,0x10,0x10,0x10,0xff,0xc9,0x00,0x0b,0x08,0x00,0x01,0x00,0x01,
+    0x01,0x01,0x11,0x00,0xff,0xcc,0x00,0x06,0x00,0x10,0x10,0x05,0xff,0xda,
+    0x00,0x08,0x01,0x01,0x00,0x00,0x3f,0x00,0xd2,0xcf,0x20,0xff,0xd9,
+  ])
+
+  const ka    = by("ka", "Song Wat")
+  const kaT   = by("ka", "Talat Noi")
+  const mgr   = by("manager", null) ?? by("admin", null)
+  const mkt   = by("marketing", null)
+
+  // A real line at Song Wat, so the path is one a screen would actually use.
+  const { rows: [line] } = await db.query(
+    `select dl.id from delivery_lines dl
+       join deliveries d on d.id = dl.delivery_id
+      where d.branch_id = $1 order by dl.created_at limit 1`, [SONG.id])
+
+  if (!line) {
+    console.log("  NOT TESTED — no Song Wat delivery line exists to attach to.")
+    console.log("    Seed a delivery at Song Wat to bring storage under test.")
+  } else {
+    const mine  = `${SONG.id}/${line.id}/rls-probe-own.jpg`
+    const other = `${TALAT.id}/${line.id}/rls-probe-other.jpg`
+    const paths = []
+
+    // ── a KA at the branch can upload into their OWN branch's folder ──
+    const up = await ka.sb.storage.from(BUCKET).upload(mine, bytes, {
+      contentType: "image/jpeg", upsert: false,
+    })
+    ok("KA (Song Wat) uploads into their own branch's folder",
+       !up.error, up.error?.message ?? mine)
+    if (!up.error) paths.push(mine)
+
+    // ── …and CANNOT write into another branch's folder ──
+    // The uploader controls the path, so the branch in it is a claim. This
+    // is the assertion that the claim is checked rather than trusted.
+    const cross = await ka.sb.storage.from(BUCKET).upload(other, bytes, {
+      contentType: "image/jpeg", upsert: false,
+    })
+    ok("KA (Song Wat) CANNOT write into Talat Noi's folder",
+       !!cross.error, cross.error?.message ?? "NO ERROR — it was accepted")
+    if (!cross.error) paths.push(other)
+
+    // ── a KA at the other branch cannot read it ──
+    // Assert the OUTCOME — no bytes — not which mechanism refused.
+    const theirs = await kaT.sb.storage.from(BUCKET).download(mine)
+    ok("KA (Talat Noi) cannot download a Song Wat photo",
+       !!theirs.error || !theirs.data,
+       theirs.error?.message ?? "GOT BYTES")
+
+    // ── …and cannot even see it in a listing ──
+    const listed = await kaT.sb.storage.from(BUCKET).list(`${SONG.id}/${line.id}`)
+    ok("KA (Talat Noi) sees nothing in a Song Wat folder",
+       (listed.data ?? []).length === 0, `${(listed.data ?? []).length} object(s)`)
+
+    // ── the owner can read their own ──
+    const own = await ka.sb.storage.from(BUCKET).download(mine)
+    ok("KA (Song Wat) can download their own photo",
+       !own.error && !!own.data, own.error?.message ?? "got bytes")
+
+    // ── marketing holds none of the three read capabilities ──
+    if (mkt) {
+      const nope = await mkt.sb.storage.from(BUCKET).download(mine)
+      ok("marketing cannot download a delivery photo",
+         !!nope.error || !nope.data, nope.error?.message ?? "GOT BYTES")
+    }
+
+    // ── the bucket is PRIVATE: a public URL must not serve the file ──
+    // The policies could be perfect and this still leak, because a public
+    // bucket bypasses them entirely. Fetched with no credentials at all.
+    const pub = ka.sb.storage.from(BUCKET).getPublicUrl(mine).data.publicUrl
+    let status = 0
+    try { status = (await fetch(pub)).status } catch { status = -1 }
+    ok("the public URL does NOT serve the file (bucket is private)",
+       status !== 200, `HTTP ${status}`)
+
+    // ── a signed URL DOES, which is how the screen shows it ──
+    const signed = await ka.sb.storage.from(BUCKET).createSignedUrl(mine, 60)
+    let signedStatus = 0
+    if (signed.data?.signedUrl) {
+      try { signedStatus = (await fetch(signed.data.signedUrl)).status } catch {}
+    }
+    ok("a signed URL does serve it, so the screen can show it",
+       signedStatus === 200, `HTTP ${signedStatus}`)
+
+    // ── a KA cannot DELETE: evidence is not removable by whoever took it ──
+    const del = await ka.sb.storage.from(BUCKET).remove([mine])
+    const stillThere = await ka.sb.storage.from(BUCKET).download(mine)
+    ok("KA cannot delete a photo (needs delivery.schedule)",
+       !stillThere.error && !!stillThere.data,
+       del.error ? "refused with an error" : "refused silently")
+
+    // ── the delivery_photos ROW is branch-scoped the same way ──
+    const attach = await ka.sb.from("delivery_photos").insert({
+      delivery_line_id: line.id, branch_id: SONG.id, storage_path: mine,
+    })
+    ok("KA can attach the row that binds the file to the line",
+       !attach.error, attach.error?.message ?? "attached")
+
+    const crossAttach = await kaT.sb.from("delivery_photos").insert({
+      delivery_line_id: line.id, branch_id: TALAT.id,
+      storage_path: `${TALAT.id}/${line.id}/forged.jpg`,
+    })
+    ok("a KA elsewhere cannot attach a row to this branch's line",
+       !!crossAttach.error,
+       crossAttach.error?.message?.slice(0, 44) ?? "NO ERROR — it was accepted")
+
+    const seenRow = await count(kaT.sb, "delivery_photos")
+    ok("KA (Talat Noi) sees no delivery_photos rows at all",
+       seenRow === 0, `${seenRow} row(s)`)
+
+    // ── tidy up: the rows, then the files, as a manager ──
+    await db.query(`delete from delivery_photos where storage_path like '%rls-probe-%'`)
+    if (mgr && paths.length) {
+      const rm = await mgr.sb.storage.from(BUCKET).remove(paths)
+      ok("a manager CAN delete them, which is how cleanup happens",
+         !rm.error, rm.error?.message ?? `removed ${paths.length}`)
+    }
+    // Belt and braces: anything the manager could not remove is listed, so a
+    // leftover file is visible rather than silently accumulating.
+    const left = await db.query(
+      `select name from storage.objects where bucket_id = $1 and name like '%rls-probe-%'`,
+      [BUCKET])
+    ok("no probe file is left in the bucket", left.rows.length === 0,
+       left.rows.map((r) => r.name).join(", ") || "clean")
   }
 }
 

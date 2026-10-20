@@ -37,13 +37,13 @@ export default async function DeliveryPage({ params }: { params: { id: string } 
 
   const { data: d } = await supabase
     .from("deliveries")
-    .select("id, reference, delivery_date, slot, status, notes, received_at, branches(name)")
+    .select("id, branch_id, reference, delivery_date, slot, status, notes, received_at, branches(name)")
     .eq("id", params.id)
     .maybeSingle()
   if (!d) notFound()
 
   const delivery = d as unknown as {
-    id: string; reference: string; delivery_date: string; slot: string
+    id: string; branch_id: string; reference: string; delivery_date: string; slot: string
     status: string; notes: string | null; received_at: string | null
     branches: { name: string } | null
   }
@@ -52,6 +52,26 @@ export default async function DeliveryPage({ params }: { params: { id: string } 
     .from("delivery_lines")
     .select("id, expected_qty, received_qty, reason_code, note, products!inner(sku, name, unit)")
     .eq("delivery_id", params.id)
+
+  // Photos already attached to this delivery's lines. One query for the
+  // whole delivery, grouped below — not one per line, which on a 30-line
+  // pallet at the door is 30 round trips on shop wifi.
+  const { data: photoRows } = await supabase
+    .from("delivery_photos")
+    .select("id, delivery_line_id, storage_path, file_deleted_at")
+    .in("delivery_line_id", ((lineRows ?? []) as { id: string }[]).map((l) => l.id))
+    .order("uploaded_at")
+
+  const photosByLine: Record<string, {
+    id: string; storagePath: string; fileDeletedAt: string | null
+  }[]> = {}
+  for (const p of (photoRows ?? []) as {
+    id: string; delivery_line_id: string; storage_path: string; file_deleted_at: string | null
+  }[]) {
+    ;(photosByLine[p.delivery_line_id] ??= []).push({
+      id: p.id, storagePath: p.storage_path, fileDeletedAt: p.file_deleted_at,
+    })
+  }
 
   const { data: reasonRows } = await supabase
     .from("delivery_difference_reasons")
@@ -83,6 +103,8 @@ export default async function DeliveryPage({ params }: { params: { id: string } 
       deliveryId={delivery.id}
       reference={delivery.reference}
       branchName={delivery.branches?.name ?? "—"}
+      branchId={delivery.branch_id}
+      photosByLine={photosByLine}
       deliveryDate={delivery.delivery_date}
       slot={delivery.slot}
       status={delivery.status}

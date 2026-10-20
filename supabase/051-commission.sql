@@ -259,6 +259,16 @@ comment on function public.commission_inputs is
   'goal set is a different thing from a goal of nothing.';
 
 -- ── attendance, by person and branch ──────────────────────────────────────
+-- 075 also writes this function — it stops an unset employment type earning
+-- a full share. Refuse to revert it.
+do $g$
+begin
+  if to_regprocedure('public.check_function_version(text,text)') is not null then
+    perform public.check_function_version('commission_attendance', '051');
+  end if;
+end
+$g$;
+
 create or replace function public.commission_attendance(p_month date)
 returns table (
   staff_id    uuid,
@@ -271,6 +281,7 @@ stable
 security definer
 set search_path = public, pg_temp
 as $$
+  -- fn-version: 051
   select w.staff_id,
          w.branch_id,
          count(*)::bigint as days,

@@ -76,6 +76,7 @@ export const CAPABILITIES = [
   "payout.view",
   "commission.settings",
   "delivery.schedule",
+  "calendar.view",
   "calendar.manage",
   "acccloud.sync",
   // Managing people: roles, branch, employment type, work days. Distinct
@@ -99,7 +100,10 @@ export type Capability = (typeof CAPABILITIES)[number]
  */
 const CAPABILITY_ROLES: Record<Capability, readonly Role[]> = {
   "sales.import":             ["admin", "manager", "supervisor"],
-  "sales.manual":             ["admin", "manager", "supervisor"],
+  // 079 (backlog D3): a KA keys their own branch's day. Every path this
+  // opens is branch-scoped by can_access_branch, so it widens what they may
+  // do and never where.
+  "sales.manual":             ["admin", "manager", "supervisor", "ka"],
   "bills":                    ["admin", "manager", "supervisor"],
   "pos.money":                ["admin", "manager", "supervisor", "ka"],
   "traffic":                  ["admin", "manager", "supervisor"],
@@ -129,6 +133,9 @@ const CAPABILITY_ROLES: Record<Capability, readonly Role[]> = {
   "commission.settings":      ["admin", "manager"],
 
   "delivery.schedule":        ["admin", "manager", "logistics"],
+  // Everyone. A KA needs to see the public holidays that decide whether
+  // their overtime pays double; a supervisor needs the shop's events. 079.
+  "calendar.view":            ["admin", "manager", "supervisor", "ka", "logistics", "people", "marketing"],
   "calendar.manage":          ["admin", "manager", "people", "marketing"],
 
   "acccloud.sync":            ["admin"],

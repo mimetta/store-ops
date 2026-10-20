@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { confirmReceipt } from "../actions"
+import LinePhotos from "./LinePhotos"
 import { confirmTransfer } from "../../transfers/actions"
 
 export interface ReceiveLine {
@@ -42,8 +43,8 @@ function fmtDay(iso: string) {
  * near-copy that drifts.
  */
 export default function ReceiveLines({
-  deliveryId, reference, branchName, deliveryDate, slot, status, receivedAt, lines, reasons,
-  kind = "delivery", fromName,
+  deliveryId, reference, branchName, branchId, deliveryDate, slot, status, receivedAt,
+  lines, reasons, photosByLine = {}, kind = "delivery", fromName,
 }: {
   kind?: "delivery" | "transfer"
   /** For a transfer: which shop sent it. */
@@ -51,6 +52,12 @@ export default function ReceiveLines({
   deliveryId: string
   reference: string
   branchName: string
+  /** Needed for the storage path — 078 reads the branch out of it. Absent
+   *  for a transfer, where photos are not offered. */
+  branchId?: string
+  photosByLine?: Record<string, {
+    id: string; storagePath: string; fileDeletedAt: string | null
+  }[]>
   deliveryDate: string
   slot: string
   status: string
@@ -107,6 +114,17 @@ export default function ReceiveLines({
   const [saving, startSaving] = useTransition()
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
+  // How many photos have not attached, per line. ADVISORY ONLY: it words the
+  // confirmation and nothing else. It must never reach `canConfirm` — a
+  // blocked submit at the door with a driver waiting is exactly what makes
+  // people work around the system.
+  const [photoTrouble, setPhotoTrouble] = useState<Record<string, number>>({})
+  const failedPhotos = Object.values(photoTrouble).reduce((a, n) => a + n, 0)
+  const notePhotos = useCallback((lineId: string, failed: number) => {
+    setPhotoTrouble((prev) =>
+      prev[lineId] === failed ? prev : { ...prev, [lineId]: failed })
+  }, [])
+
   const state = lines.map((l) => {
     const e = entries[l.lineId] ?? { qty: "", reason: "", note: "" }
     const has = e.qty !== ""
@@ -147,12 +165,22 @@ export default function ReceiveLines({
         ("discrepanciesRaised" in r ? r.discrepanciesRaised : undefined) ??
         0
       if (r.ok) {
-        try { window.localStorage.removeItem(draftKey) } catch {}
+        // The draft is cleared only when nothing is outstanding. A photo
+        // still unattached means the KA has a reason to stay on this screen,
+        // and wiping their entry underneath them would be the exact failure
+        // this design exists to avoid.
+        if (failedPhotos === 0) {
+          try { window.localStorage.removeItem(draftKey) } catch {}
+        }
         setMessage({
           ok: true,
           text:
             `Received — ${r.unitsAdded} units added to stock` +
-            (raised ? `, ${raised} difference${raised > 1 ? "s" : ""} raised.` : "."),
+            (raised ? `, ${raised} difference${raised > 1 ? "s" : ""} raised.` : ".") +
+            (failedPhotos
+              ? ` ${failedPhotos} photo${failedPhotos > 1 ? "s" : ""} did not attach —` +
+                ` still on this screen, tap to retry.`
+              : ""),
         })
         router.refresh()
       } else {
@@ -291,6 +319,19 @@ export default function ReceiveLines({
                   aria-label={`Note for logistics about ${l.name}`}
                   className="input-field bg-white"
                 />
+                {/* Evidence sits with the reason and the note, because it is
+                    the same sentence: what was wrong with THIS line. Offered
+                    only for deliveries — a transfer's photos would need a
+                    second bucket and nobody has asked for one. */}
+                {!isTransfer && branchId && (
+                  <LinePhotos
+                    lineId={l.lineId}
+                    branchId={branchId}
+                    existing={photosByLine[l.lineId] ?? []}
+                    readOnly={done}
+                    onPendingChange={notePhotos}
+                  />
+                )}
               </div>
             )}
 

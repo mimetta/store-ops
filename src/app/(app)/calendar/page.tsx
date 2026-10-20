@@ -49,7 +49,7 @@ const EMPTY_EVENT: EventForm = {
 }
 
 export default function CalendarPage() {
-  const { profile } = useProfile()
+  const { profile, loading: profileLoading } = useProfile()
   const [branches, setBranches] = useState<RetailBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState("")
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -64,6 +64,10 @@ export default function CalendarPage() {
   const [submitError, setSubmitError] = useState("")
 
   const supabase = createClient()
+  // Split the way leave is: everyone sees the calendar, a few change it.
+  // `calendar.manage` used to gate the PAGE, so a KA could not see the
+  // public holidays that decide whether their own overtime pays double. 079.
+  const canViewCalendar = can(profile, "calendar.view")
   const canManageCalendar = can(profile, "calendar.manage")
 
   const year = now.getFullYear()
@@ -175,6 +179,19 @@ export default function CalendarPage() {
 
   const monthLabel = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
 
+  // Three answers, not two: yes, no, and not yet. Until the profile lands
+  // `can()` says false, so every capability-gated control on this page was
+  // rendering hidden or disabled and then changing its mind. See CLAUDE.md.
+  if (profileLoading) return (
+    <div className="flex items-center justify-center h-64 text-muted">Loading…</div>
+  )
+
+  if (!canViewCalendar) return (
+    <div className="flex items-center justify-center h-64 text-muted flex-col gap-2">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <p className="text-sm">You do not have access to the calendar.</p>
+    </div>
+  )
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">

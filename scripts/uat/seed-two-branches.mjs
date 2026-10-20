@@ -140,7 +140,14 @@ for (const s of STAFF) {
   await db.query(
     `insert into profiles (id, email, full_name, nickname, portal_role, branch_id,
        employment_type)
-     values ($1,$2,$3,$4,$5,$6,'full_time')`,
+     values ($1,$2,$3,$4,$5,$6,'full_time')
+     -- 071 put a trigger on auth.users that creates the profile, so this
+     -- is an upsert, not an insert. A bare insert now hits profiles_pkey.
+     on conflict (id) do update
+       set email = excluded.email, full_name = excluded.full_name,
+           nickname = excluded.nickname, portal_role = excluded.portal_role,
+           branch_id = excluded.branch_id,
+           employment_type = excluded.employment_type`,
     [u.id, s.email, s.name, s.name.split(" ")[1],
      s.role, s.branch === "Song Wat" ? SONG.id : TALAT.id])
   ;(made[s.branch] ??= []).push({ ...s, id: u.id })

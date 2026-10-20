@@ -63,13 +63,18 @@ const ROLE_TONE: Record<string, Tone> = {
 }
 
 export function roleLabel(role: PortalRole | string | null | undefined): string {
-  if (!role) return "—"
+  // NULL is not "unknown" — it is a person who has been invited and not yet
+  // given a role (071). Different from `staff`, which means somebody was once
+  // something and nobody reassigned them.
+  if (role === null || role === undefined) return "No role yet"
   return ROLE_LABEL[role] ?? role
 }
 
 /** Class list for a role badge: `<span className={roleBadgeClass(role)}>`. */
 export function roleBadgeClass(role: PortalRole | string | null | undefined): string {
-  return `badge badge-${ROLE_TONE[role ?? ""] ?? "neutral"}`
+  // An invited person with no role is a to-do, so it reads as one.
+  if (role === null || role === undefined) return "badge badge-warn"
+  return `badge badge-${ROLE_TONE[role] ?? "neutral"}`
 }
 
 export const EMPLOYMENT_TYPES = [

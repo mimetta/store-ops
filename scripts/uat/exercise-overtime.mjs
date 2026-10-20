@@ -59,7 +59,12 @@ const mkUser = async (role) => {
        '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb,
        '','','','','','','','') returning id`, [email, PASSWORD])
   await db.query(
-    `insert into profiles (id, email, full_name, portal_role) values ($1,$2,$3,$4)`,
+    `insert into profiles (id, email, full_name, portal_role) values ($1,$2,$3,$4)
+     -- 071 put a trigger on auth.users that creates the profile, so this
+     -- is an upsert, not an insert. A bare insert now hits profiles_pkey.
+     on conflict (id) do update
+       set email = excluded.email, full_name = excluded.full_name,
+           portal_role = excluded.portal_role`,
     [u.id, email, `OT probe ${role}`, role])
   const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   const { error } = await sb.auth.signInWithPassword({ email, password: PASSWORD })
@@ -162,6 +167,44 @@ ok("a KA sees no overtime at all", (kaOt ?? []).length === 0,
 const { data: kaPay } = await ka.sb.from("pay_rates").select("id")
 ok("a KA sees no pay rates at all", (kaPay ?? []).length === 0,
    `${(kaPay ?? []).length} row(s)`)
+
+// ── an unknown cost is NULL, never ฿0.00 (076) ─────────────────────────────
+//
+// The view used to compute `coalesce(hourly_cost, 0) * multiplier * hours`,
+// so overtime whose rate nobody knows reported as costing nothing. Two ways
+// in: the person has no pay_rates row, or the VIEWER may read overtime but
+// not pay. The second is the one 047's own comment said must not happen.
+//
+// Driven as a signed-in user, because the second case only exists under RLS —
+// on the owner connection pay_rates is always readable and the bug is
+// invisible.
+const { rows: [noRate] } = await db.query(
+  `select p.id from profiles p
+    where p.portal_role in ('ka','supervisor')
+      and not exists (select 1 from pay_rates r where r.staff_id = p.id)
+    order by p.created_at limit 1`)
+if (noRate) {
+  const { rows: [b] } = await db.query(
+    `select coalesce((select branch_id from profiles where id = $1),
+                     (select id from branches where active
+                       and store_type <> 'office' order by name limit 1)) as id`,
+    [noRate.id])
+  const { rows: [tmp] } = await db.query(
+    `insert into overtime_records
+       (staff_id, branch_id, work_date, actual_start, actual_end,
+        hours, multiplier, reason, status)
+     values ($1, $2, $3::date - 3, '18:00', '21:00', 3, 1.5, 'ot probe no-rate', 'pending')
+     returning id`, [noRate.id, b.id, d])
+
+  const { data: seen } = await admin.sb.from("overtime_with_cost")
+    .select("hourly_cost, overtime_pay").eq("id", tmp.id).single()
+  ok("overtime with no known rate reports NO cost",
+     seen?.hourly_cost === null, `hourly_cost = ${seen?.hourly_cost}`)
+  ok("…and NO pay figure, rather than ฿0.00",
+     seen?.overtime_pay === null, `overtime_pay = ${seen?.overtime_pay}`)
+
+  await db.query(`delete from overtime_records where id = $1`, [tmp.id])
+}
 
 // ── approval, by someone else ──────────────────────────────────────────────
 const { error: decErr } = await admin.sb.rpc("decide_overtime",

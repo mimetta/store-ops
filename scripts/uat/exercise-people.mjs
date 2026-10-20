@@ -45,7 +45,10 @@ async function makeUser(role) {
        '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, '','','','','','','','')
      returning id`, [email, PASSWORD])
   await db.query(
-    `insert into profiles (id, email, full_name, portal_role) values ($1,$2,$3,$4)`,
+    `insert into profiles (id, email, full_name, portal_role) values ($1,$2,$3,$4)
+     on conflict (id) do update
+       set email = excluded.email, full_name = excluded.full_name,
+           portal_role = excluded.portal_role, branch_id = excluded.branch_id`,
     [u.id, email, `Probe ${role}`, role])
   const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   const { error } = await sb.auth.signInWithPassword({ email, password: PASSWORD })

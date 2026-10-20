@@ -5,6 +5,8 @@ import Link from "next/link"
 import { recordFeedback } from "./actions"
 
 export interface Vocab { code: string; label: string }
+/** A feedback category also says what belongs in it, and who reads it (073). */
+export interface CategoryVocab extends Vocab { hint: string | null; owner_name: string | null }
 export interface Touchpoint extends Vocab { kind: "offline" | "online"; branch_id: string | null }
 export interface StaffOption { id: string; name: string }
 
@@ -26,7 +28,7 @@ export interface FeedbackRow {
 }
 
 interface VocabSet {
-  sentiments: Vocab[]; outcomes: Vocab[]; barriers: Vocab[]; categories: Vocab[]
+  sentiments: Vocab[]; outcomes: Vocab[]; barriers: Vocab[]; categories: CategoryVocab[]
   reasons: Vocab[]; products: Vocab[]; customerTypes: Vocab[]; nationalities: Vocab[]
 }
 
@@ -235,17 +237,26 @@ function RecordTab({
             </div>
 
             <Field label="What the feedback is about">
-              <div className="flex flex-wrap gap-2">
+              {/* The hint is the point: without it "Product & Value" is a
+                  guess, and two KAs file the same remark in different boxes —
+                  which is exactly what makes the category chart worthless. */}
+              <div className="flex flex-col gap-1.5">
                 {vocab.categories.map((c) => {
                   const on = categories.includes(c.code)
                   return (
                     <button key={c.code} type="button"
                             onClick={() => setCategories((p) =>
                               on ? p.filter((x) => x !== c.code) : [...p, c.code])}
-                            className={`px-2.5 py-1.5 rounded-card text-sm border transition-colors ${
-                              on ? "bg-info-50 border-info-60 text-info-70"
-                                 : "border-sand text-muted hover:bg-panel"}`}>
-                      {c.label}
+                            className={`text-left px-2.5 py-2 rounded-card border transition-colors ${
+                              on ? "bg-info-50 border-info-60"
+                                 : "border-sand hover:bg-panel"}`}>
+                      <span className={`block text-sm ${on ? "text-info-70" : "text-ink"}`}>
+                        {c.label}
+                        {c.owner_name
+                          ? <span className="text-xs text-subtle"> · {c.owner_name}</span>
+                          : <span className="text-xs text-subtle"> · no owner yet</span>}
+                      </span>
+                      {c.hint && <span className="block text-xs text-muted mt-0.5">{c.hint}</span>}
                     </button>
                   )
                 })}
@@ -296,6 +307,10 @@ function RecentList({
   entries: FeedbackRow[]; touchpoints: Touchpoint[]; vocab: VocabSet
   staff: StaffOption[]; canManage: boolean
 }) {
+  // One open at a time. The statement is always visible in the row — it is
+  // the thing nobody can reconstruct — and expanding shows the nine fields
+  // that exist to find it again.
+  const [openId, setOpenId] = useState<string | null>(null)
   const tone = (s: string) =>
     s === "positive" ? "badge badge-good" : s === "negative" ? "badge badge-danger" : "badge badge-warn"
 
@@ -314,24 +329,53 @@ function RecentList({
         </div>
       ) : (
         <div className="max-h-[32rem] overflow-auto">
-          {entries.slice(0, 50).map((e) => (
-            <div key={e.id} className="row flex-col items-start gap-1">
-              <div className="flex items-center gap-2 w-full">
-                <span className={tone(e.sentiment_code)}>
-                  {label(vocab.sentiments, e.sentiment_code)}
-                </span>
-                <span className="text-xs text-muted">{label(touchpoints, e.touchpoint_code)}</span>
-                <span className="text-xs text-subtle ml-auto num-c">{e.happened_on}</span>
+          {entries.slice(0, 50).map((e) => {
+            const open = openId === e.id
+            return (
+              <div key={e.id} className="row flex-col items-start gap-1">
+                <button onClick={() => setOpenId(open ? null : e.id)}
+                        className="w-full text-left flex flex-col gap-1">
+                  <span className="flex items-center gap-2 w-full">
+                    <span className={tone(e.sentiment_code)}>
+                      {label(vocab.sentiments, e.sentiment_code)}
+                    </span>
+                    <span className="text-xs text-muted">{label(touchpoints, e.touchpoint_code)}</span>
+                    <span className="text-xs text-subtle ml-auto num-c">{e.happened_on}</span>
+                    <span className="text-xs text-subtle">{open ? "−" : "+"}</span>
+                  </span>
+                  {/* Never truncated, open or closed. */}
+                  <span className="block text-sm text-ink">{e.statement}</span>
+                </button>
+
+                {open ? (
+                  <dl className="w-full grid grid-cols-2 gap-x-3 gap-y-1 mt-1">
+                    <Detail k="Staff" v={staff.find((s) => s.id === e.staff_id)?.name ?? "—"} />
+                    <Detail k="Where" v={label(touchpoints, e.touchpoint_code)} />
+                    <Detail k="Customer" v={label(vocab.customerTypes, e.customer_type_code)} />
+                    <Detail k="Where from" v={label(vocab.nationalities, e.nationality)} />
+                    <Detail k="Product" v={label(vocab.products, e.product_category_code)} />
+                    <Detail k="Why they came" v={label(vocab.reasons, e.reason_code)} />
+                    <Detail k="Outcome" v={label(vocab.outcomes, e.outcome_code)} />
+                    <Detail k="Why not" v={label(vocab.barriers, e.barrier_code)} />
+                    <div className="col-span-2">
+                      <dt className="text-[11px] text-subtle">About</dt>
+                      <dd className="text-xs text-ink m-0 flex flex-wrap gap-1 mt-0.5">
+                        {e.categoryCodes.length === 0 ? "—" : e.categoryCodes.map((c) => (
+                          <span key={c} className="badge badge-info">{label(vocab.categories, c)}</span>
+                        ))}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="text-xs text-subtle">
+                    {staff.find((s) => s.id === e.staff_id)?.name ?? "—"}
+                    {e.product_category_code && <> · {label(vocab.products, e.product_category_code)}</>}
+                    {e.outcome_code && <> · {label(vocab.outcomes, e.outcome_code)}</>}
+                  </p>
+                )}
               </div>
-              <p className="text-sm text-ink">{e.statement}</p>
-              <p className="text-xs text-subtle">
-                {staff.find((s) => s.id === e.staff_id)?.name ?? "—"}
-                {e.product_category_code && <> · {label(vocab.products, e.product_category_code)}</>}
-                {e.outcome_code && <> · {label(vocab.outcomes, e.outcome_code)}</>}
-                {e.barrier_code && <> · {label(vocab.barriers, e.barrier_code)}</>}
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -442,6 +486,15 @@ function Bars({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function Detail({ k, v }: { k: string; v: string }) {
+  return (
+    <div>
+      <dt className="text-[11px] text-subtle">{k}</dt>
+      <dd className="text-xs text-ink m-0">{v}</dd>
     </div>
   )
 }

@@ -202,6 +202,79 @@ with artefact(seq, migration, kind, what, present) as (values
     exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
              where n.nspname = 'public' and p.proname = 'commission_inputs'
                and pg_get_function_result(p.oid) like '%revenue_source%')),
+  -- Read out of the installed view definition. There is no new object to
+  -- look for — 076 changes what an existing view SAYS, not its shape — so
+  -- the absence of COALESCE is the artefact.
+  ('080a','080', 'schema', 'delivery_lines refuses entry before a delivery ships',
+    exists (select 1 from pg_trigger
+             where tgrelid = 'public.delivery_lines'::regclass
+               and tgname = 'delivery_line_needs_a_shipped_delivery'
+               and not tgisinternal)),
+  ('080b','080', 'schema', 'receive_delivery is at version 080',
+    coalesce(pg_get_functiondef(to_regprocedure('public.receive_delivery(uuid)'))
+             like '%fn-version: 080%', false)),
+  -- Grants live in role_capabilities, which is DATA — but it is data with a
+  -- reliable catalogue-shaped check, so it is 'schema' rather than a NULL.
+  ('079a','079', 'schema', 'ka holds sales.manual (backlog D3)',
+    exists (select 1 from role_capabilities
+             where role = 'ka' and capability = 'sales.manual')),
+  ('079b','079', 'schema', 'all seven roles hold calendar.view',
+    (select count(*) from role_capabilities where capability = 'calendar.view') = 7),
+  ('078a','078', 'schema', 'the private delivery-photos bucket',
+    exists (select 1 from storage.buckets
+             where id = 'delivery-photos' and public is false)),
+  -- Storage policies live in pg_policies under schema 'storage', NOT under
+  -- 'public' like every other policy in this project.
+  ('078b','078', 'schema', '3 storage policies, scoped to that bucket',
+    (select count(*) from pg_policies
+      where schemaname = 'storage' and tablename = 'objects'
+        and policyname like 'delivery photos%') = 3),
+  ('078c','078', 'schema', 'delivery_photos table + RLS',
+    to_regclass('public.delivery_photos') is not null
+    and coalesce((select relrowsecurity from pg_class
+                   where oid = to_regclass('public.delivery_photos')), false)),
+  ('077', '077', 'schema', 'branch_payment_mix view (what the till took, by method)',
+    to_regclass('public.branch_payment_mix') is not null),
+  ('076', '076', 'schema', 'overtime_with_cost reports an unknown cost as null',
+    coalesce(pg_get_viewdef('public.overtime_with_cost'::regclass)
+             not like '%COALESCE%', false)),
+  ('075a','075', 'schema', 'adding to a pool needs an employment type',
+    exists (select 1 from pg_trigger
+             where tgrelid = 'public.commission_branches'::regclass
+               and tgname = 'commission_branch_needs_employment_type'
+               and not tgisinternal)),
+  -- Read out of the installed body, the same way 066's guard does, because
+  -- the shape of commission_attendance does not change — only what it means.
+  ('075b','075', 'schema', 'commission_attendance is at version 075',
+    coalesce(pg_get_functiondef(
+      to_regprocedure('public.commission_attendance(date)')) like '%fn-version: 075%', false)),
+  -- Names read out of the catalogue: pg_constraint for the CHECK, pg_class
+  -- for the index. Both are what 074 actually created, not what it meant to.
+  ('074a','074', 'schema', 'the one-day CHECK on leave_requests',
+    exists (select 1 from pg_constraint
+             where conrelid = 'public.leave_requests'::regclass
+               and conname  = 'leave_requests_is_one_day')),
+  ('074b','074', 'schema', 'one live leave request per person per day',
+    to_regclass('public.leave_requests_one_live_per_day') is not null),
+  -- Column names read out of information_schema, not typed from the brief.
+  ('073a','073', 'schema', 'feedback_categories.hint and .owner_name',
+    (select count(*) from information_schema.columns
+      where table_schema='public' and table_name='feedback_categories'
+        and column_name in ('hint','owner_name')) = 2),
+  -- The columns above are the migration's shape; the values are its point, and
+  -- three owners are deliberately NULL pending confirmation of the names. So
+  -- "every category has an owner" is NOT the check — it would read as a
+  -- failure for as long as that question is open.
+  ('073b','073', 'data',   'at least one category names an owner',
+    exists (select 1 from feedback_categories where owner_name is not null)),
+  ('072', '072', 'schema', 'the invited state wins a race with another trigger',
+    exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'profile_for_new_account'
+               and pg_get_functiondef(p.oid) like '%do update%')),
+  ('071', '071', 'schema', 'the auth.users -> profiles trigger',
+    exists (select 1 from pg_trigger
+             where tgrelid = 'auth.users'::regclass
+               and tgname = 'profile_for_new_account' and not tgisinternal)),
   ('070a','070', 'schema', 'schedule_delivery(uuid,date,text,jsonb,text,text)',
     to_regprocedure('public.schedule_delivery(uuid,date,text,jsonb,text,text)') is not null),
   ('070b','070', 'schema', 'set_delivery_status + next_delivery_reference',

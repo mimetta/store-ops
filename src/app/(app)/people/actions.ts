@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { can } from "@/lib/permissions"
+import type { Profile } from "@/types/database"
 
 export interface PeopleResult { ok: boolean; error?: string }
 
@@ -115,6 +118,83 @@ export async function reactivatePerson(personId: string): Promise<PeopleResult> 
   const { error } = await supabase
     .from("profiles").update({ portal_role: person.role_before_inactive }).eq("id", personId)
   if (error) return { ok: false, error: error.message }
+
+  revalidatePath("/people")
+  return { ok: true }
+}
+
+/**
+ * Invite somebody. This is the only thing in store-ops that creates an
+ * account, and it finishes the kcp-portal retirement — that invite route was
+ * the last reason to keep its /admin screen alive.
+ *
+ * ── NO ROLE, NO BRANCH ────────────────────────────────────────────────────
+ *
+ * Deliberately. They arrive with nothing and get a role in this screen
+ * afterwards. An invite form that also assigns a role is two decisions in one
+ * form, and the second one gets rushed — which is how somebody ends up a
+ * manager because it was the next option in a list.
+ *
+ * 071's trigger creates the profile row, so there is no second step to miss
+ * and no window where an account exists without one.
+ *
+ * ── THE CAPABILITY IS CHECKED HERE, NOT BY RLS ────────────────────────────
+ *
+ * The admin client bypasses every policy, so RLS cannot protect this call.
+ * The check below IS the gate — which is why it reads the caller's own
+ * profile through their own session first.
+ */
+export async function invitePerson(input: {
+  email: string
+  fullName?: string
+}): Promise<PeopleResult> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: "Not signed in." }
+
+  const { data: me } = await supabase
+    .from("profiles").select("*").eq("id", user.id).single()
+  if (!can(me as Profile | null, "people.manage")) {
+    return { ok: false, error: "You do not have permission to invite people." }
+  }
+
+  const email = input.email.trim().toLowerCase()
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { ok: false, error: "That does not look like an email address." }
+  }
+
+  // 056 made profiles unique on lower(email). Catching it here gives a
+  // sentence somebody can act on instead of a constraint name — and reading
+  // through the user's own client means RLS still applies to the lookup.
+  const { data: existing } = await supabase
+    .from("profiles").select("id, full_name, portal_role").ilike("email", email).maybeSingle()
+  if (existing) {
+    return {
+      ok: false,
+      error: `${existing.full_name ?? email} already has an account`
+           + (existing.portal_role ? "." : " and is waiting for a role."),
+    }
+  }
+
+  let admin
+  try {
+    admin = createAdminClient()
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Cannot invite." }
+  }
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: input.fullName?.trim() ? { full_name: input.fullName.trim() } : undefined,
+  })
+  if (error) {
+    // The common one is email delivery, and "AuthApiError" tells nobody that.
+    return {
+      ok: false,
+      error: error.message.toLowerCase().includes("email")
+        ? `${error.message} — check that an SMTP sender is configured for this project.`
+        : error.message,
+    }
+  }
 
   revalidatePath("/people")
   return { ok: true }

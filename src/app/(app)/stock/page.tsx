@@ -94,7 +94,7 @@ export default function StockPage() {
   const params = useSearchParams()
   // 'fg' | 'consumable' — which product type this tab is showing.
   const type = params.get("type") === "consumable" ? "consumable" : "fg"
-  const { profile } = useProfile()
+  const { profile, loading: profileLoading } = useProfile()
   const canCountStock = can(profile, "stock.count")
   const showYesterday = canCountStock
 
@@ -462,6 +462,12 @@ export default function StockPage() {
   const branchName   = branches.find((b) => b.id === selectedBranch)?.name ?? ""
   const colCount     = (showYesterday ? 10 : 9) + (showBarcode ? 1 : 0)
 
+  // Three answers, not two: yes, no, and not yet. Until the profile lands
+  // `can()` says false, so every capability-gated control on this page was
+  // rendering hidden or disabled and then changing its mind. See CLAUDE.md.
+  if (profileLoading) return (
+    <div className="flex items-center justify-center h-64 text-muted">Loading…</div>
+  )
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: PRINT_CSS }} />
@@ -478,7 +484,7 @@ export default function StockPage() {
             poorer feature set on one of them. */}
         <div className="flex items-center gap-1 mr-1">
           {([
-            { key: "fg", label: "FG Stock" },
+            { key: "fg", label: "Finished goods" },
             { key: "consumable", label: "Consumables" },
           ] as const).map((t) => (
             <Link

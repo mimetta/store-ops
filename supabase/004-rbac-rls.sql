@@ -70,11 +70,26 @@ create policy "Authenticated can read role_capabilities"
 -- Deliberately no write policy: the matrix changes by migration, not at runtime.
 
 -- Rebuild the matrix from scratch so this file is the source of truth.
+--
+-- READ THIS BEFORE ADDING A GRANT IN A LATER MIGRATION. The delete below
+-- means **re-running 004 reverts every grant made after it**. A later
+-- migration must therefore do BOTH: insert the grant (so an existing
+-- database gets it) and add it to the list here (so a rebuild keeps it).
+-- 066's version markers do not help — they guard function bodies, not data.
+--
+-- `npm run check:permissions` is what enforces the pair: it compares this
+-- list against src/lib/permissions.ts and fails if they disagree, which is
+-- how the 079 grants were caught sitting in the database and not here.
 delete from role_capabilities;
 
 insert into role_capabilities (role, capability) values
   ('admin','sales.import'),      ('manager','sales.import'),      ('supervisor','sales.import'),
   ('admin','sales.manual'),      ('manager','sales.manual'),      ('supervisor','sales.manual'),
+  -- 079 (backlog D3): a KA keys their own branch's day. /daily is gated on
+  -- sales.manual|bills|traffic and a KA held none of the three, so the one
+  -- screen they touch daily was unreachable. Every path it opens is
+  -- branch-scoped by can_access_branch.
+  ('ka','sales.manual'),
   ('admin','bills'),             ('manager','bills'),             ('supervisor','bills'),
   ('admin','pos.money'),         ('manager','pos.money'),         ('supervisor','pos.money'),
   ('ka','pos.money'),
@@ -141,7 +156,14 @@ insert into role_capabilities (role, capability) values
   ('admin','people.manage'),     ('manager','people.manage'),
   ('people','people.manage'),
 
-  ('admin','settings'),          ('manager','settings');
+  ('admin','settings'),          ('manager','settings'),
+  -- 079: everyone sees the calendar; a few change it. Split the way leave
+  -- is. A KA needs the public holidays that decide whether their own
+  -- overtime pays double.
+  ('admin','calendar.view'),     ('manager','calendar.view'),
+  ('supervisor','calendar.view'),('ka','calendar.view'),
+  ('logistics','calendar.view'), ('people','calendar.view'),
+  ('marketing','calendar.view');
 
 
 -- ───────────────────────────────────────────────────────────────────────────

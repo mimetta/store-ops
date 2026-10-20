@@ -26,7 +26,18 @@
 import { readFileSync, existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
-const NAVS = ["src/components/layout/Sidebar.tsx", "src/components/layout/TabBar.tsx"]
+// ShiftTabs is a nav too: it hides Roster, Swaps and Leave from people who
+// lack the capability, and the three do NOT share a gate — `leave.request` is
+// held by every role, the two roster capabilities are not. A tab is as much a
+// hidden link as a sidebar entry, so it is held to the same rule.
+// nav-items.tsx holds the sidebar AND the phone More sheet — one source of
+// truth since 079, because the two had drifted and a KA ended up with no
+// route to End of day on a phone at all.
+const NAVS = [
+  "src/components/layout/nav-items.tsx",
+  "src/components/layout/TabBar.tsx",
+  "src/components/retail/ShiftTabs.tsx",
+]
 const APP = "src/app/(app)"
 
 const entries = []
