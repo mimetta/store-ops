@@ -120,6 +120,71 @@ node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
 node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
 ```
 
+## A rebuilt table reverts later migrations, and 066 cannot see it
+
+`004` does `delete from role_capabilities;` and re-seeds the whole matrix,
+because that file is meant to be the source of truth for it. The consequence
+nobody had written down: **re-applying 004 wipes every grant made after it.**
+Four migrations add grants — 045, 064, 067, 079 — and all four would have
+gone.
+
+It is the same shape as the problem `066` solved for FUNCTIONS: apply the
+earlier one second and the later one is gone, no error, no missing object.
+**066's version markers cannot reach it, because the thing reverted is DATA.**
+
+It was caught this time by `check-permission-drift`, which compares
+`permissions.ts` against 004 and so noticed a grant living in the database
+and not in 004. That is luck of coverage, not a rule — it works for
+`role_capabilities` and for nothing else.
+
+`npm run check:rebuilt-tables` is the rule. A migration that unconditionally
+clears a table is a REBUILDER; every later migration inserting into that
+table must carry
+
+    -- rebuild-safe: <table>
+
+naming the rows and confirming they are in the rebuilder too. Proved to fire.
+**`role_capabilities` in 004 is currently the only rebuilder** — the audit
+found no others, and the noise in a first pass was function bodies
+(`insert into stock_levels` inside `receive_delivery`) and verify-block
+fixtures, neither of which is seeding.
+
+A marker, not a row diff, and deliberately: the first draft tried to diff
+rows, matched every `('a','b')` tuple in the file including 045's swap
+statuses and 067's feedback vocabulary, and produced two confident false
+positives. 079 alone seeds with `select … from unnest(array[…])`, which no
+tuple regex sees. **The marker buys the thing that was missing — the author
+being made to notice.** The content is checked by the drift check, which is
+better at it. Each check says what it proves.
+
+## The nav had two sources, and that is what hid a screen
+
+The sidebar and the phone tab bar each carried their own copy of the
+navigation. They drifted, and a real phone test at a shop found the result: a
+KA with **no route to End of day at all**, the one screen they touch daily.
+
+Two faults stacked, and each alone was enough:
+
+- a KA held none of `sales.manual | bills | traffic` (backlog D3, recorded
+  and never built — fixed in 079)
+- the tab bar took `.slice(0, 5)` and silently dropped the rest, with a
+  comment saying the overflow "stays in the sidebar drawer" — **the sidebar
+  is `hidden lg:flex`; there is no drawer on a phone**
+
+`nav-items.tsx` is now the single source; the sidebar and the More sheet both
+read it. `check:nav` reads it too.
+
+`tests/phone-reach.test.ts` asks the question nothing was asking: **can this
+person actually get there?** `check:nav` asks whether a gated link points at a
+page that checks itself. `check-permission-drift` asks whether two matrices
+agree. Both passed throughout. Neither asks about reachability, and the
+second fault was arithmetic in a slice.
+
+It covers new screens **by default**: every page under `src/app/(app)` must be
+in the nav or declared in `UNLISTED` with a reason, so a new screen fails the
+test until somebody decides which it is. A stale declaration also fails, so a
+decision cannot outlive the screen it was about. Both proved to fire.
+
 ## A cleanup the user cannot perform is not a cleanup
 
 `uploadPhoto` put the file in the bucket, then wrote the row, and on a row

@@ -6,6 +6,14 @@
 --
 -- REQUIRES: 064   (needs role_capabilities, nationalities, branches, profiles)
 --
+-- rebuild-safe: role_capabilities
+--   004 does `delete from role_capabilities` and re-seeds the whole matrix,
+--   so re-running it would wipe what this file grants. These rows are
+--   therefore ALSO listed in 004: feedback.record (7 roles) and feedback.manage (3).
+--   Verified present there, not assumed. `npm run check:permissions` compares
+--   004 against src/lib/permissions.ts and fails if they drift apart.
+
+--
 -- ── SINGLE SOURCE, EVERYWHERE IT ALREADY EXISTS ───────────────────────────
 --
 --   staff        -> profiles. An entry attributed to nobody cannot be

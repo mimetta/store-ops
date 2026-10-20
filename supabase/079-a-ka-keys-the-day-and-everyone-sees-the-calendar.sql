@@ -6,6 +6,14 @@
 --
 -- REQUIRES: 043   (calendar_events exists and accepts 'holiday')
 --
+-- rebuild-safe: role_capabilities
+--   004 does `delete from role_capabilities` and re-seeds the whole matrix,
+--   so re-running it would wipe what this file grants. These rows are
+--   therefore ALSO listed in 004: ka -> sales.manual, and calendar.view for all seven roles.
+--   Verified present there, not assumed. `npm run check:permissions` compares
+--   004 against src/lib/permissions.ts and fails if they drift apart.
+
+--
 -- ── WHY ───────────────────────────────────────────────────────────────────
 --
 -- Both found by a real phone test at a shop, which is where this class of

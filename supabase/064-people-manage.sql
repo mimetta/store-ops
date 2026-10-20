@@ -6,6 +6,14 @@
 --
 -- REQUIRES: 063   (role_before_inactive must exist to be pinned)
 --
+-- rebuild-safe: role_capabilities
+--   004 does `delete from role_capabilities` and re-seeds the whole matrix,
+--   so re-running it would wipe what this file grants. These rows are
+--   therefore ALSO listed in 004: admin/manager/people -> people.manage.
+--   Verified present there, not assumed. `npm run check:permissions` compares
+--   004 against src/lib/permissions.ts and fails if they drift apart.
+
+--
 -- ── WHY A NEW CAPABILITY ──────────────────────────────────────────────────
 --
 -- The /people screen had no capability that fitted. The closest was

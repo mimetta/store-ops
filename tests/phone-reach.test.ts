@@ -19,7 +19,8 @@
  * nav entry it is allowed to see is reachable from the phone bar — as one of
  * the primary tabs, or in the More sheet.
  */
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
+import { join } from "node:path"
 import { ROLES, canAny, can, type Capability, type Role } from "../src/lib/permissions"
 
 let pass = 0, fail = 0
@@ -102,6 +103,61 @@ check(!!calendar && canAny(ka, calendar.needs),
       "a KA can see the calendar (holidays drive their OT rate)",
       calendar?.needs.join(", ") ?? "missing")
 check(!can(ka, "calendar.manage"), "…and still cannot edit it")
+
+// ── and it covers NEW screens without anyone remembering ──────────────────
+//
+// Everything above iterates the nav, so a screen ADDED to the nav is covered
+// automatically. A screen added and never put in the nav would not be — and
+// that is the same hole in a different place: a page nobody can navigate to.
+//
+// So every page under src/app/(app) must be either in the nav or declared
+// below with a reason. A new screen fails this test until one or the other
+// is true, which is the point.
+const UNLISTED: Record<string, string> = {
+  "/": "redirects to /dashboard",
+  "/dashboard": "in the phone bar, and ungated — RLS scopes every figure",
+  "/schedule": "redirect stub → /shifts",
+  "/traffic": "redirect stub → /daily",
+  "/consumables": "redirect stub → /stock?type=consumable",
+  "/sales": "redirect stub → /daily",
+  "/sales/units": "redirect stub → /daily",
+  "/sales/import": "reached from /daily, not a destination of its own",
+  "/swaps": "redirect stub → /shifts/swaps",
+  "/leave": "redirect stub → /shifts/leave",
+  "/shifts/swaps": "a tab on /shifts (see ShiftTabs)",
+  "/shifts/leave": "a tab on /shifts, and a nav entry for roles without the roster",
+  "/count/review": "in the nav as Differences to check",
+  "/receiving/[id]": "a delivery, reached from /receiving",
+  "/receiving/transfer/[id]": "a transfer, reached from /receiving",
+}
+
+function screens(dir: string, prefix = ""): string[] {
+  const out: string[] = []
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) out.push(...screens(join(dir, e.name), `${prefix}/${e.name}`))
+    else if (e.name === "page.tsx") out.push(prefix || "/")
+  }
+  return out
+}
+
+const navHrefs = new Set([
+  ...sidebar.map((e) => e.href.split("?")[0]),
+  ...tabbar.map((t) => t.href),
+])
+const undeclared = screens("src/app/(app)")
+  .filter((h) => !navHrefs.has(h) && !(h in UNLISTED))
+
+check(undeclared.length === 0,
+      "every screen is in the nav, or declared as deliberately not",
+      undeclared.length ? `undeclared: ${undeclared.join(", ")}`
+                        : `${navHrefs.size} navigable, ${Object.keys(UNLISTED).length} declared`)
+
+// A declaration that no longer matches a real screen is stale — it would
+// quietly excuse a screen that gets added at that path later.
+const allScreens = new Set(screens("src/app/(app)"))
+const stale = Object.keys(UNLISTED).filter((h) => !allScreens.has(h))
+check(stale.length === 0, "…and no declaration outlives its screen",
+      stale.length ? `stale: ${stale.join(", ")}` : "none")
 
 console.log(`\n${fail === 0 ? "all passed" : `${fail} FAILED`} (${pass} passed)`)
 process.exit(fail === 0 ? 0 : 1)

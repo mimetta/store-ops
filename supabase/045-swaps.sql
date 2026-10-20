@@ -1,3 +1,10 @@
+--
+-- rebuild-safe: role_capabilities
+--   004 does `delete from role_capabilities` and re-seeds the whole matrix,
+--   so re-running it would wipe what this file grants. These rows are
+--   therefore ALSO listed in 004: supervisor -> shifts.view_own.
+--   Verified present there, not assumed. `npm run check:permissions` compares
+--   004 against src/lib/permissions.ts and fails if they drift apart.
 -- 045 — shift swaps that actually move the roster
 --
 -- 009 built the tables: a request header, one row per day, each day with its
