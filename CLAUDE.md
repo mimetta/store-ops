@@ -154,8 +154,38 @@ rows, matched every `('a','b')` tuple in the file including 045's swap
 statuses and 067's feedback vocabulary, and produced two confident false
 positives. 079 alone seeds with `select … from unnest(array[…])`, which no
 tuple regex sees. **The marker buys the thing that was missing — the author
-being made to notice.** The content is checked by the drift check, which is
-better at it. Each check says what it proves.
+being made to notice.**
+
+### The marker cannot tell you it is still true, and that matters
+
+A marker is a comment. Edit 004 later to drop a grant 079 depends on and the
+marker still reads perfectly. Measured by deleting `('ka','sales.manual')`
+from 004:
+
+| | result |
+|---|---|
+| `check:rebuilt-tables` | **exit 0 — blind to it** |
+| `check:permissions` | exit 1, naming `ka -> sales.manual` |
+| `phone-reach` | passes (it reads `permissions.ts`, not 004) |
+
+So the halves have different owners:
+
+- **`check:rebuilt-tables`** — *did the author KNOW 004 would wipe this?* A
+  marker is the right instrument, because the question is whether a human
+  noticed.
+- **`check:permissions`** — *is 004's matrix still what the app believes?* A
+  real content diff, and it works **only because `src/lib/permissions.ts` is
+  an independent third copy.**
+
+That third copy is the entire reason the content half is covered. A NEW
+rebuilt table would have no equivalent, and the marker would then be a
+comment nothing verifies. So `CONTENT_OWNER` in the check names, per table,
+which check owns the content — and a rebuilt table with no entry FAILS.
+Proved by making 053 rebuild `nationalities`: both branches fire.
+
+**The general rule: when a check is deliberately narrow, name what it does
+not cover and which check does, in the file.** An unstated gap gets
+inherited as confidence.
 
 ## The nav had two sources, and that is what hid a screen
 

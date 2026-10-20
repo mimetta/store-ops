@@ -87,20 +87,59 @@ for (const f of files) {
  * being made to notice that an earlier migration will wipe their row, and
  * to go and add it there too.
  *
- * The CONTENT is checked elsewhere and better: `check-permission-drift`
- * compares 004's matrix against src/lib/permissions.ts, which is how 079's
- * grants were caught sitting in the database and not in 004. Each check
- * states what it proves; neither pretends to the other's job.
+ * ══ WHAT THIS CHECK DOES NOT DO ═══════════════════════════════════════════
+ *
+ * **It cannot tell you a marker is still TRUE.** The marker is a comment. If
+ * somebody later edits 004 and removes a grant that 079 depends on, the
+ * marker still reads perfectly and THIS FILE STILL PASSES.
+ *
+ * Measured, not assumed — delete `('ka','sales.manual')` from 004 and:
+ *
+ *     check:rebuilt-tables    exit 0   (blind to it)
+ *     check:permissions       exit 1   "ka -> sales.manual"
+ *     phone-reach             passes   (it reads permissions.ts, not 004)
+ *
+ * So the two halves have different owners, and neither does the other's job:
+ *
+ *     THIS FILE          "did the author KNOW 004 would wipe their row?"
+ *                        A marker is enough, because the question is about
+ *                        whether a human noticed.
+ *
+ *     check:permissions  "is 004's matrix still what the app believes?"
+ *                        A real content diff, and it only works because
+ *                        src/lib/permissions.ts is an INDEPENDENT third copy.
+ *
+ * That third copy is the whole reason the content half is covered at all.
+ * **A new rebuilt table would have no such copy, and then the marker would be
+ * the only thing standing — a comment nothing verifies.** So a new rebuilt
+ * table must name its content owner in CONTENT_OWNER below, and fails here
+ * until it does. The gap is loud rather than inherited.
  */
 const MARKER = (table) => new RegExp(`--\\s*rebuild-safe:\\s*${table}\\b`)
+
+/**
+ * Which check owns the CONTENT half for each rebuilt table — the question
+ * this file cannot answer. A rebuilt table with no entry here has a marker
+ * that nothing verifies, which is the failure mode this whole file exists
+ * to avoid, so it is refused.
+ */
+const CONTENT_OWNER = {
+  role_capabilities:
+    "check:permissions — diffs 004 against src/lib/permissions.ts, an "
+    + "independent third copy. Proved: removing a grant from 004 fails it.",
+}
 
 console.log(`Checking ${files.length} migrations for rebuild-and-reseed.\n`)
 
 const problems = []
 
+const unowned = []
+
 for (const r of rebuilders) {
   const later = (inserters[r.table] ?? []).filter((n) => n > r.migration)
   if (later.length === 0) continue
+
+  if (!CONTENT_OWNER[r.table]) unowned.push(r)
 
   for (const n of [...new Set(later)]) {
     const f = files.find((x) => x.startsWith(n))
@@ -112,16 +151,26 @@ for (const r of rebuilders) {
   }
 }
 
+for (const u of unowned) {
+  console.log(`  NO CONTENT OWNER  ${u.table}  (rebuilt by ${u.migration})`)
+  console.log(`                    A marker says the author knew. NOTHING here`)
+  console.log(`                    checks it stays true. Name the check that`)
+  console.log(`                    diffs ${u.table}'s rows, in CONTENT_OWNER.`)
+}
+
 for (const p of problems) {
   console.log(`  UNMARKED  ${p.file}`)
   console.log(`            adds to ${p.table}, which ${p.rebuilder} CLEARS and rebuilds.`)
   console.log(`            Re-running ${p.rebuilder} would lose it.`)
 }
 
-if (!problems.length) {
+if (!problems.length && !unowned.length) {
   const names = [...new Set(rebuilders.map((r) => `${r.table} (${r.migration})`))]
-  console.log(`OK: every rebuilt table carries what later migrations add.`)
+  console.log(`OK: every later migration knows its rows will be rebuilt.`)
   console.log(`    ${names.length ? names.join(", ") : "no table is rebuilt wholesale"}`)
+  for (const [t, who] of Object.entries(CONTENT_OWNER)) {
+    console.log(`    whether ${t} is still CORRECT is owned by ${who.split(" —")[0]}`)
+  }
   process.exit(0)
 }
 
