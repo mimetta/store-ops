@@ -34,7 +34,6 @@ export type PhotoState = "compressing" | "uploading" | "attached" | "failed"
 export interface LocalPhoto {
   /** Stable across retries, so React keys and the draft do not churn. */
   id: string
-  lineId: string
   /** An object URL for the ORIGINAL file: shown immediately, before upload. */
   previewUrl: string
   state: PhotoState
@@ -94,7 +93,13 @@ export async function compress(file: File): Promise<Blob> {
  */
 export async function uploadPhoto(args: {
   branchId: string
-  lineId: string
+  /** The check-in this is evidence of. 082: a photo belongs to the
+   *  DELIVERY — it shows the delivery was checked, not only that something
+   *  was wrong with one line. */
+  deliveryId: string
+  /** Optional, and rarely set: "this is a photo of THAT crushed box".
+   *  029's case, kept because it costs nothing. */
+  lineId?: string | null
   photoId: string
   blob: Blob
   /** Bumped on each retry, so every ATTEMPT gets a path of its own. */
@@ -117,7 +122,7 @@ export async function uploadPhoto(args: {
   // the uploader cannot perform. A new path is neither, and the orphan is
   // harmless: nothing references it, and the retention job sweeps by age.
   const suffix = args.attempt ? `-r${args.attempt}` : ""
-  const path = `${args.branchId}/${args.lineId}/${args.photoId}${suffix}.${ext}`
+  const path = `${args.branchId}/${args.deliveryId}/${args.photoId}${suffix}.${ext}`
 
   const up = await sb.storage.from(BUCKET).upload(path, args.blob, {
     contentType: args.blob.type || "image/jpeg",
@@ -129,7 +134,8 @@ export async function uploadPhoto(args: {
 
   const { data: { user } } = await sb.auth.getUser()
   const row = await sb.from("delivery_photos").insert({
-    delivery_line_id: args.lineId,
+    delivery_id: args.deliveryId,
+    delivery_line_id: args.lineId ?? null,
     branch_id: args.branchId,
     storage_path: path,
     byte_size: args.blob.size,

@@ -70,8 +70,11 @@ export default async function DeliveriesPage() {
     supabase.from("products")
       .select("id, sku, name, unit").eq("active", true).eq("type", "fg").order("name"),
     supabase.from("deliveries")
+      // delivery_photos(count) rather than a second query: a manager's list
+      // of 14 days is one round trip either way, and a count is all the
+      // screen needs to say "no photo attached". 082.
       .select(`id, reference, delivery_date, slot, status, notes, branch_id,
-               branches(name), delivery_lines(count)`)
+               branches(name), delivery_lines(count), delivery_photos(count)`)
       .gte("delivery_date", addDaysISO(today, -14))
       .order("delivery_date", { ascending: true }),
   ])
@@ -84,6 +87,7 @@ export default async function DeliveriesPage() {
     status: string; notes: string | null; branch_id: string
     branches: { name: string } | { name: string }[] | null
     delivery_lines: { count: number }[] | null
+    delivery_photos: { count: number }[] | null
   }[]).map((d) => ({
     id: d.id,
     reference: d.reference,
@@ -93,6 +97,7 @@ export default async function DeliveriesPage() {
     notes: d.notes,
     branch: (Array.isArray(d.branches) ? d.branches[0] : d.branches)?.name ?? "—",
     lineCount: d.delivery_lines?.[0]?.count ?? 0,
+    photoCount: d.delivery_photos?.[0]?.count ?? 0,
   })) as DeliveryRow[]
 
   return (

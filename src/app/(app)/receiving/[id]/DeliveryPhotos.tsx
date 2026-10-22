@@ -6,7 +6,14 @@ import {
 } from "@/lib/delivery-photos"
 
 /**
- * Photos for ONE delivery line.
+ * Photos for a CHECK-IN.
+ *
+ * It was per-LINE and per-DIFFERENCE, which meant a KA checking in a
+ * delivery where everything matched saw no photo control at all — the case
+ * the business most wants evidence of. 082 moved it to the delivery:
+ *
+ *   "a photo on every check-in — evidence for the manager that the delivery
+ *    was checked, not only evidence of a problem"
  *
  * The whole design is one sentence: **taking a photo can fail; checking in
  * cannot be allowed to.** So this component owns its own state, never reports
@@ -21,17 +28,17 @@ import {
  * about a minute, and persisting megabytes of image to survive it is
  * machinery that buys very little. DECIDED, see docs/requirements-backlog.md.
  */
-export default function LinePhotos({
-  lineId, branchId, existing, readOnly, onPendingChange,
+export default function DeliveryPhotos({
+  deliveryId, branchId, existing, readOnly, onPendingChange,
 }: {
-  lineId: string
+  deliveryId: string
   branchId: string
   /** Already attached, from the server. */
   existing: { id: string; storagePath: string; fileDeletedAt: string | null }[]
   readOnly: boolean
-  /** Reports how many photos on THIS line have not attached. Advisory only —
-   *  the parent uses it to word the confirmation, never to block the submit. */
-  onPendingChange?: (lineId: string, failed: number, busy: number) => void
+  /** Reports how many photos have not attached. Advisory only — the parent
+   *  uses it to word the confirmation, never to block the submit. */
+  onPendingChange?: (failed: number, busy: number) => void
 }) {
   const [photos, setPhotos] = useState<LocalPhoto[]>([])
   const [urls, setUrls] = useState<Record<string, string>>({})
@@ -58,11 +65,10 @@ export default function LinePhotos({
 
   useEffect(() => {
     onPendingChange?.(
-      lineId,
       photos.filter((p) => p.state === "failed").length,
       photos.filter((p) => p.state === "compressing" || p.state === "uploading").length,
     )
-  }, [photos, lineId, onPendingChange])
+  }, [photos, onPendingChange])
 
   const patch = (id: string, next: Partial<LocalPhoto>) =>
     setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, ...next } : p)))
@@ -83,7 +89,7 @@ export default function LinePhotos({
     patch(photo.id, { state: "uploading" })
     const attempt = (attempts.current[photo.id] ?? 0)
     attempts.current[photo.id] = attempt + 1
-    const r = await uploadPhoto({ branchId, lineId, photoId: photo.id, blob, attempt })
+    const r = await uploadPhoto({ branchId, deliveryId, photoId: photo.id, blob, attempt })
     if (r.ok) patch(photo.id, { state: "attached", storagePath: r.storagePath })
     else patch(photo.id, { state: "failed", error: r.error })
   }
@@ -94,7 +100,6 @@ export default function LinePhotos({
     for (const file of files) {
       const photo: LocalPhoto = {
         id: crypto.randomUUID(),
-        lineId,
         previewUrl: URL.createObjectURL(file),
         state: "compressing",
       }

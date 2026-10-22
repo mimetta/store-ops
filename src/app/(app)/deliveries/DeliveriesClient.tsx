@@ -9,6 +9,8 @@ export interface ProductOption { id: string; sku: string; name: string; unit: st
 export interface DeliveryRow {
   id: string; reference: string; date: string; slot: string
   status: string; notes: string | null; branch: string; lineCount: number
+  /** Evidence the check-in happened. 082. */
+  photoCount: number
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -220,6 +222,14 @@ function List({
                 {d.reference} · {d.lineCount} item{d.lineCount === 1 ? "" : "s"}
                 {d.notes ? ` · ${d.notes}` : ""}
               </span>
+              {/* Only once it has been RECEIVED. Before that there is nothing
+                  to have photographed, and an amber flag on a delivery that
+                  has not arrived reads as a fault rather than a gap. 082. */}
+              {d.status === "received" && d.photoCount === 0 && (
+                <span className="block text-[11px] text-amber-70 mt-0.5">
+                  No photo attached
+                </span>
+              )}
             </span>
             <span className={s.cls}>{s.label}</span>
             {/* Received is absent on purpose: receiving moves stock and happens

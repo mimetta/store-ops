@@ -4,6 +4,10 @@
  *
  *   node scripts/uat/exercise-delivery-photos.mjs
  *
+ * 082 moved the photo from the LINE to the DELIVERY: it is evidence the
+ * check-in happened, not only evidence that something was wrong. A line may
+ * still be named — 029's "that crushed box" — but is never required.
+ *
  * `check:rls` proves the POLICIES — who may upload, read and delete, and that
  * the bucket is private. This proves the PATH the screen takes, and in
  * particular the two rules the design rests on:
@@ -153,7 +157,7 @@ try {
 
   // ── the happy path, in the order src/lib/delivery-photos.ts uses ──
   const id1 = crypto.randomUUID()
-  const path1 = `${b.id}/${line.id}/${TAG}-${id1}.jpg`
+  const path1 = `${b.id}/${delivery}/${TAG}-${id1}.jpg`
 
   const up = await sb.storage.from(BUCKET).upload(path1, JPEG, {
     contentType: "image/jpeg", upsert: false,
@@ -161,18 +165,20 @@ try {
   ok("a KA uploads a photo for their branch's line", !up.error,
      up.error?.message ?? "uploaded")
 
+  // NO delivery_line_id. This is the ordinary case 082 exists for: a photo
+  // of the check-in, on a delivery where nothing is wrong.
   const row = await sb.from("delivery_photos").insert({
-    delivery_line_id: line.id, branch_id: b.id,
+    delivery_id: delivery, branch_id: b.id,
     storage_path: path1, byte_size: JPEG.length, uploaded_by: u.id,
   })
-  ok("…then the row that binds it to the line", !row.error,
-     row.error?.message ?? "attached")
+  ok("…then the row that binds it to the CHECK-IN, with no line",
+     !row.error, row.error?.message ?? "attached")
 
   // ── the screen's own read-back ──
   const { data: back } = await sb.from("delivery_photos")
     .select("id, storage_path, file_deleted_at")
-    .eq("delivery_line_id", line.id)
-  ok("the line reports exactly one photo", (back ?? []).length === 1,
+    .eq("delivery_id", delivery)
+  ok("the delivery reports exactly one photo", (back ?? []).length === 1,
      `${(back ?? []).length}`)
 
   const signed = await sb.storage.from(BUCKET).createSignedUrl(path1, 60)
@@ -184,13 +190,24 @@ try {
 
   // ── several per line, which is the point ──
   const id2 = crypto.randomUUID()
-  const path2 = `${b.id}/${line.id}/${TAG}-${id2}.jpg`
+  const path2 = `${b.id}/${delivery}/${TAG}-${id2}.jpg`
   await sb.storage.from(BUCKET).upload(path2, JPEG, { contentType: "image/jpeg" })
   const row2 = await sb.from("delivery_photos").insert({
-    delivery_line_id: line.id, branch_id: b.id, storage_path: path2, uploaded_by: u.id,
+    delivery_id: delivery, branch_id: b.id, storage_path: path2, uploaded_by: u.id,
   })
-  ok("a second angle of the same box is allowed", !row2.error,
+  ok("a second angle is allowed", !row2.error,
      row2.error?.message ?? "two attached")
+
+  // 029's case, kept: a photo MAY point at one line.
+  const idL = crypto.randomUUID()
+  const pathL = `${b.id}/${delivery}/${TAG}-${idL}.jpg`
+  await sb.storage.from(BUCKET).upload(pathL, JPEG, { contentType: "image/jpeg" })
+  const rowL = await sb.from("delivery_photos").insert({
+    delivery_id: delivery, delivery_line_id: line.id,
+    branch_id: b.id, storage_path: pathL, uploaded_by: u.id,
+  })
+  ok("…and a photo may still name ONE line", !rowL.error,
+     rowL.error?.message ?? "attached to a line")
 
   // ══ THE FAILURE PATH ══════════════════════════════════════════════════
   //
@@ -199,7 +216,7 @@ try {
   // case rather than the exotic one. The module removes the file so a retry
   // does not hit the unique path constraint on its own orphan.
   const id3 = crypto.randomUUID()
-  const path3 = `${b.id}/${line.id}/${TAG}-${id3}.jpg`
+  const path3 = `${b.id}/${delivery}/${TAG}-${id3}.jpg`
   await sb.storage.from(BUCKET).upload(path3, JPEG, { contentType: "image/jpeg" })
 
   // The row insert "fails" — here by being refused for a line at another
@@ -207,8 +224,8 @@ try {
   const { rows: [other] } = await db.query(
     `select id from branches where id <> $1 and active order by name limit 1`, [b.id])
   const doomed = await sb.from("delivery_photos").insert({
-    delivery_line_id: line.id, branch_id: other.id,
-    storage_path: `${other.id}/${line.id}/${TAG}-${id3}.jpg`,
+    delivery_id: delivery, branch_id: other.id,
+    storage_path: `${other.id}/${delivery}/${TAG}-${id3}.jpg`,
   })
   ok("a row for the wrong branch is refused", !!doomed.error,
      doomed.error?.message?.slice(0, 40) ?? "NO ERROR")
@@ -226,7 +243,7 @@ try {
   // every attempt gets a path of its own. Reusing path3 is what used to
   // fail with "The resource already exists", breaking retry for exactly the
   // person retry exists for.
-  const retryPath = `${b.id}/${line.id}/${TAG}-${id3}-r1.jpg`
+  const retryPath = `${b.id}/${delivery}/${TAG}-${id3}-r1.jpg`
   const retry = await sb.storage.from(BUCKET).upload(retryPath, JPEG, {
     contentType: "image/jpeg", upsert: false,
   })
@@ -234,7 +251,7 @@ try {
      !retry.error, retry.error?.message ?? "retry accepted")
 
   const retryRow = await sb.from("delivery_photos").insert({
-    delivery_line_id: line.id, branch_id: b.id,
+    delivery_id: delivery, branch_id: b.id,
     storage_path: retryPath, uploaded_by: u.id,
   })
   ok("…and the retry attaches", !retryRow.error,
@@ -242,11 +259,11 @@ try {
 
   // ── the unattached file is NOT reported as evidence ──
   const { data: afterFail } = await sb.from("delivery_photos")
-    .select("id").eq("delivery_line_id", line.id)
+    .select("id").eq("delivery_id", delivery)
   // Two originals + the successful retry = 3. The ORPHAN is not among them,
   // which is the point: a file with no row is not evidence.
-  ok("the orphan is NOT counted as evidence on the line",
-     (afterFail ?? []).length === 3, `${(afterFail ?? []).length} rows for 4 files`)
+  ok("the orphan is NOT counted as evidence on the check-in",
+     (afterFail ?? []).length === 4, `${(afterFail ?? []).length} rows for 5 files`)
 
   // ── the row outlives the file ──
   await db.query(
@@ -258,12 +275,14 @@ try {
 
   // ── deleting the LINE takes its photo rows (composition) ──
   const { rows: [{ n: before }] } = await db.query(
-    `select count(*)::int n from delivery_photos where delivery_line_id = $1`, [line.id])
-  await db.query(`delete from delivery_lines where id = $1`, [line.id])
+    `select count(*)::int n from delivery_photos where delivery_id = $1`, [delivery])
+  await db.query(`delete from delivery_lines where delivery_id = $1`, [delivery])
+  await db.query(`delete from deliveries where id = $1`, [delivery])
   const { rows: [{ n: after }] } = await db.query(
-    `select count(*)::int n from delivery_photos where delivery_line_id = $1`, [line.id])
-  ok("deleting the line takes its photo rows with it",
+    `select count(*)::int n from delivery_photos where delivery_id = $1`, [delivery])
+  ok("deleting the DELIVERY takes its photo rows with it",
      before > 0 && after === 0, `${before} → ${after}`)
+  delivery = null
 } finally {
   // ORDER MATTERS. The files must go BEFORE cleanup() removes the profiles:
   // the delete policy calls can_access_branch(), which reads the manager's

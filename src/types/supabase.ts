@@ -1101,7 +1101,8 @@ export type Database = {
         Row: {
           branch_id: string
           byte_size: number | null
-          delivery_line_id: string
+          delivery_id: string
+          delivery_line_id: string | null
           file_deleted_at: string | null
           id: string
           storage_path: string
@@ -1111,7 +1112,8 @@ export type Database = {
         Insert: {
           branch_id: string
           byte_size?: number | null
-          delivery_line_id: string
+          delivery_id: string
+          delivery_line_id?: string | null
           file_deleted_at?: string | null
           id?: string
           storage_path: string
@@ -1121,7 +1123,8 @@ export type Database = {
         Update: {
           branch_id?: string
           byte_size?: number | null
-          delivery_line_id?: string
+          delivery_id?: string
+          delivery_line_id?: string | null
           file_deleted_at?: string | null
           id?: string
           storage_path?: string
@@ -1142,6 +1145,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "daily_entry_status"
             referencedColumns: ["branch_id"]
+          },
+          {
+            foreignKeyName: "delivery_photos_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "deliveries"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "delivery_photos_delivery_line_id_fkey"

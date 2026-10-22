@@ -61,8 +61,12 @@ const COMPOSITION = {
   // The FILE outlives nothing — the row is deleted with the line. Retention
   // is the opposite case and is handled separately: after 12 months the job
   // deletes the FILE and keeps the row, setting file_deleted_at. 078.
+  // 082 moved the photo to the DELIVERY. The line FK stays and is now
+  // optional — 029's "that crushed box" — so both are composition.
+  "delivery_photos.delivery_id -> deliveries":
+    "a photo is evidence of one check-in and has no meaning without it",
   "delivery_photos.delivery_line_id -> delivery_lines":
-    "a photo is evidence for one line and has no meaning without it",
+    "when a photo names a line, it is evidence of that line",
   "stock_discrepancies.transfer_line_id -> transfer_lines":
     "same, for the transfer side",
   "transfer_lines.transfer_id -> transfers":

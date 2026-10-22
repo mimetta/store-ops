@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { confirmReceipt } from "../actions"
-import LinePhotos from "./LinePhotos"
+import DeliveryPhotos from "./DeliveryPhotos"
 import { confirmTransfer } from "../../transfers/actions"
 
 export interface ReceiveLine {
@@ -44,7 +44,7 @@ function fmtDay(iso: string) {
  */
 export default function ReceiveLines({
   deliveryId, reference, branchName, branchId, deliveryDate, slot, status, receivedAt,
-  lines, reasons, photosByLine = {}, kind = "delivery", fromName,
+  lines, reasons, photos = [], kind = "delivery", fromName,
 }: {
   kind?: "delivery" | "transfer"
   /** For a transfer: which shop sent it. */
@@ -55,9 +55,8 @@ export default function ReceiveLines({
   /** Needed for the storage path — 078 reads the branch out of it. Absent
    *  for a transfer, where photos are not offered. */
   branchId?: string
-  photosByLine?: Record<string, {
-    id: string; storagePath: string; fileDeletedAt: string | null
-  }[]>
+  /** Attached to this check-in. 082 moved these off the line. */
+  photos?: { id: string; storagePath: string; fileDeletedAt: string | null }[]
   deliveryDate: string
   slot: string
   status: string
@@ -118,12 +117,14 @@ export default function ReceiveLines({
   // confirmation and nothing else. It must never reach `canConfirm` — a
   // blocked submit at the door with a driver waiting is exactly what makes
   // people work around the system.
-  const [photoTrouble, setPhotoTrouble] = useState<Record<string, number>>({})
-  const failedPhotos = Object.values(photoTrouble).reduce((a, n) => a + n, 0)
-  const notePhotos = useCallback((lineId: string, failed: number) => {
-    setPhotoTrouble((prev) =>
-      prev[lineId] === failed ? prev : { ...prev, [lineId]: failed })
+  const [failedPhotos, setFailedPhotos] = useState(0)
+  const notePhotos = useCallback((failed: number) => {
+    setFailedPhotos((prev) => (prev === failed ? prev : failed))
   }, [])
+  // Whether this check-in has any evidence at all. Advisory: a missing photo
+  // never blocks the submit — a required photo plus a failed upload IS the
+  // blocked door this whole design avoids.
+  const hasPhoto = photos.some((p) => !p.fileDeletedAt)
 
   const state = lines.map((l) => {
     const e = entries[l.lineId] ?? { qty: "", reason: "", note: "" }
@@ -319,19 +320,6 @@ export default function ReceiveLines({
                   aria-label={`Note for logistics about ${l.name}`}
                   className="input-field bg-white"
                 />
-                {/* Evidence sits with the reason and the note, because it is
-                    the same sentence: what was wrong with THIS line. Offered
-                    only for deliveries — a transfer's photos would need a
-                    second bucket and nobody has asked for one. */}
-                {!isTransfer && branchId && (
-                  <LinePhotos
-                    lineId={l.lineId}
-                    branchId={branchId}
-                    existing={photosByLine[l.lineId] ?? []}
-                    readOnly={done}
-                    onPendingChange={notePhotos}
-                  />
-                )}
               </div>
             )}
 
@@ -376,6 +364,42 @@ export default function ReceiveLines({
               </span>
             </div>
           )}
+          {/* ── evidence ──────────────────────────────────────────────
+              On the DELIVERY, always — not tucked under a difference. A
+              photo shows the manager the delivery was checked, which is as
+              true of a pallet where everything matched as of a crushed box.
+              082.
+
+              Deliberately NOT part of `canConfirm`. A required photo plus a
+              failed upload is a blocked check-in at the door, which is the
+              thing that makes people work around the system. */}
+          {!isTransfer && branchId && (
+            <div className="mb-3 pb-3 border-b border-sand">
+              <div className="flex items-baseline gap-2 mb-1.5 flex-wrap">
+                <span className="text-[13px] font-medium text-ink">Photo</span>
+                {hasPhoto ? (
+                  <span className="badge bg-good-50 text-good-70 border border-sage text-[11px]">
+                    attached
+                  </span>
+                ) : (
+                  <span className="badge bg-amber-50 text-amber-70 border border-amber-60 text-[11px]">
+                    no photo attached
+                  </span>
+                )}
+                <span className="text-[11px] text-muted ml-auto">
+                  evidence the delivery was checked
+                </span>
+              </div>
+              <DeliveryPhotos
+                deliveryId={deliveryId}
+                branchId={branchId}
+                existing={photos}
+                readOnly={done}
+                onPendingChange={notePhotos}
+              />
+            </div>
+          )}
+
           <p className="text-xs text-muted mb-2.5">
             Confirming adds the arrived quantities to stock and raises a discrepancy
             for every difference. Nothing is held back or rejected.

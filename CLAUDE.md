@@ -145,14 +145,30 @@ worth knowing:
 | `exercise-deliveries` | never calls `receive_delivery` — it tests 070's scheduling. The name oversells it. |
 | 080's own verify block | only tested the REFUSAL path. It called the function on a scheduled delivery and asserted a refusal, so the bad statement never once executed. |
 
-**A function that is only tested when it says no is not tested.** 081's verify
-block receives a delivery for real, with a short line, and reads back the
-discrepancy and the movement note.
+### A function tested only when it says NO is not tested
 
-`npm run check:sql-write-paths` resolves every `insert into x (cols)` in every
-migration against the live schema — 208 of them. It catches this exact bug.
+Every assertion about `receive_delivery` was about a refusal — wrong
+capability, wrong branch, already received, not yet shipped. The success
+path, which is the path that writes four tables, had no test at all. A guard
+is the easy half to assert and the half that cannot corrupt anything.
 
-### The rule
+081's verify block receives a delivery for real, with a short line on it, and
+reads back the discrepancy row AND the movement note. Make the happy path
+the first assertion, not the one that gets left out.
+
+### check:sql-write-paths closes the half check:write-paths never had
+
+`check:write-paths` reads `sb.from("x").insert({…})` in `src/`. That was the
+whole idea of it — and **most of the writing in this system is SQL**:
+`receive_delivery`, `save_daily_entry`, `post_sales_units`,
+`import_sales_bills`, `request_day_off`. Those were never in scope, and
+nothing said so.
+
+`npm run check:sql-write-paths` resolves every `insert into x (cols)` in
+every migration against the live schema — 208 of them. The two together cover
+the application and the database; neither alone was ever enough.
+
+### And the habit that caused it
 
 **Never retype a function body you have not read in full.** Read it from the
 file that last wrote it, or out of `pg_get_functiondef`, and copy it. If a
@@ -193,9 +209,13 @@ Drawer at exactly the two lines.
 **A native `<input type="date">` renders in the DEVICE locale**, so a Thai
 phone shows the Buddhist era — "22 Oct BE 2569" — while every figure the app
 draws is CE. Nothing in the codebase produces BE; every `toLocaleDateString`
-pins `en-GB` (checked). The calendar inside an OS control cannot be changed
-from the page, so `displayDate()` echoes the chosen date in the app's own
-format beside the field.
+pins `en-GB` (checked).
+
+**DECIDED: leave it.** A picker in the phone's own locale is correct for the
+person using it, and a custom picker built to force Gregorian is not worth
+the weight. `displayDate()` echoes the chosen date in the app's format beside
+the field, so the two eras sit together and nobody has to work out which year
+they just picked.
 
 ## A rebuilt table reverts later migrations, and 066 cannot see it
 
@@ -291,6 +311,31 @@ It covers new screens **by default**: every page under `src/app/(app)` must be
 in the nav or declared in `UNLISTED` with a reason, so a new screen fails the
 test until somebody decides which it is. A stale declaration also fails, so a
 decision cannot outlive the screen it was about. Both proved to fire.
+
+## Changing a column's nullability can break the policy that reads it
+
+`082` made `delivery_photos.delivery_line_id` optional, so a photo could
+belong to the whole check-in. The schema change was right and complete. The
+feature was still refused for every ordinary case, because 078's insert
+policy proved the LINE belonged to the branch:
+
+    and exists (select 1 from delivery_lines dl
+                 join deliveries d on d.id = dl.delivery_id
+                where dl.id = delivery_line_id and d.branch_id = …)
+
+With `delivery_line_id` NULL that EXISTS is false, so RLS refused every
+delivery-level photo — the column change alone would have shipped a feature
+the database forbids.
+
+**The verify block passed 10/10 and could not have caught it**: it runs as
+the owner, which holds BYPASSRLS and never meets a policy. The probe caught
+it on the first run, with `new row violates row-level security policy`.
+
+So, when a column becomes nullable, optional, or changes meaning: **grep the
+policies for its name.** A policy that joins through a column is coupled to
+that column being there. Same family as "a trigger test is not an RLS test" —
+RLS decides which ROWS, a trigger decides the rest, and both have to be
+granted for a feature to work.
 
 ## A cleanup the user cannot perform is not a cleanup
 

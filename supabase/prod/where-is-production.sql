@@ -205,6 +205,10 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('082', '082', 'schema', 'a delivery photo belongs to the DELIVERY',
+    exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='delivery_photos'
+               and column_name='delivery_id' and is_nullable='NO')),
   ('081a','081', 'schema', 'the orphan delivery_shortages table is gone',
     to_regclass('public.delivery_shortages') is null),
   ('081b','081', 'schema', 'receive_delivery is at version 081',
