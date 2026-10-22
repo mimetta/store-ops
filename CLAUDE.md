@@ -120,6 +120,52 @@ node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
 node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
 ```
 
+## Collected, stored, never read — the 029 shape, twice more
+
+`029` exists because the note about one delivery line was being collected
+and never shown. The same shape came back in two new places:
+
+- the discrepancy queue linked to **nothing**, so a KA photographed a
+  crushed box and the person acting on it had no route to the photo
+- the photo block sat inside `{!done && …}`, so **the evidence vanished the
+  moment the delivery was received** — exactly when a manager opens it
+
+Both fixed: each discrepancy row is a link to its delivery, and the photo
+block sits outside the confirm section so it survives receiving. Shown to
+anyone holding `receiving`, which is admin, manager, supervisor, ka and
+logistics — the people who act on a shortage.
+
+**The note itself was never broken.** It had been rendered since 029; the
+three open discrepancies simply had no note typed. Worth stating because
+"the note does not show" and "nobody typed a note" look identical on screen,
+and only the data tells you which.
+
+`npm run check:written-and-never-read` asks, for every free-text column a
+person writes, whether any screen renders it. **Answer today: all 21 are
+rendered.** Three were flagged and investigated — `sku_text` and
+`stock_movements.notes` are machine-written, and `stock_counts.notes` is
+SELECTed, typed and dropped with nothing writing it.
+
+### What that check is weak at, stated so it is not trusted too far
+
+- **It cannot tell you the right PERSON sees it.** The photo bug was
+  rendered — just inside a condition that hid it from the reader. Only
+  looking at the screen catches that.
+- **It is weak on common names.** `transfer_lines.note` has two renderers,
+  so deleting one leaves it green. It is strongest where it matters most: a
+  column no screen mentions at all.
+
+Three false positives were worth fixing in the check itself, and each is a
+general trap:
+
+1. **A TypeScript type annotation is not a write.** `notes: string | null`
+   matched "something assigns notes".
+2. **`\s*:\s*(?!type)` backtracks to zero width** and the lookahead then
+   passes against the space. Put the whitespace INSIDE the lookahead.
+3. **A screen is a directory, not a file.** `page.tsx` fetches and
+   `XClient.tsx` renders; requiring one file to do both reported two fields
+   that are on screen right now. A view also stands for its base table.
+
 ## I fabricated a function body and shipped it
 
 `080` replaced `receive_delivery` to add a status guard. Its comment said

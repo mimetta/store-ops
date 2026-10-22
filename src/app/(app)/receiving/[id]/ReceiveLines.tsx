@@ -221,6 +221,44 @@ export default function ReceiveLines({
         </div>
       )}
 
+      {/* ── evidence ────────────────────────────────────────────────────
+          OUTSIDE the confirm section, deliberately. It used to live inside
+          `{!done && …}`, so the photos vanished the moment the delivery was
+          received — exactly when a manager or logistics opens it to see
+          what arrived. A photo nobody can look at afterwards is the same
+          defect 029 fixed for the note: collected, stored, never read.
+
+          Shown to anyone who can open this screen. `receiving` is held by
+          admin, manager, supervisor, ka and logistics, so the people who
+          act on a shortage can all see the evidence for it. */}
+      {!isTransfer && branchId && (photos.length > 0 || !done) && (
+        <div className="card card-pad mb-3">
+          <div className="flex items-baseline gap-2 mb-1.5 flex-wrap">
+            <span className="text-[13px] font-medium text-ink">Photo</span>
+            {hasPhoto ? (
+              <span className="badge bg-good-50 text-good-70 border border-sage text-[11px]">
+                attached
+              </span>
+            ) : (
+              <span className="badge bg-amber-50 text-amber-70 border border-amber-60 text-[11px]">
+                no photo attached
+              </span>
+            )}
+            <span className="text-[11px] text-muted ml-auto">
+              {done ? "evidence this delivery was checked"
+                    : "evidence the delivery was checked"}
+            </span>
+          </div>
+          <DeliveryPhotos
+            deliveryId={deliveryId}
+            branchId={branchId}
+            existing={photos}
+            readOnly={done}
+            onPendingChange={notePhotos}
+          />
+        </div>
+      )}
+
       <div className="flex gap-2.5 mb-3.5 flex-wrap">
         <div className="stat flex-1 min-w-[132px]">
           <div className="text-[11px] text-subtle mb-1">Branch</div>
@@ -364,42 +402,6 @@ export default function ReceiveLines({
               </span>
             </div>
           )}
-          {/* ── evidence ──────────────────────────────────────────────
-              On the DELIVERY, always — not tucked under a difference. A
-              photo shows the manager the delivery was checked, which is as
-              true of a pallet where everything matched as of a crushed box.
-              082.
-
-              Deliberately NOT part of `canConfirm`. A required photo plus a
-              failed upload is a blocked check-in at the door, which is the
-              thing that makes people work around the system. */}
-          {!isTransfer && branchId && (
-            <div className="mb-3 pb-3 border-b border-sand">
-              <div className="flex items-baseline gap-2 mb-1.5 flex-wrap">
-                <span className="text-[13px] font-medium text-ink">Photo</span>
-                {hasPhoto ? (
-                  <span className="badge bg-good-50 text-good-70 border border-sage text-[11px]">
-                    attached
-                  </span>
-                ) : (
-                  <span className="badge bg-amber-50 text-amber-70 border border-amber-60 text-[11px]">
-                    no photo attached
-                  </span>
-                )}
-                <span className="text-[11px] text-muted ml-auto">
-                  evidence the delivery was checked
-                </span>
-              </div>
-              <DeliveryPhotos
-                deliveryId={deliveryId}
-                branchId={branchId}
-                existing={photos}
-                readOnly={done}
-                onPendingChange={notePhotos}
-              />
-            </div>
-          )}
-
           <p className="text-xs text-muted mb-2.5">
             Confirming adds the arrived quantities to stock and raises a discrepancy
             for every difference. Nothing is held back or rejected.

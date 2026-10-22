@@ -65,15 +65,19 @@ export default async function ReceivingPage() {
   // direction the stock was moving.
   const { data: shortages } = await supabase
     .from("stock_discrepancies")
+    // `deliveries(id, …)` and `transfers(id, …)`: the row needs to LINK to
+    // the delivery, which is where the photos and the full context are. A
+    // discrepancy queue that names a reference you then have to go and find
+    // is a dead end for the person acting on it.
     .select(`id, status, raised_at,
              delivery_lines(expected_qty, received_qty, difference, note,
                delivery_difference_reasons(label),
                products(sku, name, unit),
-               deliveries(reference, branches(name))),
+               deliveries(id, reference, branches(name))),
              transfer_lines(sent_qty, received_qty, difference, note,
                delivery_difference_reasons(label),
                products(sku, name, unit),
-               transfers(reference, branches!transfers_from_branch_id_fkey(name)))`)
+               transfers(id, reference, branches!transfers_from_branch_id_fkey(name)))`)
     .eq("status", "open")
     .order("raised_at", { ascending: false })
 
@@ -115,6 +119,8 @@ export default async function ReceivingPage() {
     expected: number; received: number | null; difference: number | null; note: string | null
     reason: string | null; sku: string; name: string; unit: string | null
     reference: string; branch: string | null; kind: "Delivery" | "Transfer"
+    /** Where to go to see the photos and the whole check-in. */
+    href: string
   }
   type RawRow = {
     id: string
@@ -123,13 +129,13 @@ export default async function ReceivingPage() {
       expected_qty: number; received_qty: number | null; difference: number | null; note: string | null
       delivery_difference_reasons: { label: string } | null
       products: { sku: string; name: string; unit: string | null }
-      deliveries: { reference: string; branches: { name: string } | null }
+      deliveries: { id: string; reference: string; branches: { name: string } | null }
     }
     transfer_lines: null | {
       sent_qty: number; received_qty: number | null; difference: number | null; note: string | null
       delivery_difference_reasons: { label: string } | null
       products: { sku: string; name: string; unit: string | null }
-      transfers: { reference: string; branches: { name: string } | null }
+      transfers: { id: string; reference: string; branches: { name: string } | null }
     }
   }
   const shorts = ((shortages ?? []) as unknown as RawRow[]).flatMap((r) => {
@@ -140,13 +146,13 @@ export default async function ReceivingPage() {
           note: d.note, reason: d.delivery_difference_reasons?.label ?? null,
           sku: d.products.sku, name: d.products.name, unit: d.products.unit,
           reference: d.deliveries.reference, branch: d.deliveries.branches?.name ?? null,
-          kind: "Delivery" }
+          kind: "Delivery", href: `/receiving/${d.deliveries.id}` }
       : t
         ? { expected: t.sent_qty, received: t.received_qty, difference: t.difference,
             note: t.note, reason: t.delivery_difference_reasons?.label ?? null,
             sku: t.products.sku, name: t.products.name, unit: t.products.unit,
             reference: t.transfers.reference, branch: t.transfers.branches?.name ?? null,
-            kind: "Transfer" }
+            kind: "Transfer", href: `/receiving/transfer/${t.transfers.id}` }
         : null
     return side ? [{ id: r.id, ...side }] : []
   })
@@ -226,7 +232,12 @@ export default async function ReceivingPage() {
           shorts.map((l) => {
             const over = (l.difference ?? 0) > 0
             return (
-              <div key={l.id} className="flex items-center gap-2.5 py-2.5 border-t border-sand flex-wrap">
+              <Link
+                key={l.id}
+                href={l.href}
+                className="flex items-center gap-2.5 py-2.5 border-t border-sand flex-wrap
+                           min-h-[44px] hover:bg-panel/40 transition-colors"
+              >
                 <span className="flex-1 min-w-[150px]">
                   <span className="block truncate text-ink">{l.name}</span>
                   <span className="font-mono text-[11px] text-subtle">
@@ -248,7 +259,8 @@ export default async function ReceivingPage() {
                 <span className={`num-c text-xs w-[70px] text-right shrink-0 ${over ? "text-good-70" : "text-danger-70"}`}>
                   {l.received} / {l.expected}
                 </span>
-              </div>
+                <span className="text-subtle text-xs shrink-0" aria-hidden="true">›</span>
+              </Link>
             )
           })
         )}
