@@ -10,7 +10,7 @@ import PageHeader from "@/components/retail/PageHeader"
 import ShiftTabs from "@/components/retail/ShiftTabs"
 import Drawer from "@/components/retail/Drawer"
 import type { LeaveRequest, LeaveType, LeaveStatus, RetailBranch } from "@/types/retail"
-import { bangkokToday, addDaysISO } from "@/lib/day"
+import { bangkokToday, addDaysISO, displayDate } from "@/lib/day"
 
 const ANNUAL_DAYS = 10
 const SICK_DAYS = 30
@@ -555,6 +555,19 @@ export default function LeavePage() {
               <input required type="date" value={form.end_date} min={form.start_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="input-field" />
             </div>
           </div>
+          {/* The native date picker renders in the PHONE's locale — on a
+              Thai device that is the Buddhist era ("22 Oct BE 2569") while
+              everything the app draws is CE. The calendar inside an OS
+              control cannot be changed from here, so the app says the dates
+              back in its own format and the ambiguity goes away. */}
+          {(form.start_date || form.end_date) && (
+            <p className="text-xs text-muted -mt-1">
+              {form.start_date === form.end_date
+                ? displayDate(form.start_date)
+                : `${displayDate(form.start_date)} to ${displayDate(form.end_date)}`}
+            </p>
+          )}
+
           {/* Say what the range becomes. A person who picks Mon–Wed and is
               then told "Tuesday was declined" needs to have known that it
               was three requests, not one — so the form says so before the

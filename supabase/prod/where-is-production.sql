@@ -205,6 +205,11 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('081a','081', 'schema', 'the orphan delivery_shortages table is gone',
+    to_regclass('public.delivery_shortages') is null),
+  ('081b','081', 'schema', 'receive_delivery is at version 081',
+    coalesce(pg_get_functiondef(to_regprocedure('public.receive_delivery(uuid)'))
+             like '%fn-version: 081%', false)),
   ('080a','080', 'schema', 'delivery_lines refuses entry before a delivery ships',
     exists (select 1 from pg_trigger
              where tgrelid = 'public.delivery_lines'::regclass

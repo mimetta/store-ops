@@ -120,6 +120,83 @@ node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
 node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
 ```
 
+## I fabricated a function body and shipped it
+
+`080` replaced `receive_delivery` to add a status guard. Its comment said
+*"Only the status check changes; everything else is 029's body, unchanged."*
+**That sentence was false.** Only the first 45 lines of the installed
+function had been read; the rest was reconstructed from assumption.
+
+The discrepancy insert came out naming nine columns against a table that has
+two of them. A KA could not receive anything, in any status, and found out at
+a shop door. Two other changes rode in unnoticed: 029's movement note — the
+reason 029 exists — was reduced to a bare `l.note`, and a `> 0` filter was
+added to the units total.
+
+**`create or replace function` accepts any of this.** A plpgsql body is TEXT,
+validated when it RUNS. Nothing at write time says the column is imaginary.
+
+Three defences all missed it, each for a different reason, and all three are
+worth knowing:
+
+| | why it missed |
+|---|---|
+| `check:write-paths` | reads `src/` only. Most writing in this system is SQL. |
+| `exercise-deliveries` | never calls `receive_delivery` — it tests 070's scheduling. The name oversells it. |
+| 080's own verify block | only tested the REFUSAL path. It called the function on a scheduled delivery and asserted a refusal, so the bad statement never once executed. |
+
+**A function that is only tested when it says no is not tested.** 081's verify
+block receives a delivery for real, with a short line, and reads back the
+discrepancy and the movement note.
+
+`npm run check:sql-write-paths` resolves every `insert into x (cols)` in every
+migration against the live schema — 208 of them. It catches this exact bug.
+
+### The rule
+
+**Never retype a function body you have not read in full.** Read it from the
+file that last wrote it, or out of `pg_get_functiondef`, and copy it. If a
+migration says "unchanged", that has to be literally true.
+
+## Two tables with one name, and the writer picked the empty one
+
+Underneath the above, and older. `031` did
+`alter table delivery_shortages rename to stock_discrepancies`. But `027`
+contains `create table if not exists delivery_shortages`, and 027 was
+re-applied afterwards — it is written to be re-runnable, and the production
+catch-up re-ran it.
+
+So the rename happened and **the old name came back as a new, empty table.**
+029's function still said `insert into delivery_shortages`, so it kept
+working and wrote every discrepancy into a table NOTHING READS. "Differences
+to check" showed an empty list, which looks exactly like nothing went wrong.
+
+080's crash masked it by failing loudly instead. That is luck, not mitigation.
+
+**A rename plus a re-runnable `create table if not exists` under the old name
+is a table-shaped landmine.** When renaming, check whether any earlier
+migration recreates the old name — and `create table if not exists` is
+precisely the form that will.
+
+## A modal is not a screen
+
+The restyle went page by page and counted classes per page. `Drawer.tsx` is a
+COMPONENT, shared by Settings, Calendar, Training and Leave, and it stayed
+`bg-brand-900` with white text inside a cream app. A phone test found it as
+white-on-dark in Request Leave.
+
+"Every screen is restyled" was true and useless — the thing that was wrong
+was not a screen. `npm run check:dark-surfaces` reads every `.tsx` under
+`src/`, not a list of pages. Proved against the deployed code: it flags the
+Drawer at exactly the two lines.
+
+**A native `<input type="date">` renders in the DEVICE locale**, so a Thai
+phone shows the Buddhist era — "22 Oct BE 2569" — while every figure the app
+draws is CE. Nothing in the codebase produces BE; every `toLocaleDateString`
+pins `en-GB` (checked). The calendar inside an OS control cannot be changed
+from the page, so `displayDate()` echoes the chosen date in the app's own
+format beside the field.
+
 ## A rebuilt table reverts later migrations, and 066 cannot see it
 
 `004` does `delete from role_capabilities;` and re-seeds the whole matrix,

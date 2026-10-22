@@ -145,7 +145,15 @@ end $$;
 
 begin;
 
--- Only the status check changes; everything else is 029's body, unchanged.
+-- The status check is what this migration adds. The REST OF THIS BODY WAS
+-- NOT 029'S, despite what this comment originally claimed — only the first
+-- 45 lines of the installed function had been read and the remainder was
+-- reconstructed from assumption. It named seven columns that do not exist,
+-- dropped 029's movement note, and broke receiving at a shop.
+--
+-- 081 is what fixed the deployed database. This file is corrected so it is
+-- not a trap for the next reader, and 066's version marker refuses to let a
+-- re-run of it revert 081 — measured: the guard fires and nothing changes.
 create or replace function public.receive_delivery(p_delivery uuid)
 returns table (lines_received integer, shortages_raised integer, units_added bigint)
 language plpgsql
@@ -208,14 +216,15 @@ begin
   on conflict (product_id, warehouse_id) do update
     set quantity = stock_levels.quantity + excluded.quantity, updated_at = now();
 
-  insert into stock_discrepancies
-    (delivery_line_id, branch_id, product_id, expected_qty, received_qty,
-     difference, reason_code, note, raised_by)
-  select l.id, v_branch, l.product_id, l.expected_qty, l.received_qty,
-         l.difference, l.reason_code, l.note, auth.uid()
+  -- CORRECTED after the fact — see 081. As originally applied this named
+  -- nine columns, seven of which do not exist on stock_discrepancies, and
+  -- it broke receiving entirely at a shop. The real table holds a POINTER
+  -- to the line; the detail lives on the line itself.
+  insert into stock_discrepancies (delivery_line_id, raised_by)
+  select l.id, auth.uid()
     from delivery_lines l
    where l.delivery_id = p_delivery and l.difference <> 0
-     and not exists (select 1 from stock_discrepancies s where s.delivery_line_id = l.id);
+  on conflict (delivery_line_id) do nothing;
   get diagnostics v_shorts = row_count;
 
   select coalesce(sum(received_qty), 0) into v_units

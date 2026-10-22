@@ -2,6 +2,17 @@
 
 import { useEffect } from "react"
 
+/**
+ * A right-hand sheet, shared by Settings, Calendar, Training and Leave.
+ *
+ * It was the last dark surface in the app — `bg-brand-900` with white text
+ * inside the cream shell — and a phone test found it as white-on-dark in the
+ * Request Leave form. The restyle counted classes PER PAGE, and a modal
+ * belongs to a component, so no page-level audit was ever going to see it.
+ *
+ * Fixing it here fixes all four screens at once, which is the argument for
+ * it having been shared in the first place.
+ */
 interface DrawerProps {
   open: boolean
   onClose: () => void
@@ -19,15 +30,18 @@ export default function Drawer({ open, onClose, title, children }: DrawerProps) 
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/60 z-40 transition-opacity duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        className={`fixed inset-0 bg-ink/40 z-40 transition-opacity duration-200 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
       />
       {/* Panel */}
       <div
-        className={`fixed right-0 top-0 h-full w-full max-w-md bg-brand-900 border-l border-brand-700 z-50 flex flex-col transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`fixed right-0 top-0 h-full w-full max-w-md bg-cream border-l border-sand z-50 flex flex-col transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-700 shrink-0">
-          <h2 className="text-base font-semibold text-white">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-sand shrink-0 bg-white">
+          <h2 className="text-base font-semibold text-ink">{title}</h2>
           <button onClick={onClose} className="btn-ghost p-1.5 rounded-lg" aria-label="Close">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18" />

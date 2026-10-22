@@ -87,3 +87,26 @@ export function startOfMonthISO(iso: string): string {
 export function monthOf(iso: string): string {
   return iso.slice(0, 7)
 }
+
+/**
+ * A date as the app says it, everywhere: "22 Oct 2026".
+ *
+ * `<input type="date">` is the OS control and renders in the DEVICE locale —
+ * on a Thai phone that is the Buddhist era, "22 Oct BE 2569", while every
+ * figure the app draws itself is CE. Nothing in this codebase produces BE:
+ * every toLocaleDateString call pins "en-GB" (checked).
+ *
+ * The calendar inside a native picker cannot be changed from here, so the
+ * app does the next best thing — it echoes the chosen date in its OWN
+ * format beside the field. Then the two eras sit next to each other and
+ * nobody has to work out which year they just picked.
+ *
+ * Built from the ISO string, not a Date: a date is a label, and parsing it
+ * into an instant is what makes 1 Oct render as 30 Sep west of Bangkok.
+ */
+export function displayDate(iso: string | null | undefined): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "—"
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+  const [y, m, d] = iso.split("-").map(Number)
+  return `${d} ${MONTHS[m - 1]} ${y}`
+}
