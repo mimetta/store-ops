@@ -4,6 +4,7 @@ import Navbar from "@/components/layout/Navbar"
 import Sidebar from "@/components/layout/Sidebar"
 import TabBar from "@/components/layout/TabBar"
 import type { Profile } from "@/types/database"
+import { buildStamp } from "@/lib/build-stamp"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
@@ -22,16 +23,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq("id", user.id)
     .single()
 
+  // Read here, in a server component, so it reflects the RUNNING deployment
+  // rather than whatever was true when the client bundle was compiled.
+  const build = buildStamp()
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-cream">
       <Navbar profile={profile as Profile | null} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar profile={profile as Profile | null} />
+        <Sidebar profile={profile as Profile | null} build={build} />
         <main className="flex-1 overflow-auto bg-cream pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-0">
           {children}
         </main>
       </div>
-      <TabBar profile={profile as Profile | null} />
+      <TabBar profile={profile as Profile | null} build={build} />
     </div>
   )
 }

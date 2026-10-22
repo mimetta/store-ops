@@ -120,6 +120,46 @@ node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
 node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
 ```
 
+## The build you are looking at is a fact, and nobody could state it
+
+"Deployed versus built" has cost three rounds of testing. A phone test
+reported findings about work sitting uncommitted; a later round reported a
+link missing from a build that provably renders it. **In every case the code
+was fine and the unanswerable question was "which commit is in front of me".**
+
+A GitHub deployment record says what was SENT. It cannot say what a phone
+has in its cache, or which alias a tester typed.
+
+So the app says it. `lib/build-stamp.ts` reads `VERCEL_GIT_COMMIT_SHA` **in
+a server component at request time** — not `NEXT_PUBLIC_`, which would bake
+it into the client bundle at build time and be the same staleness this
+exists to detect. It shows in the sidebar footer on desktop and at the foot
+of the **More** sheet on a phone, which is where the testing happens.
+
+### How to settle it next time, in order
+
+1. `git rev-parse --short HEAD` vs `git rev-parse --short origin/main` —
+   is it even pushed?
+2. `gh api repos/<owner>/<repo>/deployments --jq '.[0:3][] | "\(.sha[0:7]) \(.environment)"'`
+   — did each project deploy it?
+3. **Open More on the phone and read the stamp.** That is the only one that
+   describes the device reporting the bug.
+4. Build locally, `npm start`, and fetch the page with a real signed-in
+   cookie. If the markup is there, the code is not the problem.
+
+Step 4 is what proved the discrepancy link works: `<a … href="/receiving/
+25e962b1-…">` with four hrefs, fetched as a manager.
+
+### Two measurement traps, both mine
+
+- **React splits static text from an interpolated value with an HTML
+  comment.** `build {build.sha}` renders as `build <!-- -->deadbee`, so
+  `/build\s+\w+/` finds nothing and the feature looks broken when it is
+  not. Match the parts, not the sentence.
+- **A grep for a symbol finds the comment explaining it.** `.slice(0, 5)`
+  in a header comment failed a test asserting the code no longer sliced.
+  Strip comments before scanning source.
+
 ## Collected, stored, never read — the 029 shape, twice more
 
 `029` exists because the note about one delivery line was being collected

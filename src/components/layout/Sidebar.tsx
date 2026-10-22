@@ -8,6 +8,8 @@ import { SECTIONS, Icon, HOME_ICON, type NavItem } from "./nav-items"
 
 interface SidebarProps {
   profile: Profile | null
+  /** Which deployment this is. See lib/build-stamp.ts. */
+  build?: { sha: string; startedAt: string }
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -18,7 +20,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function Sidebar({ profile }: SidebarProps) {
+export default function Sidebar({ profile, build }: SidebarProps) {
   const pathname   = usePathname()
   // Nav visibility comes from the same matrix the pages use — see
   // lib/permissions.ts. Nothing here re-derives permissions from portal_role.
@@ -71,6 +73,15 @@ export default function Sidebar({ profile }: SidebarProps) {
         <div className="px-4 py-3 border-t border-sand">
           <p className="text-[11px] text-subtle mb-1">Chapter</p>
           <p className="text-sm text-ink font-medium">{profile.chapter}</p>
+        </div>
+      )}
+
+      {/* Which build you are looking at. Three rounds of testing have been
+          spent on findings about code that was not deployed; this is how
+          that question gets answered from the device, not from a guess. */}
+      {build && (
+        <div className="px-4 py-2 border-t border-sand">
+          <p className="text-[10px] text-subtle font-mono">build {build.sha}</p>
         </div>
       )}
     </aside>

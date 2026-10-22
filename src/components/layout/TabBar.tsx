@@ -54,7 +54,13 @@ const PRIMARY: Tab[] = [
 
 const MORE_ICON = "M4 6h16 M4 12h16 M4 18h16"
 
-export default function TabBar({ profile }: { profile: Profile | null }) {
+export default function TabBar({ profile, build }: {
+  profile: Profile | null
+  /** Which deployment this is — shown at the foot of the More sheet, because
+   *  the phone is where the testing happens and where the question
+   *  "is this the build with the fix in it" actually has to be answered. */
+  build?: { sha: string; startedAt: string }
+}) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
@@ -127,6 +133,17 @@ export default function TabBar({ profile }: { profile: Profile | null }) {
                 ))}
               </div>
             ))}
+
+            {build && (
+              <div className="px-4 py-3 mt-1 border-t border-sand">
+                <p className="text-[11px] text-subtle font-mono">
+                  build {build.sha}
+                </p>
+                <p className="text-[10px] text-subtle mt-0.5">
+                  If this is not the build you expect, pull down to refresh.
+                </p>
+              </div>
+            )}
           </div>
         </>
       )}
