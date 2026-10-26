@@ -296,15 +296,27 @@ migration says "unchanged", that has to be literally true.
 ## Two tables with one name, and the writer picked the empty one
 
 Underneath the above, and older. `031` did
-`alter table delivery_shortages rename to stock_discrepancies`. But `027`
-contains `create table if not exists delivery_shortages`, and 027 was
-re-applied afterwards — it is written to be re-runnable, and the production
-catch-up re-ran it.
+`alter table delivery_shortages rename to stock_discrepancies`, and `029`'s
+`receive_delivery` still said `insert into delivery_shortages`.
 
-So the rename happened and **the old name came back as a new, empty table.**
-029's function still said `insert into delivery_shortages`, so it kept
-working and wrote every discrepancy into a table NOTHING READS. "Differences
-to check" showed an empty list, which looks exactly like nothing went wrong.
+**What that does depends on whether the old name came back, and the two
+databases diverged.** `027` contains `create table if not exists
+delivery_shortages`, and it was RE-APPLIED on UAT after 031 during the
+catch-up rehearsals — so on UAT the old name came back as an empty
+duplicate, the function kept WORKING, and every discrepancy went into a
+table NOTHING READS. "Differences to check" showed an empty list, which
+looks exactly like nothing went wrong.
+
+On PRODUCTION 027 and 031 each ran once, in order. Only the new name exists,
+so the same function ERRORS instead: `relation "delivery_shortages" does not
+exist`. Louder, and nothing was lost — measured 2026-10-26, production had
+0 deliveries and 0 discrepancies.
+
+**The lesson is the divergence itself.** Re-running a re-runnable migration
+is safe in isolation and changed the SHAPE of the database relative to one
+that ran it once. "UAT has everything production has, plus more" stopped
+being true, quietly, and a brief written from UAT's state described a leak
+that production did not have.
 
 080's crash masked it by failing loudly instead. That is luck, not mitigation.
 

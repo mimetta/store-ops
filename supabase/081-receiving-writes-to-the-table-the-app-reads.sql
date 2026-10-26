@@ -36,28 +36,36 @@
 -- "Received 7 of 10 (box crushed) — two tubes split". That is restored here
 -- verbatim from 029 rather than retyped.
 --
--- ── FAULT 2 — two tables, and the writer picked the empty one ─────────────
+-- ── FAULT 2 — the function names a table that may not be there ───────────
 --
 -- Underneath that, and older: `031` did
 --
 --     alter table delivery_shortages rename to stock_discrepancies;
 --
--- but `027` contains `create table if not exists delivery_shortages`, and
--- 027 was re-applied afterwards (it is written to be re-runnable, and the
--- production catch-up re-ran it). So the rename happened and then the OLD
--- NAME CAME BACK as a new, empty table.
+-- and `029`'s `receive_delivery` still said
+-- `insert into delivery_shortages`. What that does depends on whether the
+-- old name came back, and **the two databases differ**:
 --
--- 029's function still said `insert into delivery_shortages`. It therefore
--- worked — and wrote every discrepancy into a table NOTHING READS. The app
--- reads `stock_discrepancies` (receiving/page.tsx:67, dashboard/page.tsx:231).
+--   UAT          `027` was RE-APPLIED after 031 during the catch-up
+--                rehearsals, and its `create table if not exists
+--                delivery_shortages` brought the old name back as an empty
+--                duplicate. So the function WORKED and wrote every
+--                discrepancy into a table NOTHING READS — the app reads
+--                `stock_discrepancies` (receiving/page.tsx:67,
+--                dashboard/page.tsx:231). One row sat there unseen.
 --
--- That is the quieter and more dangerous fault: a difference raised at the
--- door went into an orphan, and "Differences to check" showed an empty list
--- that looks exactly like "nothing went wrong". Measured on UAT: one row sat
--- in `delivery_shortages` that no screen has ever shown.
+--   PRODUCTION   027 and 031 each ran ONCE, in order. Only the new name
+--                exists. So the function does not mis-file — it ERRORS:
+--                `relation "delivery_shortages" does not exist`. Measured
+--                2026-10-26: delivery_shortages ABSENT, stock_discrepancies
+--                0 rows, 0 deliveries received. **Nothing was lost there.**
 --
--- **080's crash masked it by failing loudly instead.** That is luck, not a
--- mitigation.
+-- The silent version is the more dangerous one and is why this migration
+-- moves rows before dropping the table. The STEP 1 block is guarded on
+-- `to_regclass`, so on a database that never had the duplicate it simply
+-- does nothing and the verify block's "orphan is gone" assertion passes
+-- trivially. **A trivially-true assertion is not evidence** — what proves
+-- this migration is the version marker and the real receive below.
 --
 -- ── WHAT THIS DOES ────────────────────────────────────────────────────────
 --

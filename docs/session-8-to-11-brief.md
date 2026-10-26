@@ -42,15 +42,38 @@ that is live:
 | `077` | `branch_payment_mix` | **`/pos-money` reconciliation** |
 | `078` | `delivery_photos` | **the photo control errors** |
 | `080` | `receive_delivery` (v080) | receiving accepts a delivery still in the warehouse |
-| `081` | `receive_delivery` (v081) | — see below |
+| `081` | `receive_delivery` (v081) | **receiving ERRORS** — see below |
 | `082` | `delivery_photos.delivery_id` | the photo control errors |
 
-**The worst of these is `081`.** Production's `receive_delivery` is still
-029's, which writes to `delivery_shortages`. That table exists on production
-(027 created it) so receiving WORKS there — and every discrepancy it raises
-goes into a table the app does not read. **A shortage recorded at a
-production shop today is invisible on the Differences list.** Silent, and
-exactly the failure 081 exists to end.
+**The worst of these is `081`, and its shape was CORRECTED after P2 was
+run on production.**
+
+An earlier draft of this brief said production had both `delivery_shortages`
+and `stock_discrepancies`, and that shortages were silently going into the
+one nothing reads. **That was wrong, twice.** P2 on production returned:
+
+```
+delivery_shortages    ABSENT
+stock_discrepancies   0 rows
+deliveries received   0
+```
+
+The two-table state was a **UAT artefact**. On production `027` and `031` ran
+once each, in order: 027 created `delivery_shortages`, 031 renamed it to
+`stock_discrepancies`, and only the new name exists. On UAT, `027` was
+RE-RUN after 031 during the catch-up rehearsals, and its
+`create table if not exists delivery_shortages` brought the old name back as
+an empty duplicate. Production never had that.
+
+So the production failure mode is different and **louder**: `029`'s
+`receive_delivery` names `delivery_shortages`, which does not exist there, so
+**any attempt to receive a delivery on production ERRORS** —
+`relation "delivery_shortages" does not exist`. It does not mis-file
+quietly.
+
+**Nothing has been lost.** Production has zero deliveries and zero
+discrepancies, so nobody has reached the error. `081` is a FIX BEFORE USE,
+not a repair.
 
 The other ten — `059 060 061 064 065 066 071 072 074 079` — are schema
 hardening, guards and data corrections. Nothing on production calls them, so
@@ -59,8 +82,9 @@ they are safe to carry but they are not what is bleeding.
 ### The one-line summary for a decision
 
 > Production's database is 24 migrations behind an app that is live. Four
-> screens cannot load, and receiving silently files shortages where nobody
-> looks.
+> screens cannot load and receiving errors outright — but production has no
+> deliveries and no discrepancies yet, so nothing has been lost. This is a
+> catch-up before first use, not a recovery.
 
 ---
 
@@ -90,8 +114,12 @@ Two more worth knowing, both schema-kind but easy to misread:
 
 - **`060`** detects the ABSENCE of a default. A fresh database that never
   had one reads the same as one where 060 ran.
-- **`081a`** detects `delivery_shortages` being GONE. If it reads YES before
-  you start, something else dropped it and you should stop.
+- **`081a`** detects `delivery_shortages` being GONE — so it reads YES on
+  production BEFORE 081 runs, because the table was never recreated there.
+  **A trivially-true assertion is not evidence.** What proves 081 on
+  production is its other assertion, that `receive_delivery` carries
+  `fn-version: 081`, plus its verify block receiving a short delivery for
+  real.
 
 ---
 
@@ -277,9 +305,15 @@ order by step desc, artefact;
 ```
 
 **Expect `058` and `057` TRUE** — they were applied out of band.
-**Expect BOTH `delivery_shortages` and `stock_discrepancies` TRUE.** That
-pair is the 081 problem; if `delivery_shortages` is absent, stop and tell me,
-because then receiving on production is erroring rather than mis-filing.
+
+**`delivery_shortages` reads FALSE and `stock_discrepancies` TRUE.** Confirmed
+on production. That is the correct state for a database where 027 and 031 each
+ran once: the rename happened and the old name did not come back. UAT shows
+both only because 027 was re-applied there after 031.
+
+If `delivery_shortages` ever reads TRUE on production, something re-ran 027
+and `081` will move its rows and drop it — which is exactly what its guarded
+STEP 1 is for.
 
 ### ═══ P2 ═══ THE ONE THAT MATTERS — where did the shortages go?
 
@@ -327,9 +361,14 @@ begin
 end $$;
 ```
 
-`invisible_to_everyone` is the number of real shortages lost so far. `081`
-moves them. **Record this figure before the session** — it is the only
-evidence of how long this has been happening.
+`invisible_to_everyone` is the number of real shortages that went into the
+orphan table. **On production, run 2026-10-26, it was not reachable** — the
+orphan does not exist there, `stock_discrepancies` holds 0 rows and there
+are 0 received deliveries.
+
+Keep this block anyway. It is the right question to ask of any database
+before 081 goes in, and the answer on a shop that has been receiving for
+weeks would be very different.
 
 ### ═══ P3 ═══ 059 — the delete rules before they change
 
