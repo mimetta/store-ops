@@ -108,21 +108,34 @@ Run in this order:
 
 ```
 supabase/066-a-function-knows-its-version.sql
-supabase/059-a-person-is-not-deletable.sql
 supabase/080-nothing-is-received-before-it-ships.sql
 supabase/081-receiving-writes-to-the-table-the-app-reads.sql
 supabase/078-evidence-for-a-delivery-line.sql
 supabase/082-a-photo-is-evidence-of-the-whole-check-in.sql
 ```
 
-**`066` goes first, before anything else in the whole catch-up.** It installs
-`check_function_version`, and every later migration that replaces a shared
-function calls it guarded. Without it those guards silently skip, and the
-protection against applying an older migration over a newer one is absent for
-the rest of the session.
+**`066` goes first in the whole catch-up**, and the reason is specific rather
+than general. Eight files in this range call `check_function_version`,
+guarded:
 
-`059` before `080`/`081` because it converts five `profiles` foreign keys to
-RESTRICT and both later files touch delivery rows attributed to people.
+```
+063  profiles_guard_privileged_columns   071  profile_for_new_account
+064  profiles_guard_privileged_columns   072  profile_for_new_account
+069  save_daily_entry                    075  commission_attendance
+080  receive_delivery                    081  receive_delivery
+```
+
+The guard is written `if to_regprocedure('…check_function_version…') is not
+null then` — so without 066 installed it **silently does nothing**, and the
+protection against applying an older migration over a newer one is simply
+absent. Two of the eight (`080`, `081`) are the next files in this session,
+which is what makes 066 first rather than merely early.
+
+`066` itself is `-- REQUIRES: 002`, so it can go in at any point.
+
+**Files that do NOT call it — `059 060 061 062 065 067 068 070 073 074 076
+077 078 079 082` — do not care where 066 is.** Several were written before
+066 existed and could not call it if they wanted to.
 
 `078` before `082`: 082 alters the table 078 creates.
 
@@ -160,6 +173,7 @@ on production nobody has one, so it will find an actor easily.
 data arrives.**
 
 ```
+supabase/059-a-person-is-not-deletable.sql
 supabase/060-a-threshold-nobody-chose.sql
 supabase/061-a-non-answer-stays-a-non-answer.sql
 supabase/062-a-unit-is-a-vocabulary.sql
@@ -169,6 +183,15 @@ supabase/065-people-can-reach-the-row.sql
 supabase/074-a-leave-request-is-one-day.sql
 supabase/079-a-ka-keys-the-day-and-everyone-sees-the-calendar.sql
 ```
+
+**`059` moved here from session 8**, where an earlier draft of this brief
+put it claiming `080`/`081` depended on it. They do not: 059 converts foreign
+keys on `leave_requests`, `work_schedules`, `training_progress`,
+`commission_branches` and `user_departments`, and 080/081 touch delivery
+tables only. No overlap. It belongs with the other hardening.
+
+`059` will SKIP `commission_branches.staff_id` if `051` is not on production
+— P1 answers that. **A SKIPPED line is a to-do**: re-run 059 once 051 is in.
 
 `063` then `064` then `065`, in that order — all three write
 `profiles_guard_privileged_columns` or the policy beside it, and `064` is the
@@ -309,6 +332,9 @@ moves them. **Record this figure before the session** — it is the only
 evidence of how long this has been happening.
 
 ### ═══ P3 ═══ 059 — the delete rules before they change
+
+Needed before **session 10**, not session 8 — but take it now with the rest,
+since it is read-only and you are already connected.
 
 Expect CASCADE on all five. Any RESTRICT means 059 has partly run and P1
 should have said so.
