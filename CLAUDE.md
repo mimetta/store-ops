@@ -1434,7 +1434,15 @@ and the only one with its own handling rule:
 ## Environments
 
 - UAT `jgijsurgbciuopicqceo` — where everything is applied and tested first.
-- Production `gwncamipwckpknxpiksv` (KindOS) — **28 migrations behind**; see
-  `docs/production-catch-up.md`. `014` is blocked by kcp-portal upserts naming
-  a constraint it drops.
+- Production `gwncamipwckpknxpiksv` (KindOS) — **24 migrations behind: 059
+  through 082**, none applied. See `docs/session-8-to-11-brief.md`. Sessions
+  1–7 took it to `058`; `042`, `042b`, `054` and `057` went in out of band.
+  (`014`'s kcp-portal constraint block is long since resolved.)
+- **The APP is NOT behind. Both Vercel projects deploy from `main`**, so
+  production runs the same build as UAT. A database 24 migrations behind a
+  live app is not "features missing" — `/feedback`, `/deliveries`,
+  `/pos-money` and the `/daily` money card cannot load there, and receiving
+  files every shortage into `delivery_shortages`, which no screen reads.
+- **This number goes stale the moment anything is applied.** Do not trust it;
+  run `supabase/prod/where-is-production.sql` and read the answer.
 - Scripts refuse to run against production. Keep it that way.
