@@ -118,7 +118,40 @@ node scripts/uat/exercise-leave.mjs        # books, approves, checks the roster
 node scripts/uat/exercise-daily-money.mjs  # keys the day's money, then edits it
 node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
 node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
+node scripts/uat/exercise-receiving-chain.mjs  # KA records, MANAGER reads
 ```
+
+## The handover is where it breaks, so test the handover
+
+Three separate bugs, one shape — the crossing between the person who
+RECORDS and the person who ACTS:
+
+| | what broke |
+|---|---|
+| `081` | `receive_delivery` wrote nine columns to a table with two; a KA could not check in at all |
+| `082` | the photo control only appeared on a line with a difference, so a matching delivery carried no evidence |
+| `b9cdc13` | the photo block sat inside `{!done && …}`, so the evidence vanished for the manager it was for |
+
+**Every piece passed its own test each time.** Pieces are easy to assert and
+the handover is where the meaning lives.
+
+`exercise-receiving-chain.mjs` crosses it on purpose: it writes as a KA and
+reads as a MANAGER, through two separate signed-in sessions, and every
+assertion after the check-in uses the manager's. 13 assertions — the words
+reach the queue, the category too, the link resolves, the photo survives
+receiving, the signed URL opens, the movement carries both, and a
+supervisor at another branch sees none of it.
+
+The general rule: **when a feature has a sender and a receiver, the test has
+to be two sessions.** One session proves the data was written. It cannot
+prove it arrived.
+
+### Measured from a real phone, worth keeping
+
+A photo taken at a shop and uploaded through the app came out at **493 KB**
+from a 3–5 MB original — the 1600px/0.75 compression in
+`lib/delivery-photos.ts` doing roughly a 7x reduction on shop wifi. That is
+the number to compare against if uploads ever start feeling slow.
 
 ## The build you are looking at is a fact, and nobody could state it
 
