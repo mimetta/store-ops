@@ -138,6 +138,26 @@ const naive = (() => {
 check(!naive.drift.some((i) => relationOf(i).startsWith("delivery_shortages")),
   "the naive version MISSES it — so the ran-on-production step is load-bearing")
 
+// ── 4b. 079's unnest-style grants are explained, not reported ─────────────
+//
+// The first real run against production reported all seven calendar.view
+// grants as unexplained drift. They are 079's, seeded with
+// `select r, 'calendar.view' from unnest(array[…])`, which the tuple regex
+// could not see. The tell was that 079's OTHER grant — `ka -> sales.manual`,
+// written as a plain tuple — was not reported alongside them.
+//
+// 004 lists the same seven, but that is the rebuild-safe backing added in the
+// same session as 079; production ran 004 long before that edit. So 079 is
+// the only path by which production gets them.
+const CAL = ["admin", "manager", "supervisor", "ka", "logistics", "people", "marketing"]
+  .map((r) => `grant      ${r} -> calendar.view`)
+const calDrift = r.drift.filter((i) => CAL.includes(i))
+const calExpected = r.expected.filter((e) => CAL.includes(e.i))
+check(calDrift.length === 0,
+  `the seven calendar.view grants are NOT reported as drift (${calDrift.length} were)`)
+check(calExpected.length === 7 && calExpected.every((e) => e.by === "079"),
+  `all seven are explained by 079 (${calExpected.length} of 7, by ${[...new Set(calExpected.map((e) => e.by))].join("/") || "nothing"})`)
+
 // ── 5. the expected majority really is explained away ─────────────────────
 check(r.expected.length > r.drift.length,
   `the outstanding migrations explain the bulk: ${r.expected.length} expected vs ${r.drift.length} drift`)

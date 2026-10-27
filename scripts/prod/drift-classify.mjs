@@ -47,7 +47,26 @@ export function readMigrations(dir = "supabase") {
     for (const m of sql.matchAll(/create trigger ([a-z_]+)/gi)) add(m[1])
     for (const m of sql.matchAll(/create policy "([^"]+)"/gi)) add(m[1])
     for (const m of sql.matchAll(/add constraint ([a-z_]+)/gi)) add(m[1])
+    // Grants written as tuples: ('ka', 'sales.manual')
     for (const m of sql.matchAll(/\(\s*'([a-z_]+)'\s*,\s*'([a-z._]+)'\s*\)/g)) add(`${m[1]} -> ${m[2]}`)
+    // Grants written as a SET: insert … select r, 'calendar.view' from unnest(array[…]) r
+    //
+    // 079 is the only migration that seeds this way, and the tuple regex above
+    // is blind to it — a gap CLAUDE.md already recorded for check:rebuilt-tables
+    // and that I did not carry across. The first real run against production
+    // therefore reported all seven calendar.view grants as unexplained drift.
+    // They are 079's, and production gets them when 079 applies.
+    //
+    // Dotted strings in the statement are capabilities, bare ones are roles;
+    // emit the cross product. Shape-agnostic, so it does not care whether the
+    // select lists the role or the capability first.
+    for (const m of sql.matchAll(/insert\s+into\s+role_capabilities[\s\S]{0,600}?unnest\s*\(\s*array\[([\s\S]{0,400}?)\]/gi)) {
+      const stmt = m[0]
+      const quoted = [...stmt.matchAll(/'([a-z._]+)'/gi)].map((q) => q[1])
+      const caps = quoted.filter((q) => q.includes("."))
+      const roles = quoted.filter((q) => !q.includes("."))
+      for (const r of roles) for (const c of caps) add(`${r} -> ${c}`)
+    }
     for (const m of sql.matchAll(/insert into storage\.buckets[\s\S]{0,200}?values\s*\(\s*'([a-z-]+)'/gi)) add(m[1])
   }
   return { created, byMigration }

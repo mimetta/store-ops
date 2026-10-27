@@ -372,6 +372,77 @@ Two more things the first draft got wrong, both worth keeping:
 it asserts the naive classifier MISSES the case, so the load-bearing step
 cannot be quietly removed.
 
+### Its first real run: one finding, one false alarm, both instructive
+
+Run against production for the first time, it reported two things.
+
+**`handle_new_user()` is on production and not on UAT.** Real, and the worse
+of the two: it is the legacy trigger `072` exists to survive, living only on
+the side `072` was never developed against. See the section below.
+
+**The seven `calendar.view` grants looked unexplained.** A FALSE ALARM, and
+mine. `079` seeds them with
+`select r, 'calendar.view' from unnest(array[…])`, and the parser only knew
+the tuple form `('ka','sales.manual')` — a gap CLAUDE.md had already recorded
+for `check:rebuilt-tables` and that I did not carry across. **The tell was in
+the output**: 079's other grant, written as a plain tuple, was not reported
+alongside them. Seven of eight is the signature of a parser, not a database.
+
+Worth knowing for the next read of that output: **004 lists the same seven
+grants too**, added in the same commit as 079 as its rebuild-safe backing. So
+`created` attributes them to `004, 079` — and production ran 004 long before
+that edit existed. **A migration file edited after it was applied is a
+divergence the catalogue cannot show you**, and the inference "production
+holds most of 004's objects, so 004 ran" says nothing about WHICH VERSION of
+004 ran. `check:drift` does not model that and is not going to; read it as a
+known blind spot.
+
+The general shape of the false alarm: **when a check that reads source files
+disagrees with a database, suspect the reader first.** The database is the
+evidence; the parser is the thing that was written last week.
+
+## A stand-in for a function you have not read is a fabrication
+
+`072` survives a legacy `handle_new_user` trigger that creates the profile
+first. Its verify block simulates that competitor with `probe_072_legacy` —
+and **that stand-in was written from "the standard Supabase pattern", not
+from the function**. The only facts ever captured about the real one were two
+booleans out of `what-else-touches-auth-users.sql`: `sets_a_role` and
+`sets_a_name`.
+
+That is the 080 fabrication one step milder — the invented body is a test
+fixture rather than a shipped function — and the rule is the same. **A
+stand-in written to impersonate a function is retyping it.** The first draft
+of 072's block proved the cost already: it synthesised a competitor
+unconditionally, sorted ahead of the real one, and broke the thing it was
+testing.
+
+What 072 relies on, and how much of it is actually established:
+
+| | |
+|---|---|
+| `profile_for_new_account` is AFTER INSERT | **read from 071** |
+| `on_auth_user_created` fires first | name sorts before it, and BEFORE precedes AFTER either way — reasoning, not measurement |
+| the legacy writes nothing 072's `do update` leaves standing | **unknown — the body has never been read** |
+
+On production `v_others` is non-null, so the simulated race is skipped and the
+FIRST insert is the real race. Those two assertions are therefore genuine
+evidence there — which makes the production run's output the thing worth
+having, and it was never recorded.
+
+`prod/what-does-handle-new-user-do.sql` reads the body line by line, lists
+every auth.users trigger in true firing order (timing first, then name), names
+any `profiles` column the legacy writes that 072 does not reset, and shows the
+15 most recent accounts with their roles. **Section 4 is the one that settles
+it whatever the body says**: an account created since 072 holding `'staff'` is
+the bug 071 and 072 exist to prevent, visible in the data.
+
+Worth noting that `check-prod-sql.mjs` caught a real error in it — an
+`ORDER BY`/`LIMIT` written directly in a `UNION ALL` arm binds to the whole
+union, putting the alias out of scope. **Validate read-only queries too**; the
+cost of a broken one is a wasted round trip against a database you cannot
+easily reach.
+
 ## A modal is not a screen
 
 The restyle went page by page and counted classes per page. `Drawer.tsx` is a
