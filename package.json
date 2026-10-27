@@ -29,6 +29,8 @@
     "check:state": "node scripts/uat/check-state-query.mjs",
     "check:drift-logic": "node scripts/prod/drift-classify.test.mjs",
     "check:drift": "node scripts/prod/diff-uat-against-production.mjs",
+    "what-has-run": "node scripts/prod/what-has-run.mjs",
+    "backfill-applied": "node scripts/prod/backfill-migrations-applied.mjs",
     "check:lint": "next lint",
     "test:shift-tabs": "tsx tests/shift-tabs.test.ts",
     "check:loading-gates": "node scripts/uat/check-loading-gates.mjs",

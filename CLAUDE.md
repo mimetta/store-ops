@@ -120,6 +120,8 @@ node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
 node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
 node scripts/uat/exercise-receiving-chain.mjs  # KA records, MANAGER reads
 PROD_DB_URL=… npm run check:drift   # where do UAT and production disagree?
+PROD_DB_URL=… npm run what-has-run [NNN|--stale]  # what ran, and which text
+PROD_DB_URL=… npm run backfill-applied -- --env prod|uat [--yes]
 ```
 
 ## The handover is where it breaks, so test the handover
@@ -438,6 +440,71 @@ still an inference, because **nothing in this repo records when production ran
 anything.** The same gap that made `prod/030a` read as an unexplained deletion
 (see "Record that a one-off production script RAN") applies to all 81, and the
 answer here was reconstructed rather than looked up.
+
+### 083 ends the inference. The database records what ran.
+
+`migrations_applied` holds one row per APPLICATION — not per file, because
+these migrations are re-runnable and several have been applied three times,
+and a re-run that reverted something (`004` wiping later grants) is precisely
+the event a collapsed row would hide.
+
+`apply-migration.mjs` APPENDS a guarded insert to the simple-query batch, so
+the record shares the migration's transaction. Appending is the only way to
+get that: Postgres runs a multi-statement simple query in one implicit
+transaction, so a statement sent SEPARATELY afterwards is a second
+transaction by definition — the migration could commit and the record fail,
+which is the exact divergence this exists to end.
+
+Two cases, and the difference is worth knowing:
+
+| the file | what the record shares |
+|---|---|
+| no `commit;` | one implicit transaction. Record and migration commit together, or neither does. |
+| has `commit;` | STEP 1 already committed. The record rides with the verify block, so a FAILING VERIFY leaves the schema changed and no record of it. |
+
+The second is a false negative — "no record" about something that partly
+ran — which is the safe direction, is the caveat this script already prints
+on failure, and has the fix it already prints: re-run the file.
+
+**The insert is guarded on the table existing.** Without that, applying any
+migration to a database not yet at 083 would fail on the insert and roll back
+a perfectly good migration. **The recording must never be able to cost you
+the thing it is recording.**
+
+### The backfill says "unknown" and means it
+
+`backfill-migrations-applied.mjs` reconstructs what we know. The rule it
+obeys is the whole point:
+
+- **`applied_at`** filled only where a session record names the day. Session
+  8 is 2026-10-26 and nothing else is dated.
+- **`file_sha256`** filled only where git shows the file has ever had ONE
+  distinct content. Then "which text ran" has a single possible answer and no
+  date reasoning is involved.
+
+That second rule is the careful one. It would be easy to argue "this file
+last changed on the 12th and the sessions ran after it, so the current sha is
+right" — **that is the exact inference chain this table replaces**, and a
+reconstructed sha stored as a fact is worse than no sha at all. Of UAT's 82,
+50 have a known text and none has a known date. Production's manifest is 65,
+of which 37 have a known text and 5 a known date.
+
+Three further rules it follows:
+
+- **It never touches a `recorded` row.** Those are evidence.
+- **It skips a file that already has one** — a reconstruction sitting beside
+  real evidence is a worse answer next to a better one, and somebody
+  eventually reads the wrong one.
+- **A file it is unsure about is omitted entirely.** An absent row means "no
+  record", which is honest. A row with invented content is not.
+
+`npm run what-has-run` is the lookup that replaces the inference, and
+`--stale` compares each recorded sha against the file on disk now. Only a
+RECORDED sha can be compared: a backfilled NULL means we never knew, which is
+not the same as "differs" and must never be rendered as one.
+
+**This shrinks on its own.** Every migration from here records itself, so the
+unknowns are a fixed historical set rather than a growing one.
 
 One second-order consequence worth knowing, since it is live right now:
 `051`'s version marker was added on 10-20, after production ran `051`. So

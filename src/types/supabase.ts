@@ -1739,6 +1739,45 @@ export type Database = {
           },
         ]
       }
+      migrations_applied: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          db_role: string | null
+          file_sha256: string | null
+          filename: string
+          id: number
+          note: string | null
+          recorded_at: string
+          repo_commit: string | null
+          source: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          db_role?: string | null
+          file_sha256?: string | null
+          filename: string
+          id?: never
+          note?: string | null
+          recorded_at?: string
+          repo_commit?: string | null
+          source?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          db_role?: string | null
+          file_sha256?: string | null
+          filename?: string
+          id?: never
+          note?: string | null
+          recorded_at?: string
+          repo_commit?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       nationalities: {
         Row: {
           active: boolean
@@ -5022,6 +5061,19 @@ export type Database = {
           pos_fed: boolean | null
           units_keyed: number | null
           visitors: number | null
+        }
+        Relationships: []
+      }
+      migrations_applied_latest: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          file_sha256: string | null
+          filename: string | null
+          note: string | null
+          recorded_at: string | null
+          repo_commit: string | null
+          source: string | null
         }
         Relationships: []
       }

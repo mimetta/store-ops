@@ -31,9 +31,44 @@
  *
  * It does not reorder, rewrite or "fix" the file. Whatever is in the migration
  * is what runs.
+ *
+ * It does APPEND one guarded block — see RECORDING below. That is an addition
+ * at the end, never an edit to anything the file says, and it is the only
+ * departure from the sentence above.
+ *
+ * ── RECORDING ─────────────────────────────────────────────────────────────
+ *
+ * `083` creates `migrations_applied`, and this appends the INSERT to the same
+ * simple-query batch so the record shares the migration's fate.
+ *
+ * Appending is the only way to get that. Postgres runs a multi-statement
+ * simple query in one implicit transaction, so a statement SENT SEPARATELY
+ * afterwards is a second transaction by definition — the migration could
+ * commit and the record fail, which is the exact divergence this is for.
+ *
+ * Two cases, and the difference is worth knowing:
+ *
+ *   file with no `commit;`   one implicit transaction. The record commits
+ *                            with the migration or not at all. Exact.
+ *   file with `commit;`      STEP 1 committed at that point. The record
+ *                            rides in the trailing transaction with the
+ *                            verify block, so a FAILING VERIFY BLOCK leaves
+ *                            the schema changed and no record of it.
+ *
+ * The second is a false negative — "we have no record this ran" about
+ * something that partly ran. That is the safe direction, it is the same
+ * caveat this script already prints on failure, and the fix is the one
+ * already printed: re-run the file.
+ *
+ * The block is GUARDED on the table existing. Without that, applying any
+ * migration to a database that has not yet run 083 would fail on the insert
+ * and **roll back a perfectly good migration** — the recording must never be
+ * able to cost you the thing it is recording.
  */
 import { readFileSync, existsSync } from "node:fs"
-import { homedir } from "node:os"
+import { createHash } from "node:crypto"
+import { execFileSync } from "node:child_process"
+import { homedir, userInfo } from "node:os"
 import { join } from "node:path"
 import pg from "pg"
 
@@ -102,13 +137,56 @@ try {
          "Expected postgresql://… — the value itself is never printed.")
 }
 
-const sql = readFileSync(file, "utf8")
-const statements = sql.split(/;\s*(?:\n|$)/).filter((s) =>
+const sqlRaw = readFileSync(file, "utf8")
+
+// ── the recording block ───────────────────────────────────────────────────
+//
+// sha256 of the BYTES, not of the parsed statements: the question is "which
+// text ran", and a comment-only edit still produces a file somebody may need
+// to tell apart from its predecessor.
+const fileSha = createHash("sha256").update(readFileSync(file)).digest("hex")
+
+const gitHead = (() => {
+  try {
+    return execFileSync("git", ["rev-parse", "--short", "HEAD"],
+                        { stdio: ["ignore", "pipe", "ignore"] }).toString().trim()
+  } catch { return null }   // not a checkout, or no git. Not worth failing over.
+})()
+
+const actor = process.env.APPLIED_BY || (() => {
+  try { return userInfo().username } catch { return null }
+})()
+
+// Single quotes doubled. These values are a path, a hex digest and a username
+// rather than anything hostile, but this string is concatenated into SQL and
+// "the input is trusted" is how that goes wrong later.
+const lit = (v) => (v === null || v === undefined ? "null" : `'${String(v).replace(/'/g, "''")}'`)
+
+const RECORD = `
+
+-- ── appended by apply-migration.mjs — see RECORDING in that file ──────────
+do $record_083$
+begin
+  if to_regclass('public.migrations_applied') is not null then
+    insert into public.migrations_applied
+      (filename, file_sha256, repo_commit, applied_at, applied_by, db_role, source)
+    values (${lit(file)}, ${lit(fileSha)}, ${lit(gitHead)},
+            now(), ${lit(actor)}, current_user, 'recorded');
+  end if;
+end
+$record_083$;
+`
+
+const sql = sqlRaw + RECORD
+// Count the FILE's statements, not the appended block's — the number is
+// there to help somebody recognise their file.
+const statements = sqlRaw.split(/;\s*(?:\n|$)/).filter((s) =>
   s.replace(/--[^\n]*/g, "").trim().length > 0).length
 
 console.log(`file     ${file}`)
 console.log(`target   ${target}`)
-console.log(`size     ${sql.split("\n").length} lines, ~${statements} statements`)
+console.log(`size     ${sqlRaw.split("\n").length} lines, ~${statements} statements`)
+console.log(`sha256   ${fileSha.slice(0, 16)}…${gitHead ? `  (repo ${gitHead})` : ""}`)
 
 if (!yes) {
   console.log(`\nDRY RUN — nothing sent. Add --yes to apply.`)
@@ -197,7 +275,7 @@ try {
   // time its verify block runs — a failure there rolls back the verify block
   // and nothing else. Saying otherwise told somebody their fix had not
   // applied when it had, and they were about to re-run it.
-  const hasExplicitCommit = /^\s*commit\s*;/mi.test(sql)
+  const hasExplicitCommit = /^\s*commit\s*;/mi.test(sqlRaw)
 
   if (hasExplicitCommit) {
     console.error(`\n*** PART OF THIS FILE MAY ALREADY BE COMMITTED ***`)

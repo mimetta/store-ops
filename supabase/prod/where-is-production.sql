@@ -205,6 +205,13 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('083a','083', 'schema', 'the database records which migrations ran',
+    to_regclass('public.migrations_applied') is not null),
+  -- The table being present is not the same as it being USED. A row here is
+  -- what turns "has production run NNN" from an inference into a lookup, and
+  -- an empty table would answer every such question with silence.
+  ('083b','083', 'data',   'and it has rows — recorded or backfilled',
+    coalesce((select count(*) > 0 from public.migrations_applied), false)),
   ('082', '082', 'schema', 'a delivery photo belongs to the DELIVERY',
     exists (select 1 from information_schema.columns
              where table_schema='public' and table_name='delivery_photos'
