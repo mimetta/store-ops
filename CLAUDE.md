@@ -401,6 +401,52 @@ The general shape of the false alarm: **when a check that reads source files
 disagrees with a database, suspect the reader first.** The database is the
 evidence; the parser is the thing that was written last week.
 
+### How many migrations has production run a DIFFERENT TEXT of? Measured.
+
+"Production has run 057" has been written in every brief as though it were a
+complete statement. It is not: it names a file, and the file can have changed
+since. Measured across all 81, comparing each file's first committed version
+against current, comments stripped:
+
+| | |
+|---|---|
+| never touched after their first commit | 50 |
+| re-committed, SQL byte-identical | 5 |
+| **SQL changed** | **26** |
+| …of those, 066 guard or verify-block only | 21 |
+| …of those, **STEP 1 — the part that builds the database** | **5** |
+
+Of the five, four were edited BEFORE production ran them: `001` and `003` on
+2026-09-16, long before any session; `023` and the thirteen others in
+`43f6f4f` (2026-10-12), **the same commit that introduced
+`preflight-session-1..7.sql`** — so those edits were made in preparation for
+the catch-up and production received the new text; `080` was corrected on
+10-22 and applied on 10-26.
+
+**`004` is the only one.** Edited 2026-10-20, after sessions 1–7, so
+production ran text that no longer exists. And its divergence has no live
+consequence: both edits add grants as *rebuild-safe backing*, and production
+gets those grants from `045`, `064`, `067` and `079` themselves.
+
+So the size is one, it is the one `check:drift` already surfaced, and nothing
+is broken by it.
+
+**The reassuring number is not the point.** Every figure above came from
+commit dates plus an INFERENCE — that sessions 1–7 ran after the commit which
+introduced their own pre-flight scripts. That inference is sound and it is
+still an inference, because **nothing in this repo records when production ran
+anything.** The same gap that made `prod/030a` read as an unexplained deletion
+(see "Record that a one-off production script RAN") applies to all 81, and the
+answer here was reconstructed rather than looked up.
+
+One second-order consequence worth knowing, since it is live right now:
+`051`'s version marker was added on 10-20, after production ran `051`. So
+**production's `commission_attendance` carries no `fn-version` marker**, and
+`066`'s guard is silent on it by design — an unmarked function says nothing,
+because a false alarm teaches people to ignore it. `075` installs a marked
+version and is outstanding. 051 is the only file in the 042–058 range with
+changed SQL, so it is the only function in this state.
+
 ## A stand-in for a function you have not read is a fabrication
 
 `072` survives a legacy `handle_new_user` trigger that creates the profile
