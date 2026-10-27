@@ -119,6 +119,7 @@ node scripts/uat/exercise-daily-money.mjs  # keys the day's money, then edits it
 node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
 node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
 node scripts/uat/exercise-receiving-chain.mjs  # KA records, MANAGER reads
+PROD_DB_URL=… npm run check:drift   # where do UAT and production disagree?
 ```
 
 ## The handover is where it breaks, so test the handover
@@ -324,6 +325,52 @@ that production did not have.
 is a table-shaped landmine.** When renaming, check whether any earlier
 migration recreates the old name — and `create table if not exists` is
 precisely the form that will.
+
+### "What does production have?" and "where do they disagree?" are different questions
+
+`prod/where-is-production.sql` asks the first. It checks a LIST — one artefact
+per migration — and is blind to everything not on the list. **Nobody writes a
+list entry for a table that should not exist**, so it could never have caught
+`delivery_shortages`, and the brief written from UAT described a leak
+production did not have.
+
+`npm run check:drift` asks the second: `PROD_DB_URL=… npm run check:drift`
+reads both catalogues — tables, views, columns, constraints, indexes,
+triggers, functions, policies, `role_capabilities` grants, storage buckets and
+storage policies, 1,701 objects on UAT — and reports what one has and the
+other does not. READ-ONLY, and it refuses to run unless `PROD_DB_URL` names
+the production ref, because comparing UAT with itself proves nothing.
+
+Production is deliberately behind, so the expected majority has to be
+explained away or it buries the signal. **The step that makes it work is
+asking which migrations production has ACTUALLY run**, inferred from its own
+catalogue — if it holds most of what a migration creates, it ran.
+
+The naive version gets this exactly backwards. 027 does contain
+`create table if not exists delivery_shortages`, so "production has not run
+027" reads like an explanation for the table being absent there. **Production
+ran 027 weeks ago.** The absence is not the finding; the EXTRA on UAT is.
+Measured: with the ran-on-production step the case is reported as drift, and
+without it, it is filed under expected and never shown.
+
+Two more things the first draft got wrong, both worth keeping:
+
+- **Remember EVERY migration that writes a name, not just the first.** A view
+  replaced by an outstanding migration differs on production for an entirely
+  expected reason; keeping only its birth migration reported all twelve of
+  `overtime_with_cost`'s columns as drift.
+- **A green test that cannot see its own subject proves nothing.**
+  `check:drift-logic` reconstructs the historical pair from UAT's live
+  catalogue, and the first version subtracted every row whose TEXT contained
+  "delivery_shortages" — which took the seven constraints and three indexes
+  production's `stock_discrepancies` also carries, because **a rename does not
+  rename constraints**. It reported ten findings and passed, and all ten were
+  artefacts of the subtraction. UAT no longer has the duplicate table at all,
+  so the case now has to be INJECTED into both sides to be tested.
+
+`check:drift-logic` is in `npm test`: it needs no production credentials, and
+it asserts the naive classifier MISSES the case, so the load-bearing step
+cannot be quietly removed.
 
 ## A modal is not a screen
 
