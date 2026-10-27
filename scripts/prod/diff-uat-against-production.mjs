@@ -39,16 +39,23 @@
  * and UAT lacks is always drift** — UAT is meant to be ahead, never to the
  * side.
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
+import { homedir } from "node:os"
+import { join } from "node:path"
 import pg from "pg"
 import { readMigrations, classify } from "./drift-classify.mjs"
 
 const UAT_REF = "jgijsurgbciuopicqceo"
 const PROD_REF = "gwncamipwckpknxpiksv"
 
+// Same credential convention as apply-migration.mjs, so there is one place
+// to keep the production string and neither script invents its own.
+const urlFile = join(homedir(), ".store-ops-prod-db-url")
 const prodUrl = process.env.PROD_DB_URL
+  ?? (existsSync(urlFile) ? readFileSync(urlFile, "utf8").trim() : null)
 if (!prodUrl) {
-  console.error("Set PROD_DB_URL to production's connection string.")
+  console.error("No connection string for production.")
+  console.error("Set PROD_DB_URL, or put it in ~/.store-ops-prod-db-url")
   console.error("This script only READS. It runs catalogue queries on both.")
   process.exit(2)
 }
