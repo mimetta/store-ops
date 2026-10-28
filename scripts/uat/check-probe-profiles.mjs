@@ -41,7 +41,18 @@ for (const dir of DIRS) {
     // ignore it.
     if (name === "check-probe-profiles.mjs") continue
     const file = join(dir, name)
+    // Comments stripped FIRST. `exercise-a-stranger.mjs` carries a comment
+    // saying it deliberately does not `insert into profiles` — and this check
+    // read the sentence as the deed and failed the suite on it.
+    //
+    // It is the third time in this project a grep has matched the prose
+    // explaining the thing instead of the thing: `.slice(0, 5)` in a header
+    // comment failed the tab-bar test the same way. **Strip comments before
+    // scanning source** is a standing rule here, and this file was not
+    // obeying it.
     const src = readFileSync(file, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")   // block comments, incl. the file header
+      .replace(/^\s*\/\/.*$/gm, "")        // whole-line // comments
     if (!/insert\s+into\s+auth\.users/i.test(src)) continue
 
     // Every `insert into profiles` in the file must carry an on-conflict
