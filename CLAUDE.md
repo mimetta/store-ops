@@ -1639,6 +1639,75 @@ A table with rows at only one branch cannot prove isolation — `check:rls`
 reports those as NOT TESTED rather than counting them green. Seed both
 branches before trusting a pass.
 
+## The door is open, and the room is NOT empty
+
+Anyone with any Google account can sign in. Measured, not assumed:
+
+- `auth/callback/route.ts` exchanges the code for a session and checks
+  **nothing** about the address — no domain, no invite, no allow-list.
+- `lib/supabase/middleware.ts` redirects to `/login` only when there is no
+  user **at all**. Any authenticated user passes.
+- `071`'s trigger creates a `profiles` row for EVERY insert into `auth.users`,
+  so the row is a consequence of signing in, not of being invited.
+
+A personal Gmail went through this door on production on 22 Oct and came out
+with a profile row. That was the owner testing. The next one will not be.
+
+`npm run exercise:stranger` makes a real account the way the door makes one —
+an insert into `auth.users` and nothing else — signs in through the anon key,
+and tries all 93 tables and views.
+
+**The ROLE model is perfect and it is not what governs this.** Every
+`has_capability()` answers false, every write is refused (42501), the bucket
+will not list, and self-promotion fails. And **36 relations still return
+rows**, for two reasons that need two different fixes:
+
+| | |
+|---|---|
+| **21 base tables** | carry a SELECT policy of `using (true)` — including **`profiles`** (every colleague's name, email, role and branch) and **`role_capabilities`** (the whole permission matrix) |
+| **11 views** | are **not `security_invoker`**, so they read with the OWNER's rights and never consult their base tables' policies at all — `roster_staff`, `branch_daily_metrics`, `branch_payment_mix`, `sales_units_by_day` |
+
+Six of those tables carry BOTH a `has_capability('settings')` policy and a
+`true` one. **Multiple permissive policies are OR'd** — the trap already
+recorded above — so the careful policy narrows nothing.
+
+### What the probe had to learn to be worth anything
+
+It produced four confident wrong answers before it produced a right one, and
+each is a general trap:
+
+1. **`has_capability` takes `cap`, not `p_capability`.** The wrong name meant
+   PostgREST never resolved the function; the probe read the resulting null
+   as "the gate answered null" and reported seven failures it had invented.
+   **Report the error object, not just the data.**
+2. **A schema complaint is not a refusal.** The write test passed first on
+   "Could not find the table" (wrong name), then on "Could not find the
+   'note' column" (wrong shape). Both are PostgREST never reaching the
+   policy. Assert the sqlstate: `42501` is RLS saying no. The payload now
+   comes from the catalogue instead of memory.
+3. **An RLS-filtered read and an empty table are identical through
+   PostgREST** — `{ data: [], error: null }` both times. A first draft
+   printed "57 readable but empty", a list including `pay_rates` and
+   `stock_levels`, which would alarm anybody and was entirely an artefact of
+   not asking the owner. Three outcomes, not two: LEAKS / PROTECTED / EMPTY,
+   and **EMPTY proves nothing in either direction**.
+4. **93 owner queries interleaved with 93 HTTP round trips** outlived the
+   pooler and died with `EADDRNOTAVAIL` mid-run. Row-presence for all 93 is
+   one `union all` now.
+
+`check:rls` could not have found any of this: it seeds one account **per
+role**, so the account it never builds is the one with no role — which is
+exactly what the front door produces.
+
+### The decision this leaves open
+
+Restricting sign-in to `@mimetta.co` would shut the door, and **it would not
+fix the room**. Any KA who does sign in still reads `profiles` and
+`roster_staff` wholesale, because `using (true)` does not care which domain
+you came from. The two are independent and the second is the one with teeth.
+
+Not yet decided, and deliberately not built unprompted — see the backlog.
+
 ## Pay data
 
 `pay_rates` holds real salaries. It is the most sensitive table in the system

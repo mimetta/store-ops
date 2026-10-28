@@ -29,6 +29,7 @@
     "check:state": "node scripts/uat/check-state-query.mjs",
     "check:drift-logic": "node scripts/prod/drift-classify.test.mjs",
     "check:drift": "node scripts/prod/diff-uat-against-production.mjs",
+    "exercise:stranger": "node scripts/uat/exercise-a-stranger.mjs",
     "what-has-run": "node scripts/prod/what-has-run.mjs",
     "backfill-applied": "node scripts/prod/backfill-migrations-applied.mjs",
     "check:lint": "next lint",
