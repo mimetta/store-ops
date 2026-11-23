@@ -292,9 +292,15 @@ model works exactly as designed. What a role-less account still reaches is
 not governed by capabilities at all: it is governed by SELECT policies that
 say \`true\`, and by views that read as their owner.
 
-Note what is NOT in the leak list: pay_rates, stock_levels, leave_requests,
-work_schedules and the rest came back empty on UAT. That is not evidence —
-an RLS-filtered read and an empty table are identical through PostgREST,
-which is why this probe asks the owner too. 34 relations are PROTECTED on
-the evidence; 23 are merely EMPTY and prove nothing.`)
+An RLS-filtered read and an empty table are identical through PostgREST,
+which is why this probe asks the owner too. ${protectedOk.length} relation(s) are
+PROTECTED on the evidence; ${empty.length} are merely EMPTY and prove nothing either
+way.${empty.length ? `
+
+Still unproven, because nobody has a row in them:
+   ${empty.join(", ")}
+
+   node scripts/uat/seed-for-leak-test.mjs   puts one row in each it can,
+   then run this again. Whatever is still listed after that could not be
+   seeded, and is named here rather than quietly counted as safe.` : ""}`)
 process.exit(leaks.length ? 1 : 0)
