@@ -187,6 +187,31 @@ begin
   end loop;
 end $$;
 
+-- ── shift_templates: a global template is still not public ────────────────
+--
+-- Its policy reads `(branch_id is null) or can_access_branch(branch_id)` —
+-- not `true`, so the sweep above does not see it, and the first arm lets
+-- ANY signed-in account read every global template. Found by re-running the
+-- stranger probe after the sweep rather than by reading the list, which is
+-- the whole argument for having the probe.
+--
+-- A template is not sensitive. It is also not public, and "not sensitive" is
+-- not a reason to leave a door open for somebody who was never invited.
+do $$
+begin
+  if to_regclass('public.shift_templates') is null then
+    raise notice 'SKIPPED | shift_templates does not exist here';
+    return;
+  end if;
+  drop policy if exists "read shift_templates" on public.shift_templates;
+  create policy "read shift_templates" on public.shift_templates
+    for select to authenticated
+    using (
+      public.is_known_person()
+      and (branch_id is null or public.can_access_branch(branch_id))
+    );
+end $$;
+
 -- ── kcp-portal's tables: remove the stranger, change nothing else ─────────
 --
 -- These are NOT store-ops tables. The only claim made here is that somebody
@@ -298,6 +323,11 @@ begin
   -- a profile exists. coalesce in the function, not here — a NULL would read
   -- as a pass.
   raise notice '% | …and answers false for nobody', public.is_known_person() = false;
+
+  select count(*) into v_n from pg_policies
+   where schemaname = 'public' and tablename = 'shift_templates' and cmd = 'SELECT'
+     and qual like '%is_known_person%';
+  raise notice '% | a global shift template needs a known person too (%)', v_n = 1, v_n;
 end $$;
 
 -- ── ROLLBACK ──────────────────────────────────────────────────────────────

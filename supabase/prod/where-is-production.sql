@@ -205,6 +205,22 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('085', '085', 'schema', 'every public view reads as the caller, not its owner',
+    not exists (select 1 from pg_class c
+                  join pg_namespace ns on ns.oid = c.relnamespace
+                 where ns.nspname = 'public' and c.relkind = 'v'
+                   and coalesce(c.reloptions::text like '%security_invoker=true%',
+                                false) = false)),
+  ('084a','084', 'schema', 'no permissive SELECT/ALL policy says `true`',
+    not exists (select 1 from pg_policies
+                 where schemaname = 'public' and qual = 'true'
+                   and cmd in ('SELECT','ALL'))),
+  ('084b','084', 'schema', 'profiles is scoped to self, people.manage or a branch',
+    exists (select 1 from pg_policies
+             where schemaname='public' and tablename='profiles' and cmd='SELECT'
+               and qual like '%can_access_branch%')),
+  ('084c','084', 'schema', 'is_known_person() exists',
+    to_regprocedure('public.is_known_person()') is not null),
   ('083a','083', 'schema', 'the database records which migrations ran',
     to_regclass('public.migrations_applied') is not null),
   -- The table being present is not the same as it being USED. A row here is

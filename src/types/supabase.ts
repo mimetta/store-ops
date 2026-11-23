@@ -5863,6 +5863,7 @@ export type Database = {
           units_out: number
         }[]
       }
+      is_known_person: { Args: never; Returns: boolean }
       is_swap_counterparty: { Args: { p_request: string }; Returns: boolean }
       is_swap_requester: { Args: { p_request: string }; Returns: boolean }
       lapse_expired_shift_swap_days: { Args: never; Returns: number }
