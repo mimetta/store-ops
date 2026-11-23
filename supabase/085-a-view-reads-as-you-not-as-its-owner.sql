@@ -78,7 +78,9 @@ commit;
 -- ── STEP 2 — verify ───────────────────────────────────────────────────────
 do $$
 declare
-  v_total int; v_invoker int; v_n int;
+  v_total int; v_invoker int; v_n int; v_present int; v_absent text;
+  v_five text[] := array['roster_staff','branch_daily_metrics','branch_payment_mix',
+                         'sales_units_by_day','staff_details_outstanding'];
 begin
   select count(*) into v_total from pg_class c
     join pg_namespace ns on ns.oid = c.relnamespace
@@ -92,17 +94,50 @@ begin
   raise notice '% | every public view is security_invoker (% of %)',
     v_total = v_invoker, v_invoker, v_total;
 
-  -- Named individually as well as counted, because the count passes trivially
-  -- on a database where these views do not exist yet, and production is
-  -- behind. A view that is ABSENT must not read as a view that is fixed.
+  -- ── the five that leaked a person or a figure ───────────────────────────
+  --
+  -- Named individually as well as counted: the count above passes trivially
+  -- on a database where these views do not exist, and production is behind.
+  --
+  -- But ABSENT and UNCOVERED are not the same thing, and the first version
+  -- of this assertion reported them identically. On production it read
+  -- `f | … (4 of 5)`, which says "one of these is still leaking" — and the
+  -- missing one was `branch_payment_mix`, created by `077`, which production
+  -- has not run. **A view that cannot leak because it does not exist is not
+  -- a view that is uncovered.** The same pair has now read identically twice
+  -- in one day (see `delivery_shortages`, absent vs extra), so it is worth
+  -- stating as a rule: when a check can be defeated by absence, make absence
+  -- its own outcome and name it.
+  --
+  -- The claim is therefore: of the ones that ARE here, all are covered.
+  select count(*) into v_present from pg_class c
+    join pg_namespace ns on ns.oid = c.relnamespace
+   where ns.nspname = 'public' and c.relkind = 'v'
+     and c.relname = any(v_five);
+
   select count(*) into v_n from pg_class c
     join pg_namespace ns on ns.oid = c.relnamespace
    where ns.nspname = 'public' and c.relkind = 'v'
-     and c.relname in ('roster_staff','branch_daily_metrics','branch_payment_mix',
-                       'sales_units_by_day','staff_details_outstanding')
+     and c.relname = any(v_five)
      and c.reloptions::text like '%security_invoker=true%';
-  raise notice '% | the five that leaked a person or a figure are covered (% of 5)',
-    v_n = 5, v_n;
+
+  raise notice '% | every one of the five that IS here is covered (% of %)',
+    v_n = v_present, v_n, v_present;
+
+  -- And say which are not here, with the migration that brings them, so the
+  -- gap is a to-do rather than a silence.
+  select string_agg(x.name || ' (' || x.mig || ')', ', ' order by x.name)
+    into v_absent
+    from (values ('roster_staff','041'), ('branch_daily_metrics','039'),
+                 ('branch_payment_mix','077'), ('sales_units_by_day','032'),
+                 ('staff_details_outstanding','048')) as x(name, mig)
+   where to_regclass('public.' || x.name) is null;
+
+  if v_absent is not null then
+    raise notice 'INFO    | not here yet, so they cannot leak: %', v_absent;
+    raise notice 'INFO    | they become security_invoker when their own migration runs,';
+    raise notice 'INFO    | because that migration recreates the view — re-run 085 after.';
+  end if;
 
   -- The point of the change: roster_staff now depends on profiles' policy.
   -- Assert the COUPLING exists, since the behaviour needs a real session.

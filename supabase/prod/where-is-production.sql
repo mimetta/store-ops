@@ -205,6 +205,10 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('087', '087', 'schema', 'writing a feature flag needs the settings capability',
+    exists (select 1 from pg_policies
+             where schemaname='public' and tablename='company_settings'
+               and cmd='UPDATE' and with_check like '%has_capability%')),
   ('086', '086', 'schema', 'an uninvited Google account outside mimetta.co is refused',
     exists (select 1 from pg_trigger
              where tgrelid = 'auth.users'::regclass

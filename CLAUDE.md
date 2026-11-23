@@ -1751,6 +1751,54 @@ the swap list.
 is false, and every production profile is branchless, so a branch-scoped role
 there sees only itself in `profiles` until `branch_id` is set.
 
+### ABSENT is not UNCOVERED, and they read identically
+
+`085`'s verify block asserted "the five that leaked a person or a figure are
+covered (5 of 5)". On production it reported **`f | … (4 of 5)`**, which says
+*one of these is still leaking*. It was not: `branch_payment_mix` is created
+by `077`, which production has not run. **A view that cannot leak because it
+does not exist is not a view that is uncovered.**
+
+That is the second time in one day the pair has been confused — the first was
+`delivery_shortages`, where ABSENT on production and EXTRA on UAT read the
+same to a list-based check. So, as a rule:
+
+**When a check can be defeated by absence, make absence its own outcome and
+name it.** 085 now asserts "every one of the five that IS here is covered",
+and prints what is missing with the migration that brings it, so the gap is a
+to-do rather than a silence. Proved to fire by running the same logic against
+a name that is not there.
+
+It is the same family as the three outcomes a gate needs (yes / no / not yet)
+and as `<NULL>` in a verify block: a binary answer to a question with three
+possible states will be confidently wrong about one of them.
+
+### A feature flag is a control-plane change (087)
+
+`084` stopped at "must be somebody we invited" on kcp-portal's four writable
+tables, because tightening a shared table further is its owner's decision.
+That decision was then taken, for one of them: **a KA must not write
+`company_settings`** — it holds feature flags, and flipping one is a
+control-plane change. Read for anyone with a role, write for admin and
+manager.
+
+Three things worth keeping from how it was done:
+
+- **The writes are three policies, not `FOR ALL`.** `ALL` is what made this a
+  hole twice over: it bundles SELECT with the writes, and with no `WITH
+  CHECK` it silently reuses `USING` as the check (042). Nothing can later be
+  misread as "manage" and quietly include reading.
+- **`has_capability('settings')`, not a list of roles.** A role is a label
+  that moves; a capability is the thing being tested. It is why `027` broke
+  on production picking an actor by `portal_role = 'admin'`.
+- **The verify block asserts WHO holds the capability**, not merely that a
+  check exists — grant `settings` to a fourth role and the policy still
+  passes while the answer has changed.
+
+`departments`, `roles` and `user_departments` keep `is_known_person()`. No
+equivalent case has been made for them, and making it unasked is how you
+break the other application.
+
 ### EMPTY proves nothing, so seed it
 
 `npm run seed:leak-test` puts one row in every empty relation, tagged

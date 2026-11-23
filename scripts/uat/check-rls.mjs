@@ -468,6 +468,53 @@ section("every table with a branch_id, swept")
 //   insert  your branch + receiving
 //   delete  your branch + delivery.schedule
 //   update  NONE — evidence is not edited in place, deliberately
+section("company_settings: a feature flag is a control-plane change")
+{
+  // 087. A KA flipping a feature flag is a control-plane change, so the
+  // writes need `settings` — admin and manager. Reading stays open to
+  // anybody with a role, because the app reads flags on every page.
+  const ka = by("ka", "Song Wat")
+  const mgr = by("manager", null) ?? by("admin", null)
+  const KEY = "rls_probe_flag"
+  await db.query(`delete from company_settings where key = $1`, [KEY])
+
+  if (!ka || !mgr) {
+    console.log("  NOT TESTED — no KA or manager probe account.")
+  } else {
+    const read = await ka.sb.from("company_settings").select("key").limit(1)
+    ok("a KA can READ company_settings", !read.error,
+       read.error?.message?.slice(0, 44) ?? "readable")
+
+    const kaWrite = await ka.sb.from("company_settings")
+      .insert({ key: KEY, value: "ka-wrote-this" })
+    // Assert the OUTCOME — the row does not exist — and report whichever
+    // mechanism refused it. An earlier assertion in this file required a
+    // specific sqlstate and failed on a correct refusal raised elsewhere.
+    const after = await db.query(
+      `select count(*)::int n from company_settings where key = $1`, [KEY])
+    ok("…but CANNOT write one", after.rows[0].n === 0,
+       kaWrite.error ? `refused by ${kaWrite.error.code}` : "NO ERROR — IT WROTE")
+
+    const mgrWrite = await mgr.sb.from("company_settings")
+      .insert({ key: KEY, value: "manager-wrote-this" })
+    ok("a manager CAN write one", !mgrWrite.error,
+       mgrWrite.error?.message?.slice(0, 44) ?? "written")
+
+    const kaUpdate = await ka.sb.from("company_settings")
+      .update({ value: "ka-changed-it" }).eq("key", KEY)
+    const val = await db.query(
+      `select value from company_settings where key = $1`, [KEY])
+    ok("a KA cannot change an existing flag",
+       val.rows[0]?.value !== "ka-changed-it",
+       kaUpdate.error ? `refused by ${kaUpdate.error.code}` : `value is ${val.rows[0]?.value}`)
+
+    await db.query(`delete from company_settings where key = $1`, [KEY])
+    const left = await db.query(
+      `select count(*)::int n from company_settings where key = $1`, [KEY])
+    ok("the probe left no flag behind", left.rows[0].n === 0, `${left.rows[0].n} row(s)`)
+  }
+}
+
 section("delivery photos: a private bucket, branch-scoped")
 {
   const BUCKET = "delivery-photos"
