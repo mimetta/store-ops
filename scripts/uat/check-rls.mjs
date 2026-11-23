@@ -492,7 +492,7 @@ section("delivery photos: a private bucket, branch-scoped")
 
   // A real line at Song Wat, so the path is one a screen would actually use.
   const { rows: [line] } = await db.query(
-    `select dl.id from delivery_lines dl
+    `select dl.id, dl.delivery_id from delivery_lines dl
        join deliveries d on d.id = dl.delivery_id
       where d.branch_id = $1 order by dl.created_at limit 1`, [SONG.id])
 
@@ -572,23 +572,54 @@ section("delivery photos: a private bucket, branch-scoped")
        del.error ? "refused with an error" : "refused silently")
 
     // ── the delivery_photos ROW is branch-scoped the same way ──
+    //
+    // `delivery_id` is REQUIRED since 082, which moved the photo from the
+    // line to the whole check-in and made this column NOT NULL. This section
+    // still sent only `delivery_line_id`, so it had been failing since 082 —
+    // and `check:rls` is deliberately outside `npm test` because it creates
+    // real auth users, which is exactly why nothing noticed.
+    //
+    // The cross-branch assertion was worse than failing: it PASSED, on
+    // "that line belongs to a different delivery" — 082's schema guard, not
+    // RLS. A refusal by the wrong mechanism is not the claim, and this is
+    // the check the whole security story rests on.
     const attach = await ka.sb.from("delivery_photos").insert({
-      delivery_line_id: line.id, branch_id: SONG.id, storage_path: mine,
+      delivery_id: line.delivery_id, delivery_line_id: line.id,
+      branch_id: SONG.id, storage_path: mine,
     })
     ok("KA can attach the row that binds the file to the line",
        !attach.error, attach.error?.message ?? "attached")
 
     const crossAttach = await kaT.sb.from("delivery_photos").insert({
-      delivery_line_id: line.id, branch_id: TALAT.id,
+      delivery_id: line.delivery_id, delivery_line_id: line.id,
+      branch_id: TALAT.id,
       storage_path: `${TALAT.id}/${line.id}/forged.jpg`,
     })
+    // Assert the OUTCOME: no row was created. Requiring 42501 specifically
+    // was me asserting the MECHANISM, and it failed on a correct refusal —
+    // 082's guard raises P0001 first because, under Talat Noi's own RLS, it
+    // cannot see the Song Wat line and so reports it as belonging to a
+    // different delivery. Two mechanisms, one correct result; the claim is
+    // the result. (The same trap this file already records for 065.)
+    const forged = await db.query(
+      `select count(*)::int n from delivery_photos where storage_path like $1`,
+      [`${TALAT.id}/${line.id}/%`])
     ok("a KA elsewhere cannot attach a row to this branch's line",
-       !!crossAttach.error,
-       crossAttach.error?.message?.slice(0, 44) ?? "NO ERROR — it was accepted")
+       !!crossAttach.error && forged.rows[0].n === 0,
+       crossAttach.error
+         ? `refused by ${crossAttach.error.code}`
+         : "NO ERROR — it was accepted")
 
-    const seenRow = await count(kaT.sb, "delivery_photos")
-    ok("KA (Talat Noi) sees no delivery_photos rows at all",
-       seenRow === 0, `${seenRow} row(s)`)
+    // "no rows AT ALL" was a fact about the data, not about the policy — it
+    // held only while Talat Noi happened to have no photos, and broke the
+    // moment a probe seeded one. A Talat Noi KA SHOULD see Talat Noi's
+    // photos; what they must not see is Song Wat's.
+    const { data: seenRows } = await kaT.sb
+      .from("delivery_photos").select("id, branch_id")
+    const foreign = (seenRows ?? []).filter((r) => r.branch_id !== TALAT.id)
+    ok("KA (Talat Noi) sees no SONG WAT delivery_photos rows",
+       foreign.length === 0,
+       `${seenRows?.length ?? 0} row(s) visible, ${foreign.length} from another branch`)
 
     // ── tidy up: the rows, then the files, as a manager ──
     await db.query(`delete from delivery_photos where storage_path like '%rls-probe-%'`)

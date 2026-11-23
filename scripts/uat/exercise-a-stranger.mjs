@@ -158,15 +158,34 @@ const presence = new Map((await db.query(
     .join(" union all ")
 )).rows.map((r) => [r.t, r.has_rows]))
 
-const leaks = [], protectedOk = [], empty = []
+/**
+ * A row about YOURSELF is not a leak.
+ *
+ * `084` scopes profiles to `id = current_profile_id() or …`, and the app
+ * requires that — `layout.tsx` reads the signed-in person's own row on every
+ * page. The first run after 084 counted `profiles` among the leaks because
+ * the stranger got one row back: their own. Reporting that as an exposure
+ * would have argued for closing something the app cannot work without.
+ *
+ * So anything derived from `profiles` is judged on whether it returns a row
+ * belonging to SOMEBODY ELSE.
+ */
+const leaks = [], selfOnly = [], protectedOk = [], empty = []
 for (const { table_name: t } of relations) {
   const { data, error } = await sb.from(t).select("*").limit(5)
-  if (!error && data?.length) leaks.push(t)
+  if (!error && data?.length) {
+    const onlyMine = data.every((row) =>
+      row.id === id || row.staff_id === id || row.recorded_by === id)
+    if (onlyMine) selfOnly.push(`${t} (${data.length} own row)`)
+    else leaks.push(t)
+  }
   else if (presence.get(t)) protectedOk.push(t)
   else empty.push(t)
 }
 
-console.log(`  LEAKS      ${leaks.length}  the stranger got rows`)
+console.log(`  LEAKS      ${leaks.length}  rows about OTHER people or the business`)
+console.log(`  SELF ONLY  ${selfOnly.length}  only the stranger's own row — correct`)
+if (selfOnly.length) console.log(`     ${selfOnly.join(", ")}`)
 console.log(`  PROTECTED  ${protectedOk.length}  owner has rows, stranger got none`)
 console.log(`  EMPTY      ${empty.length}  nobody has rows — proves nothing either way`)
 
