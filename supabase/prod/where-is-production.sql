@@ -205,6 +205,11 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('086', '086', 'schema', 'an uninvited Google account outside mimetta.co is refused',
+    exists (select 1 from pg_trigger
+             where tgrelid = 'auth.users'::regclass
+               and tgname = 'google_sign_in_is_for_us'
+               and not tgisinternal)),
   ('085', '085', 'schema', 'every public view reads as the caller, not its owner',
     not exists (select 1 from pg_class c
                   join pg_namespace ns on ns.oid = c.relnamespace

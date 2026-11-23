@@ -1699,14 +1699,78 @@ each is a general trap:
 role**, so the account it never builds is the one with no role — which is
 exactly what the front door produces.
 
-### The decision this leaves open
+### Fixed: the room (084, 085), then the door (086)
 
-Restricting sign-in to `@mimetta.co` would shut the door, and **it would not
-fix the room**. Any KA who does sign in still reads `profiles` and
-`roster_staff` wholesale, because `using (true)` does not care which domain
-you came from. The two are independent and the second is the one with teeth.
+**The room first, because it is the one with teeth.** A domain rule would
+never have stopped a real KA reading the whole staff directory —
+`using (true)` does not care which domain you came from.
 
-Not yet decided, and deliberately not built unprompted — see the backlog.
+`084` replaced all 34. The sweep found more than the probe did, because the
+probe can only see tables that have rows:
+
+| | |
+|---|---|
+| **4 were `FOR ALL`** | so they were WRITE access. A role-less stranger inserted rows into `departments`, `roles` and `company_settings` and read them back |
+| `profiles` | scoped to self, `people.manage`, or a branch you can reach |
+| `role_capabilities` | behind `settings` |
+| 19 reference tables | `is_known_person()` — company-wide read, declared, with the reason |
+| `shift_templates` | its policy was `(branch_id is null) or …`, not `true`, so the sweep missed it. Found by re-running the probe AFTER the sweep |
+
+**Every writable table belongs to kcp-portal, not store-ops.** So the change
+is asymmetric: store-ops' own tables are scoped properly; kcp-portal's get
+`is_known_person()` and nothing more, which removes the uninvited and
+changes nothing for anybody holding a role. Tightening a shared table
+further is kcp-portal's decision, not ours to take through a database it did
+not ask us to change.
+
+`is_known_person()` is "has a role at all, and is not inactive" — NOT "holds
+a capability". `staff` is a real `portal_role` holding no capabilities, and
+the stricter predicate would have locked those accounts out of kcp-portal.
+
+`085` made all 15 non-invoker views `security_invoker`. **A policy on a table
+is not a policy on the views over it** — `084` scoped `profiles` and the
+stranger still read `roster_staff`, because the view never asked `profiles`
+what it thought. `ALTER VIEW SET` rather than recreating: recreating means
+retyping fifteen view bodies, and this project has already shipped a
+fabricated function body once by retyping what it had not read.
+
+`086` is the door: an `auth.users` BEFORE INSERT trigger. **Two doors, not
+one** — `invited_at is not null` (any address, because a KA's Google account
+is very often personal, which is why `071` built the invite) or
+`@mimetta.co`. Restricted to `provider = 'google'`, deliberately: every probe
+in `scripts/uat/` inserts with `provider = 'email'`, and a blanket rule would
+have broken `check:rls` and a dozen others — the exact class of breakage
+`071` caused once already.
+
+**Measured end to end: 36 leaks → 0.** The two remaining reads are the
+stranger's own profile row, which `layout.tsx` requires. `check:rls` 87/87
+after all three, so no real role lost anything — a KA keeps the roster and
+the swap list.
+
+**KNOWN, and it is a data problem not a policy one:** `can_access_branch(null)`
+is false, and every production profile is branchless, so a branch-scoped role
+there sees only itself in `profiles` until `branch_id` is set.
+
+### EMPTY proves nothing, so seed it
+
+`npm run seed:leak-test` puts one row in every empty relation, tagged
+`LEAKPROBE` where there is a text column and recorded by id in a ledger where
+there is not. EMPTY 23 → 4; the four left are the outstanding-work views,
+legitimately empty and now NAMED in the output rather than counted as safe.
+
+Three bugs in its teardown, each caught by verifying the cleanup rather than
+assuming it, and all three are general:
+
+1. **A cleanup matched on VALUES deletes real data.**
+   `delete from sales_posting_lines where units_sold = 1` would have taken
+   every genuine one-unit line in the database. Delete by IDENTITY — record
+   what you created.
+2. **`on conflict do nothing` means you may not have created it.** The
+   `commission_branches` undo would have removed a real pairing the insert
+   never made.
+3. **A table added to the seeds must be added to the undo.**
+   `training_progress` and `user_departments` were not, and the "clean" run
+   left a row in each — the 027/028 production-residue shape in miniature.
 
 ## Pay data
 

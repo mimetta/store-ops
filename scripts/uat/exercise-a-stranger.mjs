@@ -107,8 +107,47 @@ check(prof?.branch_id === null, "…and NO branch",
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const { data: session, error: signInError } = await sb.auth.signInWithPassword(
   { email: EMAIL, password: PASSWORD })
-check(!signInError && !!session?.session, "a stranger CAN sign in and hold a session",
+check(!signInError && !!session?.session,
+      "a stranger CAN still sign in and hold a session",
       signInError?.message ?? "")
+
+// ── the door (086) ────────────────────────────────────────────────────────
+//
+// The account above is made with `provider: email`, the way every probe in
+// this directory makes one, and 086 deliberately governs only `google` — a
+// blanket rule would have broken check:rls and a dozen others. So the door
+// needs its own test, or this probe would report "a stranger can sign in"
+// for ever while telling you nothing about the route a stranger uses.
+for (const [addr, provider, invited, expect] of [
+  ["door-probe@gmail.com",      "google", false, "refused"],
+  ["door-probe@mimetta.co",     "google", false, "allowed"],
+  ["door-probe-ka@gmail.com",   "google", true,  "allowed"],
+]) {
+  await db.query(`delete from auth.users where email = $1`, [addr])
+  let got = "allowed", newId = null
+  try {
+    const r = await db.query(`
+      insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+        email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
+        invited_at, confirmation_token, recovery_token, email_change_token_new,
+        email_change, email_change_token_current, phone_change, phone_change_token,
+        reauthentication_token)
+      values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated',
+        'authenticated', $1, 'x', now(), now(), now(),
+        jsonb_build_object('provider', $2::text), '{}'::jsonb,
+        case when $3::boolean then now() else null end,
+        '','','','','','','','')
+      returning id`, [addr, provider, invited])
+    newId = r.rows[0].id
+  } catch { got = "refused" }
+  check(got === expect,
+    `${invited ? "an INVITED " : "an uninvited "}${addr.split("@")[1]} Google sign-in is ${expect}`,
+    got === expect ? "" : `got ${got}`)
+  if (newId) {
+    await db.query(`delete from profiles where id = $1`, [newId])
+    await db.query(`delete from auth.users where id = $1`, [newId])
+  }
+}
 
 // ── capability gates ──────────────────────────────────────────────────────
 console.log("\n── what the database thinks of them ──")
