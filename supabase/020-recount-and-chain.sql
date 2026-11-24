@@ -108,7 +108,9 @@ end $$;
 -- `should_be` is system_qty: the figure the system held when the count opened.
 -- It is shown only AFTER submission, never during entry — that is the whole
 -- point of a blind count, and the count screen has no access to this view.
-create or replace view stock_count_line_chain as
+create or replace view stock_count_line_chain
+  with (security_invoker = true)
+  as
 with prev as (
   select l.id as line_id,
          (select coalesce(pl.recounted_qty, pl.counted_qty)

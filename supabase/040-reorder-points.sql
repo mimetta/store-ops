@@ -147,7 +147,9 @@ where pcp.count_frequency in ('daily','weekly')
 on conflict (product_id, warehouse_id) do nothing;
 
 -- ── what is still blank ───────────────────────────────────────────────────
-create or replace view reorder_points_outstanding as
+create or replace view reorder_points_outstanding
+  with (security_invoker = true)
+  as
 select count_frequency,
        shop,
        count(*)                                        as rows,
@@ -164,7 +166,9 @@ comment on view reorder_points_outstanding is
 -- Deliberately returns NOTHING for a product without one, rather than falling
 -- back to products.reorder_threshold. A fallback is how the default got into
 -- the report in the first place.
-create or replace view stock_below_reorder_point as
+create or replace view stock_below_reorder_point
+  with (security_invoker = true)
+  as
 select sl.product_id,
        sl.warehouse_id,
        rp.sku,

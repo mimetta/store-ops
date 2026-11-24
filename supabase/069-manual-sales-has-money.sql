@@ -267,7 +267,9 @@ begin;
 -- 039 set `sales_value_available = (pos_branch_code is not null)` — literally
 -- "only a POS branch can have a money figure". That was true when it was
 -- written and it is the thing being fixed.
-create or replace view branch_daily_metrics as
+create or replace view branch_daily_metrics
+  with (security_invoker = true)
+  as
 with pos_sales as (
   select branch_id, bill_date as d,
          sum(net_amount)                        as sales,

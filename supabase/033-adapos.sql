@@ -140,7 +140,9 @@ comment on column sales_bill_lines.net_amount is
 -- Dropped, not replaced: the amount column is renamed to say what it is, and
 -- create-or-replace cannot rename a view column.
 drop view if exists sales_units_by_day;
-create view sales_units_by_day as
+create view sales_units_by_day
+  with (security_invoker = true)
+  as
 select b.branch_id,
        b.bill_date                   as sale_date,
        l.product_id,

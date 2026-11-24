@@ -49,7 +49,9 @@ union all select 'work_schedules', count(*) from work_schedules;
 
 begin;
 
-create or replace view branch_daily_metrics as
+create or replace view branch_daily_metrics
+  with (security_invoker = true)
+  as
 with pos_sales as (
   select branch_id, bill_date as d,
          sum(net_amount)                        as sales,
@@ -118,7 +120,9 @@ comment on view branch_daily_metrics is
   'extra bills.';
 
 -- ── units per product, for the drill-down and the top five ────────────────
-create or replace view branch_product_units as
+create or replace view branch_product_units
+  with (security_invoker = true)
+  as
 select b.branch_id, b.bill_date as metric_date, l.product_id, l.sku_text as sku,
        coalesce(p.name, l.sku_text) as product_name, p.unit,
        sum(l.quantity)::bigint as units

@@ -402,7 +402,9 @@ create policy "read delivery_shortages" on delivery_shortages
 -- in the middle of the list, and prev_date belongs beside yesterday_qty rather
 -- than bolted on the end.
 drop view if exists stock_count_line_chain;
-create view stock_count_line_chain as
+create view stock_count_line_chain
+  with (security_invoker = true)
+  as
 with prev as (
   select l.id as line_id,
          c.warehouse_id, c.count_date, l.product_id,

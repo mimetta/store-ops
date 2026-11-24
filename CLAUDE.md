@@ -714,8 +714,21 @@ Found by exercising the failure path, which is the path nobody tries by hand.
 The fix is not to widen the delete policy — evidence should not be deletable
 by whoever took it. It is to **give every ATTEMPT its own path**
 (`{photoId}-r1.jpg`), so a retry never depends on cleaning up after the last
-one. The orphan is harmless: nothing references it, `delivery_photos` is what
-makes a file evidence, and the retention job sweeps by age.
+one. The orphan is harmless in the sense that matters — nothing references
+it and `delivery_photos` is what makes a file evidence, so it can never be
+mistaken for a record of anything.
+
+**It is NOT swept up, and an earlier version of this paragraph said it was.**
+"the retention job sweeps by age" was written in the present tense about a
+job that has never existed (backlog: "The retention job cannot be SQL"). So
+orphaned upload attempts accumulate for ever, at ~493 KB each. That is small
+and it is not nothing, and the decision to give every retry a fresh path was
+justified here partly by a cleanup that does not happen.
+
+The decision still stands on its own: a retry that depends on tidying up
+after the last one breaks for exactly the person retrying. But the sentence
+was a **citation of a mechanism nobody built**, which is the same defect as
+a list of go-live blockers cited twice and existing nowhere.
 
 Two general rules:
 
@@ -776,9 +789,11 @@ the claim is checked, which is the assertion that proves the design.
 
 `storage.buckets` and `storage.objects` both carry `protect_delete` triggers:
 *"Direct deletion from storage tables is not allowed. Use the Storage API
-instead."* This governs the retention job — a cron'd `delete from
-storage.objects` fails every month, and a deletion job that silently fails
-looks exactly like one that works.
+instead."* This governs the retention job **when somebody writes it** — a
+cron'd `delete from storage.objects` would fail every month, and a deletion
+job that silently fails looks exactly like one that works. The job does not
+exist yet; this is the constraint it will have to be built against, not a
+description of something running.
 
 It also means **a probe that creates a bucket cannot clean it up** without a
 service-role key. Do not create buckets to find things out.

@@ -82,7 +82,9 @@ comment on table shift_templates is
   'because a roster is also a record.';
 
 -- ── who is on the roster ──────────────────────────────────────────────────
-create or replace view roster_staff as
+create or replace view roster_staff
+  with (security_invoker = true)
+  as
 select p.id, p.full_name, p.nickname, p.portal_role, p.branch_id, b.name as branch_name
 from profiles p
 left join branches b on b.id = p.branch_id

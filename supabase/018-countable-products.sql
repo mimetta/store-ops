@@ -81,7 +81,9 @@ update product_groups set count_frequency = 'never', updated_at = now()
  where group_code in ('GE','PK','FR');
 
 -- ── resolution ────────────────────────────────────────────────────────────
-create or replace view product_count_policy as
+create or replace view product_count_policy
+  with (security_invoker = true)
+  as
 select
   p.id      as product_id,
   p.sku,
@@ -103,7 +105,9 @@ comment on view product_count_policy is
 
 -- Codes on the list that match no product. Surfaced deliberately: a typo here
 -- removes an item from every count sheet and is otherwise invisible.
-create or replace view unresolved_countable_products as
+create or replace view unresolved_countable_products
+  with (security_invoker = true)
+  as
 select c.sku as listed_code, c.count_frequency, c.notes
 from countable_products c
 where not exists (select 1 from products p where upper(p.sku) = upper(c.sku));

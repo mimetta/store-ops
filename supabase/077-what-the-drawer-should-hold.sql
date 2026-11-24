@@ -56,7 +56,9 @@
 
 begin;
 
-create or replace view branch_payment_mix as
+create or replace view branch_payment_mix
+  with (security_invoker = true)
+  as
 select sb.branch_id,
        sb.bill_date                                   as entry_date,
        -- Stable codes. The Thai strings are AdaPOS's and may gain a method;

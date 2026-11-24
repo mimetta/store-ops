@@ -182,7 +182,9 @@ comment on function public.post_sales_units is
   'movement per line, lowers the level, and stamps the batch posted.';
 
 -- ── what has been posted today ────────────────────────────────────────────
-create or replace view sales_posted_today as
+create or replace view sales_posted_today
+  with (security_invoker = true)
+  as
 select p.branch_id, p.warehouse_id, p.sale_date,
        l.product_id, pr.sku, pr.name, pr.unit,
        sum(l.units_sold)::integer as units_sold,

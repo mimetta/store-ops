@@ -137,7 +137,9 @@ create policy "write bill_nationalities" on bill_nationalities
          and public.can_access_branch(branch_id));
 
 -- ── what a day looks like, whichever way it was recorded ──────────────────
-create or replace view daily_entry_status as
+create or replace view daily_entry_status
+  with (security_invoker = true)
+  as
 select b.id as branch_id,
        b.name as branch_name,
        (b.pos_branch_code is not null) as pos_fed,

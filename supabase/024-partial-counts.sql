@@ -89,7 +89,9 @@ comment on function public.count_unresolved_lines is
   'one is not.';
 
 -- ── how complete is a count ───────────────────────────────────────────────
-create or replace view stock_count_progress as
+create or replace view stock_count_progress
+  with (security_invoker = true)
+  as
 select
   c.id                as count_id,
   c.branch_id,

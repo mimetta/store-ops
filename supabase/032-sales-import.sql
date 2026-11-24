@@ -150,7 +150,9 @@ comment on column sales_bill_lines.product_id is
   'list can be fixed.';
 
 -- ── what a branch sold, however it was recorded ───────────────────────────
-create or replace view sales_units_by_day as
+create or replace view sales_units_by_day
+  with (security_invoker = true)
+  as
 select b.branch_id,
        b.bill_date                  as sale_date,
        l.product_id,

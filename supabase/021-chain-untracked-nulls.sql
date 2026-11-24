@@ -42,7 +42,9 @@ begin;
 -- Keeps the original bigint types: `create or replace view` cannot change a
 -- column's type, and casting to integer here would force a drop-and-recreate
 -- for no benefit.
-create or replace view stock_count_line_chain as
+create or replace view stock_count_line_chain
+  with (security_invoker = true)
+  as
 with prev as (
   select l.id as line_id,
          (select coalesce(pl.recounted_qty, pl.counted_qty)

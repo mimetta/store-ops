@@ -146,7 +146,9 @@ on conflict (sku) do update set
 -- What the list names and the product master does not have. Non-empty is the
 -- NORMAL state until the AccCloud sync has run — the same as 018's
 -- unresolved_countable_products. It is the signal for when to re-run this.
-create or replace view pack_factor_seed_unmatched as
+create or replace view pack_factor_seed_unmatched
+  with (security_invoker = true)
+  as
   select s.sku, s.pack_unit, s.notes
     from product_pack_factor_seed s
    where not exists (select 1 from products p where p.sku = s.sku);
@@ -168,7 +170,9 @@ create policy "write product_pack_factors" on product_pack_factors
   with check (public.has_capability('settings'));
 
 -- What is still blank. Expect all 27 until someone fills them in.
-create or replace view pack_factors_outstanding as
+create or replace view pack_factors_outstanding
+  with (security_invoker = true)
+  as
 select f.sku, f.pack_unit, f.notes, p.name
 from product_pack_factors f
 join products p on p.sku = f.sku

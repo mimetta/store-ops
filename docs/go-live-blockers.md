@@ -71,6 +71,30 @@ three roles holding `leave.approve` see every branch. It guards a scope that
 does not exist yet. Worth knowing before somebody grants `leave.approve` to a
 branch-scoped role.
 
+## D27 — the delivery-photo retention job
+
+**Not a blocker for go-live; recorded here because it was cited as done.**
+
+`CLAUDE.md` said "the retention job sweeps by age" in the present tense, as
+part of justifying why an orphaned upload attempt is harmless. **No such job
+exists.** Orphans accumulate for ever, at roughly 493 KB each (measured from
+a real phone at a shop).
+
+The volume does not threaten anything soon, which is why this is not a
+blocker. It is listed because a design decision was resting on it, and
+because the next person to read that paragraph would have believed it.
+
+Constraints it must be built against, already established:
+
+- **It cannot be SQL.** `storage.objects` carries a `protect_delete`
+  trigger — *"Direct deletion from storage tables is not allowed. Use the
+  Storage API instead."* A cron'd `delete from storage.objects` fails every
+  month, and a deletion job that silently fails looks exactly like one that
+  works.
+- **Vercel cron, with the service key out of the database** — decided
+  earlier, and the reason the job is not simply a scheduled Postgres
+  function.
+
 ---
 
 ## Closed
