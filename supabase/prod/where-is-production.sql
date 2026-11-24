@@ -205,6 +205,16 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('089', '089', 'schema', 'the four Data Record views exist',
+    (select count(*) from information_schema.views
+      where table_schema='public'
+        and table_name in ('sales_bill_lines_valued','sales_daily_totals',
+                           'sales_payment_rows','sales_product_rows')) = 4),
+  ('088', '088', 'schema', 'a product can be marked NPD, with who and when',
+    exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='products'
+               and column_name='npd_start_date')
+    and to_regprocedure('public.was_npd_on(date,date)') is not null),
   ('087', '087', 'schema', 'writing a feature flag needs the settings capability',
     exists (select 1 from pg_policies
              where schemaname='public' and tablename='company_settings'

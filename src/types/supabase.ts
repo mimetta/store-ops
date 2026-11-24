@@ -2453,6 +2453,9 @@ export type Database = {
           last_synced_at: string | null
           location: string | null
           name: string
+          npd_set_at: string | null
+          npd_set_by: string | null
+          npd_start_date: string | null
           raw: Json | null
           reorder_threshold: number | null
           selling_price: number | null
@@ -2474,6 +2477,9 @@ export type Database = {
           last_synced_at?: string | null
           location?: string | null
           name: string
+          npd_set_at?: string | null
+          npd_set_by?: string | null
+          npd_start_date?: string | null
           raw?: Json | null
           reorder_threshold?: number | null
           selling_price?: number | null
@@ -2495,6 +2501,9 @@ export type Database = {
           last_synced_at?: string | null
           location?: string | null
           name?: string
+          npd_set_at?: string | null
+          npd_set_by?: string | null
+          npd_start_date?: string | null
           raw?: Json | null
           reorder_threshold?: number | null
           selling_price?: number | null
@@ -2506,6 +2515,27 @@ export type Database = {
           unit_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "products_npd_set_by_fkey"
+            columns: ["npd_set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_npd_set_by_fkey"
+            columns: ["npd_set_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_npd_set_by_fkey"
+            columns: ["npd_set_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_unit_fkey"
             columns: ["unit"]
@@ -5361,6 +5391,128 @@ export type Database = {
           },
         ]
       }
+      sales_bill_lines_valued: {
+        Row: {
+          amount: number | null
+          bill_date: string | null
+          bill_discount_share: number | null
+          bill_id: string | null
+          branch_id: string | null
+          id: string | null
+          is_vip: boolean | null
+          line_before_bill_discount: number | null
+          product_id: string | null
+          quantity: number | null
+          sku_text: string | null
+          unit_price: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_bill_lines_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "sales_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_count_policy"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+        ]
+      }
+      sales_daily_totals: {
+        Row: {
+          bill_date: string | null
+          bills: number | null
+          branch_id: string | null
+          discount: number | null
+          gross: number | null
+          net: number | null
+          non_vip_net: number | null
+          vip_bills: number | null
+          vip_net: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+        ]
+      }
+      sales_payment_rows: {
+        Row: {
+          amount: number | null
+          bank: string | null
+          bill_date: string | null
+          branch_id: string | null
+          method: string | null
+          payments: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+        ]
+      }
       sales_posted_today: {
         Row: {
           batches: number | null
@@ -5430,6 +5582,75 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "warehouses"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_product_rows: {
+        Row: {
+          amount: number | null
+          bill_date: string | null
+          branch_id: string | null
+          group_code: string | null
+          group_name: string | null
+          is_vip: boolean | null
+          npd_ends_on: string | null
+          npd_start_date: string | null
+          product_id: string | null
+          product_name: string | null
+          sku_text: string | null
+          unit: string | null
+          units: number | null
+          was_npd: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_unit_fkey"
+            columns: ["unit"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_count_policy"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products_without_selling_price"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bill_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "selling_prices_outstanding"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_bills_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
           },
         ]
       }
@@ -5873,6 +6094,7 @@ export type Database = {
       }
       next_delivery_reference: { Args: { p_branch: string }; Returns: string }
       next_transfer_reference: { Args: never; Returns: string }
+      npd_window_end: { Args: { start_date: string }; Returns: string }
       open_count_for_today: {
         Args: { p_branch: string; p_warehouse: string }
         Returns: string
@@ -6048,6 +6270,10 @@ export type Database = {
           last_posted_at: string
           units: number
         }[]
+      }
+      was_npd_on: {
+        Args: { on_date: string; start_date: string }
+        Returns: boolean
       }
       withdraw_shift_swap: { Args: { p_request: string }; Returns: number }
     }
