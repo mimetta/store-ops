@@ -94,6 +94,8 @@ do $$
 declare
   v_ranges int;
   v_dupes  int;
+  v_dupe_rows int;
+  v_days   int;
 begin
   select count(*) into v_ranges from leave_requests where start_date <> end_date;
   if v_ranges > 0 then
@@ -105,17 +107,49 @@ begin
                 'weekend, and only the person who booked it knows which.';
   end if;
 
+  -- ── total_days, which the CHECK tests and this did not ─────────────────
+  --
+  -- The constraint is `start_date = end_date AND coalesce(total_days,1) = 1`.
+  -- This block tested only the first half, so a row whose DATES agree while
+  -- `total_days` says 4 passed the preflight and failed at STEP 1 — the
+  -- exact "discovering it halfway" this block exists to prevent. Measured
+  -- against a synthetic rowset before fixing.
+  select count(*) into v_days from leave_requests
+   where coalesce(total_days, 1) <> 1;
+  if v_days > 0 then
+    raise exception using
+      message = format('%s leave request(s) have total_days <> 1', v_days),
+      hint    = 'The dates agree but total_days disagrees with them. Set '
+                'total_days = 1 where start_date = end_date, or split the '
+                'row if it was meant as a range.';
+  end if;
+
+  -- ── duplicates, counted BOTH ways ──────────────────────────────────────
+  --
+  -- DAYS is what the unique index collides on; ROWS is how much hand-work
+  -- there is. Reporting only days said "1 day(s)" about eight rows minutes
+  -- apart, which reads as one thing to fix.
   select count(*) into v_dupes from (
     select staff_id, start_date from leave_requests
      where status in ('pending','approved')
      group by staff_id, start_date having count(*) > 1) d;
+  select count(*) into v_dupe_rows from leave_requests l
+   where l.status in ('pending','approved')
+     and exists (select 1 from leave_requests o
+                  where o.id <> l.id and o.staff_id = l.staff_id
+                    and o.start_date = l.start_date
+                    and o.status in ('pending','approved'));
   if v_dupes > 0 then
     raise exception using
-      message = format('%s day(s) have more than one live request', v_dupes),
-      hint    = 'Reject the duplicates before applying 074.';
+      message = format('%s day(s) have more than one live request, across %s row(s)',
+                       v_dupes, v_dupe_rows),
+      hint    = 'Reject or delete the duplicates before applying 074. The '
+                'row count is the work; the day count is what the index '
+                'collides on.';
   end if;
 
-  raise notice 'PREFLIGHT | % row(s), none spanning a range, none doubled',
+  raise notice 'PREFLIGHT | % row(s): none spanning a range, none with '
+               'total_days <> 1, none doubled',
     (select count(*) from leave_requests);
 end $$;
 

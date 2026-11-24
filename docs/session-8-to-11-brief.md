@@ -425,11 +425,26 @@ requests per person per day. Both validate every existing row.
 **EXPECT NO ROWS from either query.** Anything here is work to do first, by
 hand, before session 10.
 
+**Read the ROW count, not the day count.** `074`'s STEP 0 reported
+`1 day(s) have more than one live request` about EIGHT rows submitted
+minutes apart. Both numbers are true and they measure different things: the
+day count is what the unique index collides on, the row count is how much
+hand-work there is. STEP 0 now prints both; this query lists every row.
+
 ```sql
 select 'spans more than one day' as problem,
        l.id, l.staff_id, l.start_date, l.end_date, l.total_days, l.status
   from leave_requests l
  where l.start_date <> l.end_date
+union all
+-- The CHECK is `start_date = end_date AND coalesce(total_days,1) = 1`.
+-- This arm was missing, so a row whose DATES agree while total_days says 4
+-- passed the pre-flight and failed at STEP 1 — the thing STEP 0 exists to
+-- prevent. Proved against a synthetic rowset, then fixed in both places.
+select 'dates agree but total_days does not',
+       l.id, l.staff_id, l.start_date, l.end_date, l.total_days, l.status
+  from leave_requests l
+ where coalesce(l.total_days, 1) <> 1
 union all
 select 'two live requests for one day',
        l.id, l.staff_id, l.start_date, l.end_date, l.total_days, l.status
@@ -441,6 +456,12 @@ select 'two live requests for one day',
                   and o.status in ('pending','approved'))
 order by problem, start_date;
 ```
+
+Two copies of the same question are free to drift, and these had: STEP 0
+tested two of the three conditions the CHECK enforces, this query tested the
+same two, and both missed `total_days`. **When a pre-flight exists to stop a
+migration discovering something halfway, it has to test what the constraint
+tests — all of it.**
 
 A range cannot be split automatically — only the person who booked it knows
 whether Fri–Mon meant four days or two either side of a weekend.
