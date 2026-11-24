@@ -91,7 +91,20 @@ on conflict (code) do update set label = excluded.label, sort_order = excluded.s
 
 alter table nationalities enable row level security;
 drop policy if exists "read nationalities" on nationalities;
-create policy "read nationalities" on nationalities for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen nationalities.
+do $g038_nationalities$
+begin
+  drop policy if exists "read nationalities" on public.nationalities;
+  execute format(
+    'create policy "read nationalities" on public.nationalities
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g038_nationalities$;
 
 comment on table nationalities is
   'The countries a bill can be attributed to. A table rather than a constant '

@@ -65,8 +65,27 @@ comment on table shift_templates is
 alter table shift_templates enable row level security;
 
 drop policy if exists "read shift_templates" on shift_templates;
-create policy "read shift_templates" on shift_templates
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen shift_templates.
+do $g009_shift_templates$
+begin
+  drop policy if exists "read shift_templates" on public.shift_templates;
+  execute format(
+    'create policy "read shift_templates" on public.shift_templates
+       for select to authenticated using (%s)',
+    -- 084 scopes this by BRANCH as well: a global template (branch_id
+    -- null) is readable by anyone we invited, a branch's own only by
+    -- people who can reach that branch. The first version of this guard
+    -- dropped the branch half, and a Talat Noi template became visible to
+    -- a Song Wat KA.
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person() and (branch_id is null
+                 or public.can_access_branch(branch_id))'
+         else 'true' end);
+end
+$g009_shift_templates$;
 -- Everyone reads: a template is a label on a roster everyone can see.
 
 drop policy if exists "write shift_templates" on shift_templates;

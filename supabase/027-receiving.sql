@@ -329,8 +329,20 @@ alter table delivery_shortages           enable row level security;
 alter table delivery_difference_reasons  enable row level security;
 
 drop policy if exists "read reasons" on delivery_difference_reasons;
-create policy "read reasons" on delivery_difference_reasons
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen delivery_difference_reasons.
+do $g027_delivery_difference_reasons$
+begin
+  drop policy if exists "read reasons" on public.delivery_difference_reasons;
+  execute format(
+    'create policy "read reasons" on public.delivery_difference_reasons
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g027_delivery_difference_reasons$;
 
 drop policy if exists "read deliveries" on deliveries;
 create policy "read deliveries" on deliveries

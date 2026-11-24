@@ -85,16 +85,67 @@ for (const f of files) {
   }
 }
 
+// ── the same shape, for policies ──────────────────────────────────────────
+//
+// `084` replaced 34 `using (true)` SELECT/ALL policies. An earlier migration
+// that still creates one does not merely look wrong — **it reopens the hole
+// when re-run**, because permissive policies are OR'd and the open one sits
+// beside the scoped one and wins (044).
+//
+// This is not hypothetical. Re-applying `018` and `041` while testing
+// something unrelated reopened `countable_products` and `shift_templates`,
+// and the stranger probe went from 0 leaks to 3 within the hour.
+//
+// Every such statement is now written as a guarded DO block that names
+// `is_known_person()` when it exists and `true` only when it does not —
+// which is the fresh-database case, where 084 follows a few files later.
+const openPolicies = []
+for (const f of files) {
+  const sql = readFileSync(join(dir, f), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*--.*$/gm, "")
+  const re = /create\s+policy[^;]*?for\s+(?:select|all)[^;]*?using\s*\(\s*true\s*\)/gi
+  for (const m of sql.matchAll(re)) {
+    openPolicies.push({ file: f, snippet: m[0].replace(/\s+/g, " ").slice(0, 60) })
+  }
+}
+
 console.log(`Checked ${statements} create-view statement(s) across ${files.length} migrations.`)
+console.log(`Checked for open SELECT/ALL policies in the same ${files.length} files.`)
 if (EXEMPT.size) {
   console.log(`${EXEMPT.size} exempt by declaration:`)
   for (const [n, why] of EXEMPT) console.log(`   ${n} — ${why}`)
 }
 
+if (openPolicies.length) {
+  console.log(`\n${openPolicies.length} policy/policies still created with \`using (true)\`:\n`)
+  for (const o of openPolicies) console.log(`   ${o.file}\n      ${o.snippet}…`)
+  console.log(`
+Re-running that file reopens what 084 closed. Permissive policies are OR'd,
+so the open one sits beside the scoped one and WINS — adding a correct
+policy never replaces a loose one.
+
+Write it as a guarded block instead, which names the helper when it exists
+and falls back only on a fresh database where 084 has not run yet:
+
+    do $g$
+    begin
+      drop policy if exists "read x" on public.x;
+      execute format(
+        'create policy "read x" on public.x
+           for select to authenticated using (%s)',
+        case when to_regprocedure('public.is_known_person()') is not null
+             then 'public.is_known_person()' else 'true' end);
+    end
+    $g$;`)
+  process.exit(1)
+}
+
 if (!offenders.length) {
-  console.log(`\nOK: every view sets security_invoker where it is created.`)
-  console.log(`    So re-running any migration cannot silently reopen what 085`)
-  console.log(`    closed. That is the whole claim — it does NOT say the views`)
+  console.log(`\nOK: every view sets security_invoker where it is created,`)
+  console.log(`    and no migration creates an open SELECT/ALL policy.`)
+  console.log(`    So re-running any migration cannot silently reopen what 084`)
+  console.log(`    or 085 closed. That is the whole claim — it does NOT say the views`)
   console.log(`    on a given database carry the flag today; where-is-production`)
   console.log(`    row 085 asks that, and only of a database you can reach.`)
   process.exit(0)

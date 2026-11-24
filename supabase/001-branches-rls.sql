@@ -91,10 +91,20 @@ alter policy "Admins/managers can manage branches" on branches
 --     Postgres combines permissive policies with OR, so this only grants
 --     read access; it cannot take anything away from anyone.
 --     `to authenticated` means signed-out visitors still see nothing.
-create policy "Authenticated can view branches"
-  on branches for select
-  to authenticated
-  using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen branches.
+do $g001_branches$
+begin
+  drop policy if exists "Authenticated can view branches" on public.branches;
+  execute format(
+    'create policy "Authenticated can view branches" on public.branches
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g001_branches$;
 
 commit;
 

@@ -133,8 +133,17 @@ begin
       )$f$, r.t);
     execute format('alter table public.%I enable row level security', r.t);
     execute format('drop policy if exists "read %s" on public.%I', r.t, r.t);
+    -- `is_known_person()` arrives in 084. On a fresh database applied in
+    -- order it does not exist yet, so the policy cannot name it and the
+    -- open one is correct for the moment — 084 replaces it a few files
+    -- later. On a database that ALREADY has 084 (production does), the
+    -- open one would sit beside 084's scoped policy and win, because
+    -- multiple permissive policies are OR'd. So: ask.
     execute format($f$create policy "read %s" on public.%I
-                     for select to authenticated using (true)$f$, r.t, r.t);
+                     for select to authenticated using (%s)$f$,
+                   r.t, r.t,
+                   case when to_regprocedure('public.is_known_person()') is not null
+                        then 'public.is_known_person()' else 'true' end);
   end loop;
 end
 $$;
@@ -256,8 +265,16 @@ on conflict do nothing;
 
 alter table feedback_touchpoints enable row level security;
 drop policy if exists "read feedback_touchpoints" on feedback_touchpoints;
-create policy "read feedback_touchpoints" on feedback_touchpoints
-  for select to authenticated using (true);
+do $tp$
+begin
+  drop policy if exists "read feedback_touchpoints" on feedback_touchpoints;
+  execute format(
+    'create policy "read feedback_touchpoints" on feedback_touchpoints
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$tp$;
 
 alter table customer_feedback enable row level security;
 alter table customer_feedback_categories enable row level security;

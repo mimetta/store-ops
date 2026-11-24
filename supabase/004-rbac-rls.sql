@@ -65,8 +65,25 @@ create table if not exists role_capabilities (
 alter table role_capabilities enable row level security;
 
 drop policy if exists "Authenticated can read role_capabilities" on role_capabilities;
-create policy "Authenticated can read role_capabilities"
-  on role_capabilities for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen role_capabilities.
+do $g004_role_capabilities$
+begin
+  drop policy if exists "Authenticated can read role_capabilities" on public.role_capabilities;
+  execute format(
+    'create policy "Authenticated can read role_capabilities" on public.role_capabilities
+       for select to authenticated using (%s)',
+    -- NOT is_known_person(): this is the permission matrix, and 084 puts it
+    -- behind `settings` (admin and manager). A uniform substitution across
+    -- fifteen sites flattened it to "any staff member" — caught by
+    -- check:rls, which reads as real users and is the only thing that could
+    -- have caught it.
+    case when to_regprocedure('public.has_capability(text)') is not null
+         then 'public.has_capability(''settings'')' else 'true' end);
+end
+$g004_role_capabilities$;
 -- Deliberately no write policy: the matrix changes by migration, not at runtime.
 
 -- Rebuild the matrix from scratch so this file is the source of truth.
@@ -254,8 +271,20 @@ begin;
 drop policy if exists "Authenticated can view branches"      on branches;
 drop policy if exists "Admins/managers can manage branches"  on branches;
 
-create policy "read branches" on branches
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen branches.
+do $g004_branches$
+begin
+  drop policy if exists "read branches" on public.branches;
+  execute format(
+    'create policy "read branches" on public.branches
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g004_branches$;
 create policy "write branches" on branches
   for all to authenticated
   using (public.has_capability('settings'))
@@ -438,8 +467,20 @@ drop policy if exists "Authenticated can view products"      on products;
 drop policy if exists "Admins/managers can manage products"  on products;
 drop policy if exists "Superadmins can manage products"      on products;
 
-create policy "read products" on products
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen products.
+do $g004_products$
+begin
+  drop policy if exists "read products" on public.products;
+  execute format(
+    'create policy "read products" on public.products
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g004_products$;
 create policy "write products" on products
   for all to authenticated
   using (public.has_capability('settings'))
@@ -449,8 +490,20 @@ drop policy if exists "Authenticated can view suppliers"     on suppliers;
 drop policy if exists "Admins/managers can manage suppliers" on suppliers;
 drop policy if exists "Superadmins can manage suppliers"     on suppliers;
 
-create policy "read suppliers" on suppliers
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen suppliers.
+do $g004_suppliers$
+begin
+  drop policy if exists "read suppliers" on public.suppliers;
+  execute format(
+    'create policy "read suppliers" on public.suppliers
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g004_suppliers$;
 create policy "write suppliers" on suppliers
   for all to authenticated
   using (public.has_capability('settings'))

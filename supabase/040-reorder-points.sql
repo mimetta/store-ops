@@ -123,8 +123,20 @@ comment on column product_reorder_points.reorder_point is
 alter table product_reorder_points enable row level security;
 
 drop policy if exists "read product_reorder_points" on product_reorder_points;
-create policy "read product_reorder_points" on product_reorder_points
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen product_reorder_points.
+do $g040_product_reorder_points$
+begin
+  drop policy if exists "read product_reorder_points" on public.product_reorder_points;
+  execute format(
+    'create policy "read product_reorder_points" on public.product_reorder_points
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g040_product_reorder_points$;
 
 drop policy if exists "write product_reorder_points" on product_reorder_points;
 create policy "write product_reorder_points" on product_reorder_points

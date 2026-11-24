@@ -86,8 +86,20 @@ alter table warehouses enable row level security;
 -- screen needs it to render. No warehouse-level user scoping — see the note
 -- at the foot of this file.
 drop policy if exists "read warehouses" on warehouses;
-create policy "read warehouses" on warehouses
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen warehouses.
+do $g014_warehouses$
+begin
+  drop policy if exists "read warehouses" on public.warehouses;
+  execute format(
+    'create policy "read warehouses" on public.warehouses
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g014_warehouses$;
 
 drop policy if exists "write warehouses" on warehouses;
 create policy "write warehouses" on warehouses

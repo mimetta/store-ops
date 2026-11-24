@@ -119,8 +119,20 @@ comment on view unresolved_countable_products is
 alter table countable_products enable row level security;
 
 drop policy if exists "read countable_products" on countable_products;
-create policy "read countable_products" on countable_products
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen countable_products.
+do $g018_countable_products$
+begin
+  drop policy if exists "read countable_products" on public.countable_products;
+  execute format(
+    'create policy "read countable_products" on public.countable_products
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g018_countable_products$;
 
 drop policy if exists "write countable_products" on countable_products;
 create policy "write countable_products" on countable_products

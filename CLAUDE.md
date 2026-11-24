@@ -1814,6 +1814,62 @@ Three things worth keeping from how it was done:
 equivalent case has been made for them, and making it unasked is how you
 break the other application.
 
+### Re-running an early migration reverts later ones. Measured, twice, today.
+
+This was already known for `004` wiping `role_capabilities` and for `066`'s
+function versions. **It is more general than either**, and the demonstration
+was accidental: while testing an unrelated edit I re-applied `018`, `041` and
+`009` to UAT, and
+
+| re-ran | reverted | how it showed |
+|---|---|---|
+| `018`, `041` | `084`'s scoped policies | stranger leaks 0 → 3 within the hour |
+| `009` | `044`'s recursion fix | `shift_swap_requests` unreadable, `42P17` |
+
+Neither errored. Both were found by `check:rls` and `exercise:stranger`,
+which read as real users; nothing in `npm test` could have seen either,
+because the files were unchanged and correct.
+
+**A migration is a statement about a database that has run everything before
+it and nothing after.** Re-running one on a database that is further along
+replays an old opinion over a newer one. Three defences now exist and they
+cover different halves:
+
+- `066` version markers — functions
+- `check:rebuilt-tables` — tables cleared and re-seeded
+- `check:view-invoker` — views losing `security_invoker`, AND policies
+  created with `using (true)`
+
+The policy half is written as a guarded block that names
+`is_known_person()` when it exists and `true` only when it does not, which
+is the fresh-database case where `084` follows a few files later.
+
+`044` is still exposed: its fix replaces policies `009` creates, and nothing
+marks that. It is listed here rather than solved, because the general
+answer — a version marker for POLICIES — has not been designed.
+
+### A uniform substitution flattens what was deliberately different
+
+Fixing the above meant rewriting 15 `using (true)` policies at once. Two of
+the 15 came out wrong, and both would have passed any check that asks "is
+there still a `true` in here":
+
+- **`role_capabilities`** — 084 puts the permission matrix behind
+  `settings`. The sweep set it to `is_known_person()`, so any member of
+  staff could read the whole matrix.
+- **`shift_templates`** — 084 scopes it by BRANCH as well. The sweep kept
+  only the staff half, and a Talat Noi template became visible to a Song Wat
+  KA.
+
+**A mechanical edit applied to N sites assumes those N sites wanted the same
+thing.** Thirteen did; two had been deliberately differentiated later, and
+the sweep could not tell the difference because the thing it was matching on
+— `using (true)` — was identical in all fifteen.
+
+Only `check:rls` caught them, by reading as a real KA at a real branch. The
+general rule: **after any sweep, re-run the test that reads as people, not
+the one that reads the files.** The file-reading check was green throughout.
+
 ### EMPTY proves nothing, so seed it
 
 `npm run seed:leak-test` puts one row in every empty relation, tagged

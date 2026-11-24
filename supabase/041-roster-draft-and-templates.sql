@@ -272,8 +272,27 @@ create policy "write work_schedules" on work_schedules
   with check (public.has_capability('shifts.manage') and public.can_access_branch(branch_id));
 
 drop policy if exists "read shift_templates" on shift_templates;
-create policy "read shift_templates" on shift_templates
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen shift_templates.
+do $g041_shift_templates$
+begin
+  drop policy if exists "read shift_templates" on public.shift_templates;
+  execute format(
+    'create policy "read shift_templates" on public.shift_templates
+       for select to authenticated using (%s)',
+    -- 084 scopes this by BRANCH as well: a global template (branch_id
+    -- null) is readable by anyone we invited, a branch's own only by
+    -- people who can reach that branch. The first version of this guard
+    -- dropped the branch half, and a Talat Noi template became visible to
+    -- a Song Wat KA.
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person() and (branch_id is null
+                 or public.can_access_branch(branch_id))'
+         else 'true' end);
+end
+$g041_shift_templates$;
 drop policy if exists "write shift_templates" on shift_templates;
 create policy "write shift_templates" on shift_templates
   for all to authenticated

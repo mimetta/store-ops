@@ -93,8 +93,20 @@ comment on table product_pack_factor_seed is
 
 alter table product_pack_factor_seed enable row level security;
 drop policy if exists "read product_pack_factor_seed" on product_pack_factor_seed;
-create policy "read product_pack_factor_seed" on product_pack_factor_seed
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen product_pack_factor_seed.
+do $g023_product_pack_factor_seed$
+begin
+  drop policy if exists "read product_pack_factor_seed" on public.product_pack_factor_seed;
+  execute format(
+    'create policy "read product_pack_factor_seed" on public.product_pack_factor_seed
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g023_product_pack_factor_seed$;
 
 insert into product_pack_factor_seed (sku, pack_unit, notes) values
   ('FG1-ABPF100-B-CM',    'BOX',  'ambient pafrum 100 ml (cotton musk)'),
@@ -160,8 +172,20 @@ comment on view pack_factor_seed_unmatched is
 alter table product_pack_factors enable row level security;
 
 drop policy if exists "read product_pack_factors" on product_pack_factors;
-create policy "read product_pack_factors" on product_pack_factors
-  for select to authenticated using (true);
+-- Open only until `is_known_person()` exists (084). On a database that
+-- already has 084, an open policy sits BESIDE the scoped one and wins —
+-- permissive policies are OR'd, so adding a correct policy never replaces a
+-- loose one (044). Re-applying this file used to reopen product_pack_factors.
+do $g023_product_pack_factors$
+begin
+  drop policy if exists "read product_pack_factors" on public.product_pack_factors;
+  execute format(
+    'create policy "read product_pack_factors" on public.product_pack_factors
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$g023_product_pack_factors$;
 
 drop policy if exists "write product_pack_factors" on product_pack_factors;
 create policy "write product_pack_factors" on product_pack_factors

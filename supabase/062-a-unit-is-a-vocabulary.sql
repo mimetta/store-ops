@@ -87,8 +87,21 @@ on conflict (code) do update set
 
 alter table product_units enable row level security;
 drop policy if exists "read product_units" on product_units;
-create policy "read product_units" on product_units
-  for select to authenticated using (true);
+-- Open only until 084 exists. See the note in 067 — on a database that
+-- already has 084 (production does), an open policy beside 084's scoped one
+-- WINS, because multiple permissive policies are OR'd. Adding a correct
+-- policy never replaces a loose one; that is 044's lesson and this would
+-- have reopened product_units to any signed-in stranger.
+do $pu$
+begin
+  drop policy if exists "read product_units" on product_units;
+  execute format(
+    'create policy "read product_units" on product_units
+       for select to authenticated using (%s)',
+    case when to_regprocedure('public.is_known_person()') is not null
+         then 'public.is_known_person()' else 'true' end);
+end
+$pu$;
 
 alter table products drop constraint if exists products_unit_fkey;
 alter table products add constraint products_unit_fkey
