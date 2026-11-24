@@ -1873,10 +1873,18 @@ and the only one with its own handling rule:
 ## Environments
 
 - UAT `jgijsurgbciuopicqceo` — where everything is applied and tested first.
-- Production `gwncamipwckpknxpiksv` (KindOS) — **24 migrations behind: 059
-  through 082**, none applied. See `docs/session-8-to-11-brief.md`. Sessions
-  1–7 took it to `058`; `042`, `042b`, `054` and `057` went in out of band.
-  (`014`'s kcp-portal constraint block is long since resolved.)
+- Production `gwncamipwckpknxpiksv` (KindOS) — behind, and **the number in
+  this file has been wrong before, so it is not written here any more.**
+  Sessions 1–7 took it to `058`; `042`, `042b`, `054` and `057` went in out
+  of band; session 8 added `066`, `078`, `080`, `081`, `082`; `083`–`087`
+  followed. See `docs/session-8-to-11-brief.md` for the run order, which is
+  still correct, and NOT for the count, which is not.
+
+  Ask the database instead:
+
+      supabase/prod/where-is-production.sql    does it have the artefact?
+      PROD_DB_URL=… npm run what-has-run       when, and which TEXT of it?
+      PROD_DB_URL=… npm run check:drift        where do UAT and prod disagree?
 - **The APP is NOT behind. Both Vercel projects deploy from `main`**, so
   production runs the same build as UAT. A database 24 migrations behind a
   live app is not "features missing" — `/feedback`, `/deliveries`,

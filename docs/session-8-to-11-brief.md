@@ -498,6 +498,53 @@ been re-run more recently than I think and P1's picture is wrong.
 
 ---
 
+## THIS BRIEF PREDATES 083–087 (added 2026-11-24)
+
+It was written on 2026-10-26, when the outstanding set was `059`–`082`.
+Since then `083`–`087` were written AND applied to production:
+
+| | |
+|---|---|
+| `083` | `migrations_applied` — the database records what ran and which text |
+| `084` | the `using (true)` policies, including four that were WRITE access |
+| `085` | fifteen views that read as their owner, bypassing RLS entirely |
+| `086` | Google sign-in restricted to invited addresses or `@mimetta.co` |
+| `087` | writing a feature flag needs the `settings` capability |
+
+**So the outstanding list below is stale, and the run order is not.** The
+sessions are still correct in content and sequence; what has changed is how
+much is left. Do not count from this document —
+
+```
+supabase/prod/where-is-production.sql
+```
+
+— and now also:
+
+```
+PROD_DB_URL=… npm run what-has-run
+```
+
+which answers *when* and *which text*, not merely *whether*. That is the
+question this project could not answer at all until `083`.
+
+## A migration that recreates a view
+
+**No longer needs anything remembered, and that is new.**
+
+`create or replace view v as …` silently drops `security_invoker`, so
+re-running a migration used to reopen what `085` closed — `041` would have
+made `roster_staff` world-readable again with no error.
+
+Every `create view` in `supabase/` now carries
+`with (security_invoker = true)`, and `npm run check:view-invoker` fails if
+one does not. **`085` is a backfill for databases that ran the old text, not
+a step to repeat after each session.**
+
+This matters for session 9 specifically: `069` recreates
+`branch_daily_metrics` and `077` creates `branch_payment_mix`. Both set the
+flag themselves. Nothing to re-run.
+
 ## After each session
 
 ```
