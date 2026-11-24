@@ -48,7 +48,7 @@ const db = new pg.Client({ connectionString:
   `postgresql://postgres.${REF}:${encodeURIComponent(pw)}@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres` })
 await db.connect()
 
-let pass = 0, fail = 0
+let pass = 0, fail = 0, skipped = 0
 const ok = (name, good, detail = "") => {
   console.log(`  ${good ? "PASS" : "FAIL"} | ${name.padEnd(54)} | ${detail}`)
   good ? pass++ : fail++
@@ -222,6 +222,95 @@ try {
     ok("somebody at another branch sees no photo",
        (theirs ?? []).length === 0, `${(theirs ?? []).length} row(s)`)
   }
+  // ── and logistics finds it on DELIVERY SCHEDULE, not on Receiving ──────
+  //
+  // Phase 1 closes /receiving. The discrepancy queue moved to /deliveries,
+  // and without that a shortage recorded at the door would reach nobody —
+  // the row written, no open screen listing it, indistinguishable from
+  // nothing having happened. That is the 029 shape and it is worth a page
+  // fetch rather than a data read: the claim is about what logistics SEES.
+  const logi = await mkUser("logistics", null)
+
+  const { data: logiRows } = await logi.sb
+    .from("stock_discrepancies")
+    .select("id, delivery_lines(note, deliveries(id, reference))")
+    .eq("status", "open")
+  const logiMine = (logiRows ?? []).find(
+    (r) => r.delivery_lines?.deliveries?.id === delivery)
+  ok("logistics can read the discrepancy at all", !!logiMine,
+     `${(logiRows ?? []).length} open row(s) visible`)
+
+  // The PAGE. A row being readable is not a row being shown — the photo bug
+  // was rendered and hidden inside `{!done && …}`, and only looking caught
+  // it. Needs `npm run build && PORT=3999 npm start` alongside.
+  const BASE = process.env.BASE_URL ?? "http://localhost:3999"
+  let reachable = true
+  try { await fetch(BASE + "/login", { signal: AbortSignal.timeout(2500) }) }
+  catch { reachable = false }
+
+  if (!reachable) {
+    // A skip is not a pass. Reporting "all passed" while the five
+    // assertions that test the actual claim never ran is the same defect as
+    // a <NULL> verify line reading green — and it happened here once, on a
+    // cold start, with the queue demonstrably missing from a stale build.
+    skipped += 5
+    console.log(`  SKIPPED | ${BASE} is not up — run \`npm run build && PORT=3999 npm start\``)
+    console.log(`          | 5 assertions about the PAGE did not run.`)
+  } else {
+    const { data: { session } } = await logi.sb.auth.getSession()
+    const ref = env.NEXT_PUBLIC_SUPABASE_URL.match(/https:\/\/([a-z]+)\./)[1]
+    const cookie = `sb-${ref}-auth-token=base64-${Buffer.from(JSON.stringify(session)).toString("base64")}`
+    const res = await fetch(BASE + "/deliveries", { headers: { cookie }, redirect: "manual" })
+    const html = await res.text()
+    // A fetch that silently lands on /login renders a page with none of the
+    // strings below, and every assertion then fails for a reason that has
+    // nothing to do with the claim. Say so first.
+    const onLogin = res.status >= 300 || html.includes('name="email"')
+    ok("…and logistics is actually SIGNED IN for this fetch", !onLogin,
+       onLogin ? `HTTP ${res.status} — landed on /login, the cookie was not accepted` : `HTTP ${res.status}`)
+
+    ok("Delivery schedule shows the Discrepancies raised queue",
+       html.includes("Discrepancies raised"), "on /deliveries")
+    ok("…listing this shortage", html.includes(prod.sku), `looking for ${prod.sku}`)
+    ok("…with the KA’s own words", html.includes(NOTE.slice(0, 24)), "the note itself, not just the category")
+    ok("…and a link through to the delivery",
+       html.includes(`/receiving/${delivery}`), "so it can be opened")
+
+    // The link must actually open, or the queue is a dead end — and
+    // /receiving is closed, so this is exactly the exception being tested.
+    // ── and the KA opens the SAME screen ────────────────────────────────
+    //
+    // The brief: "a KA opens the same screen for their own branch and
+    // checks the delivery in". A KA holds `receiving`, NOT
+    // `delivery.schedule`, and the gate on /deliveries asked only for the
+    // latter — so the one screen stage one depends on refused them, and its
+    // hint sent them to the Receiving screen Phase 1 closes.
+    const { data: { session: kaSess } } = await ka.sb.auth.getSession()
+    const kaCookie = `sb-${ref}-auth-token=base64-${Buffer.from(JSON.stringify(kaSess)).toString("base64")}`
+    const kaRes = await fetch(BASE + "/deliveries",
+      { headers: { cookie: kaCookie }, redirect: "manual" })
+    const kaHtml = await kaRes.text()
+
+    ok("a KA can OPEN Delivery schedule",
+       kaRes.status === 200 && !kaHtml.includes("do not have access"),
+       kaRes.status === 200 ? "" : `HTTP ${kaRes.status}`)
+    ok("…and sees their own branch's delivery on it",
+       kaHtml.includes(d.reference), `looking for ${d.reference}`)
+    ok("…and cannot schedule one",
+       !kaHtml.includes("Schedule delivery"),
+       kaHtml.includes("Schedule delivery") ? "the button is there" : "no button")
+
+    // `redirect: "manual"`, because following a redirect to /login gives a
+    // 200 with no "Not open yet" in it — which passes this assertion while
+    // proving nothing. That is the third wrong-reason pass in this project
+    // caught by asking what the response actually was.
+    const page = await fetch(`${BASE}/receiving/${delivery}`,
+      { headers: { cookie }, redirect: "manual" })
+    const body = await page.text()
+    ok("…and that link is NOT caught by the closed-section switch",
+       page.status === 200 && !body.includes("Not open yet") && !body.includes('name="email"'),
+       body.includes("Not open yet") ? "the exception failed" : `HTTP ${page.status}`)
+  }
 } finally {
   await cleanup()
   const { rows } = await db.query(
@@ -231,5 +320,10 @@ try {
   await db.end()
 }
 
-console.log(`\n${fail === 0 ? "all passed" : `${fail} FAILED`} (${pass} passed)`)
+console.log(`\n${fail === 0 ? (skipped ? "no failures" : "all passed") : `${fail} FAILED`}`
+  + ` (${pass} passed${skipped ? `, ${skipped} NOT RUN` : ""})`)
+if (skipped) {
+  console.log(`\n${skipped} assertion(s) did not run. That is not a pass — the page`)
+  console.log(`half of this test is the half that found the stale build.`)
+}
 process.exit(fail === 0 ? 0 : 1)

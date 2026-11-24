@@ -26,8 +26,18 @@ const fmtDay = (iso: string) =>
     { weekday: "short", day: "numeric", month: "short" })
 
 export default function DeliveriesClient({
-  today, branches, products, deliveries,
+  canSchedule, today, branches, products, deliveries,
 }: {
+  /**
+   * Whether this person SETS dates or only reads them and checks deliveries
+   * in. A KA holds `receiving` and not `delivery.schedule`, and stage one
+   * puts both jobs on this one screen.
+   *
+   * Presentation only. `scheduleDelivery` checks the capability itself and
+   * `070` refuses it in the database — hiding the button is the courtesy,
+   * not the rule.
+   */
+  canSchedule: boolean
   today: string
   branches: BranchOption[]
   products: ProductOption[]
@@ -98,19 +108,23 @@ export default function DeliveriesClient({
         <div className="flex-1 min-w-0">
           <h1 className="text-lg text-ink">Delivery schedule</h1>
           <p className="text-xs text-muted">
-            Set here, received at the shop. {upcoming.length} upcoming.
+            {canSchedule
+              ? `Set here, received at the shop. ${upcoming.length} upcoming.`
+              : `${upcoming.length} upcoming. Open one to check it in.`}
           </p>
         </div>
-        <button onClick={() => setOpen((v) => !v)} className="btn btn-primary">
-          {open ? "Cancel" : "Schedule delivery"}
-        </button>
+        {canSchedule && (
+          <button onClick={() => setOpen((v) => !v)} className="btn btn-primary">
+            {open ? "Cancel" : "Schedule delivery"}
+          </button>
+        )}
       </header>
 
       {msg && (
         <p className={msg.tone === "ok" ? "note note-g" : "note note-r"}><span>{msg.text}</span></p>
       )}
 
-      {open && (
+      {canSchedule && open && (
         <div className="card card-pad flex flex-col gap-3">
           <div className="grid sm:grid-cols-3 gap-3">
             <label>

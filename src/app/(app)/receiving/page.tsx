@@ -1,4 +1,5 @@
 import Link from "next/link"
+import DiscrepancyQueue from "@/components/DiscrepancyQueue"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { can } from "@/lib/permissions"
@@ -220,51 +221,9 @@ export default async function ReceivingPage() {
         )}
       </div>
 
-      <div className="card card-pad mt-3">
-        <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
-          <h2 className="text-[15px] font-medium flex-1 min-w-0">Discrepancies raised</h2>
-          <span className="text-xs text-muted">Deliveries and transfers</span>
-        </div>
-
-        {shorts.length === 0 ? (
-          <p className="text-center py-6 px-4 text-muted text-[13px]">No shortages outstanding.</p>
-        ) : (
-          shorts.map((l) => {
-            const over = (l.difference ?? 0) > 0
-            return (
-              <Link
-                key={l.id}
-                href={l.href}
-                className="flex items-center gap-2.5 py-2.5 border-t border-sand flex-wrap
-                           min-h-[44px] hover:bg-panel/40 transition-colors"
-              >
-                <span className="flex-1 min-w-[150px]">
-                  <span className="block truncate text-ink">{l.name}</span>
-                  <span className="font-mono text-[11px] text-subtle">
-                    {l.sku} · {l.kind} · {l.branch} · {l.reference}
-                  </span>
-                  {/* Wraps rather than truncates. Logistics is the intended
-                      reader of this note and was getting the worst view of it:
-                      one clipped line here, full text only on the delivery
-                      screen they have no reason to open. */}
-                  {l.note && (
-                    <span className="block text-[11px] text-muted mt-0.5 break-words whitespace-pre-line">
-                      {l.note}
-                    </span>
-                  )}
-                </span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full border bg-amber-50 text-amber-70 border-amber-60 shrink-0">
-                  {l.reason ?? "Difference"}
-                </span>
-                <span className={`num-c text-xs w-[70px] text-right shrink-0 ${over ? "text-good-70" : "text-danger-70"}`}>
-                  {l.received} / {l.expected}
-                </span>
-                <span className="text-subtle text-xs shrink-0" aria-hidden="true">›</span>
-              </Link>
-            )
-          })
-        )}
-      </div>
+      {/* One source. Also mounted on /deliveries, which is where it is
+          actually read now that receiving is closed. */}
+      <DiscrepancyQueue />
     </div>
   )
 }

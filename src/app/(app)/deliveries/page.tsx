@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { can } from "@/lib/permissions"
 import { bangkokToday, addDaysISO } from "@/lib/day"
 import type { Profile } from "@/types/database"
+import DiscrepancyQueue from "@/components/DiscrepancyQueue"
 import DeliveriesClient, {
   type BranchOption, type ProductOption, type DeliveryRow,
 } from "./DeliveriesClient"
@@ -39,13 +40,27 @@ export default async function DeliveriesPage() {
     .from("profiles").select("*").eq("id", user.id).single()
   const profile = profileRow as Profile | null
 
-  if (!can(profile, "delivery.schedule")) {
+  // `delivery.schedule` OR `receiving`.
+  //
+  // Stage one puts both jobs on this screen: logistics, admin and manager
+  // SET the dates, and a KA opens the same screen for their own branch and
+  // checks the delivery in. A KA holds `receiving`, not `delivery.schedule`
+  // — so the old gate refused them the one screen stage one depends on, and
+  // its hint sent them to the Receiving screen, which Phase 1 CLOSES.
+  //
+  // No capability changed and no policy changed. RLS already scopes the
+  // rows: a KA sees their own branch's deliveries, logistics sees all of
+  // them. What the KA cannot do is SCHEDULE one, and that is enforced where
+  // it belongs — `scheduleDelivery` checks `delivery.schedule` itself, and
+  // 070 refuses it in the database regardless of what the screen offers.
+  const canSchedule = can(profile, "delivery.schedule")
+  if (!canSchedule && !can(profile, "receiving")) {
     return (
       <div className="empty">
         <p className="empty-title">You do not have access to the delivery schedule.</p>
         <p className="empty-hint">
-          Delivery dates are set by the head of logistics. Receiving what arrives
-          is on the Receiving screen.
+          Delivery dates are set by the head of logistics, and deliveries are
+          checked in by the shop they arrive at.
         </p>
       </div>
     )
@@ -101,11 +116,19 @@ export default async function DeliveriesPage() {
   })) as DeliveryRow[]
 
   return (
-    <DeliveriesClient
-      today={today}
-      branches={branches}
-      products={(productRows ?? []) as ProductOption[]}
-      deliveries={deliveries}
-    />
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <DeliveriesClient
+        canSchedule={canSchedule}
+        today={today}
+        branches={branches}
+        products={(productRows ?? []) as ProductOption[]}
+        deliveries={deliveries}
+      />
+      {/* Moved here from /receiving, which Phase 1 closes. Without this a
+          shortage a KA records at the door reaches nobody — the row is
+          written and no open screen lists it, which looks from every side
+          like nothing happened. */}
+      <DiscrepancyQueue />
+    </div>
   )
 }
