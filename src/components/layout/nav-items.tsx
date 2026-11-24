@@ -99,6 +99,10 @@ const OVERVIEW_ITEMS: NavItem[] = [
  */
 const DATA_RECORD_ITEMS: NavItem[] = [
   { label: "End of day",   href: "/daily",        icon: <Icon d={UNITS_ICON} />,  needs: ["sales.manual", "bills", "traffic"] },
+  { label: "Daily sales",  href: "/records/sales",    icon: <Icon d={DASH_ICON} />,   needs: ["bills"] },
+  { label: "Daily bill",   href: "/records/bills",    icon: <Icon d={LEAVE_ICON} />,  needs: ["bills"] },
+  { label: "Sales by payment method", href: "/records/payments", icon: <Icon d={MONEY_ICON} />, needs: ["bills"] },
+  { label: "Sales by product",        href: "/records/products", icon: <Icon d={UNITS_ICON} />, needs: ["bills"] },
   { label: "Import sales", href: "/sales/import", icon: <Icon d={IMPORT_ICON} />, needs: ["sales.import"] },
   { label: "Cash",         href: "/pos-money",    icon: <Icon d={MONEY_ICON} />,  needs: ["pos.money"] },
 ]

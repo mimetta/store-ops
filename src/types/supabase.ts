@@ -2456,6 +2456,7 @@ export type Database = {
           npd_set_at: string | null
           npd_set_by: string | null
           npd_start_date: string | null
+          pos_group: string | null
           raw: Json | null
           reorder_threshold: number | null
           selling_price: number | null
@@ -2480,6 +2481,7 @@ export type Database = {
           npd_set_at?: string | null
           npd_set_by?: string | null
           npd_start_date?: string | null
+          pos_group?: string | null
           raw?: Json | null
           reorder_threshold?: number | null
           selling_price?: number | null
@@ -2504,6 +2506,7 @@ export type Database = {
           npd_set_at?: string | null
           npd_set_by?: string | null
           npd_start_date?: string | null
+          pos_group?: string | null
           raw?: Json | null
           reorder_threshold?: number | null
           selling_price?: number | null
@@ -5595,6 +5598,7 @@ export type Database = {
           is_vip: boolean | null
           npd_ends_on: string | null
           npd_start_date: string | null
+          pos_group: string | null
           product_id: string | null
           product_name: string | null
           sku_text: string | null

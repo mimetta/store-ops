@@ -37,6 +37,15 @@ export interface Product {
   location: string | null
   active: boolean
   created_at: string
+  /**
+   * The day this product started being new (088). NPD for three months
+   * from here, then it stops on its own. NULL means nobody has marked it —
+   * which is NOT "not new", it is unasked, and nothing guesses a date from
+   * the first sale or the creation date.
+   */
+  npd_start_date: string | null
+  npd_set_by: string | null
+  npd_set_at: string | null
 }
 
 export interface StockLevel {

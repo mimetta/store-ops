@@ -302,9 +302,17 @@ function SuppliersTab({ toast }: { toast: (t: "ok" | "err", m: string) => void }
 // looks answered" — and 060 dropped `reorder_threshold DEFAULT 20` for the
 // same reason. This form used to put both back on every product it created,
 // which moved the invented fact out of the database and into the screen.
-const EMPTY_PRODUCT = { sku: "", name: "", category: "", unit: "", reorder_threshold: "", cost_price: "", selling_price: "", supplier: "", location: "" }
+/** Three months on, matching `npd_window_end` in 088. Display only — the
+ *  database is what decides, and the view reads it from there. */
+function npdEnds(start: string): string {
+  const d = new Date(start + "T00:00:00Z")
+  d.setUTCMonth(d.getUTCMonth() + 3)
+  return d.toISOString().slice(0, 10)
+}
 
-function ProductsTab({ type, title, toast }: { type: "fg" | "consumable"; title: string; toast: (t: "ok" | "err", m: string) => void }) {
+const EMPTY_PRODUCT = { sku: "", name: "", category: "", unit: "", reorder_threshold: "", cost_price: "", selling_price: "", supplier: "", location: "", npd_start_date: "" }
+
+function ProductsTab({ type, title, toast, profileId }: { type: "fg" | "consumable"; title: string; toast: (t: "ok" | "err", m: string) => void; profileId: string | null }) {
   const supabase = createClient()
   const [products, setProducts] = useState<Product[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -345,6 +353,7 @@ function ProductsTab({ type, title, toast }: { type: "fg" | "consumable"; title:
       sku: p.sku, name: p.name, category: p.category ?? "", unit: p.unit,
       reorder_threshold: String(p.reorder_threshold), cost_price: String(p.cost_price ?? ""),
       selling_price: String(p.selling_price ?? ""), supplier: p.supplier ?? "", location: p.location ?? "",
+      npd_start_date: p.npd_start_date ?? "",
     })
     setDrawerOpen(true)
   }
@@ -360,6 +369,19 @@ function ProductsTab({ type, title, toast }: { type: "fg" | "consumable"; title:
       cost_price: form.cost_price ? parseFloat(form.cost_price) : null,
       selling_price: form.selling_price ? parseFloat(form.selling_price) : null,
       supplier: form.supplier || null, location: form.location || null, type,
+      // NPD (088). A date, never a flag: a flag has to be turned off and
+      // nobody does, where three months after a date it ends by itself.
+      //
+      // Attribution is REQUIRED by `products_npd_is_attributed` — a
+      // decision that changes a report carries who made it. Clearing the
+      // date clears those too, or the constraint refuses the row.
+      // Typed explicitly: a ternary spread makes TypeScript infer the
+      // first branch's literal types and then reject the second.
+      ...({
+        npd_start_date: form.npd_start_date || null,
+        npd_set_by: form.npd_start_date ? profileId : null,
+        npd_set_at: form.npd_start_date ? new Date().toISOString() : null,
+      } as { npd_start_date: string | null; npd_set_by: string | null; npd_set_at: string | null }),
     }
     const { error } = editing
       ? await supabase.from("products").update(payload).eq("id", editing.id)
@@ -520,6 +542,23 @@ function ProductsTab({ type, title, toast }: { type: "fg" | "consumable"; title:
             <div>
               <label className="block text-sm font-medium text-muted mb-1.5">Selling price (฿)</label>
               <input type="number" min="0" step="0.01" value={form.selling_price} onChange={f("selling_price")} placeholder="0.00" className="input-field" />
+            </div>
+
+            {/* NPD (088). A DATE, not a tick box: three months after it the
+                product stops being new on its own and nobody has to
+                remember. Clearing it removes the mark early. Blank means
+                nobody has said — which is not the same as "not new". */}
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-muted mb-1.5">
+                New product from
+              </label>
+              <input type="date" value={form.npd_start_date} onChange={f("npd_start_date")}
+                     className="input-field" />
+              <p className="text-[12px] text-muted mt-1 leading-relaxed">
+                {form.npd_start_date
+                  ? `Counts as NPD until ${npdEnds(form.npd_start_date)}, then stops by itself. Reports of earlier months keep showing it as NPD for the days inside the window.`
+                  : "Leave blank if this is not a new product. Nothing is assumed from when it was created or first sold."}
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-muted mb-1.5">Cost price (฿)</label>
@@ -916,8 +955,8 @@ export default function SettingsPage() {
 
         {tab === "branches"     && <BranchesTab toast={show} />}
         {tab === "suppliers"    && <SuppliersTab toast={show} />}
-        {tab === "fg"           && <ProductsTab type="fg" title="Product" toast={show} />}
-        {tab === "consumables"  && <ProductsTab type="consumable" title="Consumable" toast={show} />}
+        {tab === "fg"           && <ProductsTab type="fg" title="Product" toast={show} profileId={profile?.id ?? null} />}
+        {tab === "consumables"  && <ProductsTab type="consumable" title="Consumable" toast={show} profileId={profile?.id ?? null} />}
         {tab === "stock-levels" && <StockLevelsTab toast={show} />}
       </div>
 

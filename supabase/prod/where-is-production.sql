@@ -205,6 +205,10 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('090', '090', 'schema', 'products carry the AdaPOS shelf group, not only AccCloud''s',
+    exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='products'
+               and column_name='pos_group')),
   ('089', '089', 'schema', 'the four Data Record views exist',
     (select count(*) from information_schema.views
       where table_schema='public'
