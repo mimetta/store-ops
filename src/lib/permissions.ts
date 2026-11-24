@@ -119,7 +119,7 @@ const CAPABILITY_ROLES: Record<Capability, readonly Role[]> = {
   // supervisor added in 045: a supervisor is rostered like anyone else, and
   // without this cannot see their own shifts, let alone swap one.
   "shifts.view_own":          ["ka", "supervisor"],
-  "shifts.manage":            ["admin", "manager", "people"],
+  "shifts.manage":            ["admin", "manager", "people", "supervisor"],
 
   // every role — written out rather than via a constant so the matrix stays
   // literal and machine-comparable against supabase/004-rbac-rls.sql

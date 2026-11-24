@@ -205,6 +205,11 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('092', '092', 'schema', 'new members and Xiaohongshu reviews have a home',
+    to_regclass('public.membership_counts') is not null),
+  ('091', '091', 'data',   'a supervisor runs the roster at their own branch',
+    exists (select 1 from role_capabilities
+             where role = 'supervisor' and capability = 'shifts.manage')),
   ('090', '090', 'schema', 'products carry the AdaPOS shelf group, not only AccCloud''s',
     exists (select 1 from information_schema.columns
              where table_schema='public' and table_name='products'

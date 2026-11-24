@@ -132,7 +132,11 @@ insert into role_capabilities (role, capability) values
   -- database that has run the whole sequence
   ('ka','shifts.view_own'),       ('supervisor','shifts.view_own'),
 
+  -- 091 added supervisor: they run the roster at their own branch, and RLS
+  -- confines them there. Listed HERE as well, because this file clears
+  -- role_capabilities and re-seeds it — see the rebuild-safe marker in 091.
   ('admin','shifts.manage'),     ('manager','shifts.manage'),     ('people','shifts.manage'),
+  ('supervisor','shifts.manage'),
 
   -- leave and training split into an "everyone" verb and a "decider" verb
   ('admin','leave.request'),     ('manager','leave.request'),     ('supervisor','leave.request'),

@@ -73,14 +73,20 @@ const TRAINING_ICON   = "M22 10v6M2 10l10-5 10 5-10 5z M6 12v5c3 3 9 3 12 0v-5"
 const PEOPLE_ICON     = "M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2 M10 11a4 4 0 100-8 4 4 0 000 8 M22 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75"
 const FEEDBACK_ICON   = "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
 const TRUCK_ICON      = "M1 3h15v13H1z M16 8h4l3 3v5h-7V8 M5.5 18.5a2 2 0 100-4 2 2 0 000 4 M18.5 18.5a2 2 0 100-4 2 2 0 000 4"
-const SYNC_ICON       = "M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0114.85-3.36L23 10 M1 14l4.64 4.36A9 9 0 0020.49 15"
-const SETTINGS_ICON   = "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
 const HISTORY_ICON    = "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
 
+/**
+ * Overview is ONE link, not a section containing a link of the same name.
+ *
+ * A heading "Overview" above an item "Overview" reads as two entries for
+ * one page, and was reported as exactly that. `SECTIONS` renders a section
+ * with an empty label as a bare link.
+ *
+ * No `needs`: /dashboard has no capability check of its own and never had
+ * one, so gating the link advertised a restriction nothing enforced. RLS
+ * scopes every figure on it to the branches you may see.
+ */
 const OVERVIEW_ITEMS: NavItem[] = [
-  // No `needs`: /dashboard has no capability check of its own and never had
-  // one, so gating the link advertised a restriction nothing enforced. RLS
-  // scopes every figure on it to the branches you may see.
   { label: "Overview", href: "/dashboard", icon: <Icon d={DASH_ICON} /> },
 ]
 
@@ -97,31 +103,37 @@ const OVERVIEW_ITEMS: NavItem[] = [
  *
  * PHASE 1 shows what exists today. The four views are Phase 2.
  */
+/**
+ * Data Record — Import first, because nothing below it has anything to
+ * show until a file has been uploaded.
+ *
+ * The four views are views of ONE upload. Bill by country and Cash are the
+ * two things a KA keys that the POS cannot know, and they sit here rather
+ * than on a combined End of day form: each is "key it in, see what was
+ * saved, edit it", which is a screen, not a section of one.
+ */
 const DATA_RECORD_ITEMS: NavItem[] = [
-  { label: "End of day",   href: "/daily",        icon: <Icon d={UNITS_ICON} />,  needs: ["sales.manual", "bills", "traffic"] },
+  { label: "Import",       href: "/sales/import", icon: <Icon d={IMPORT_ICON} />, needs: ["sales.import"] },
   { label: "Daily sales",  href: "/records/sales",    icon: <Icon d={DASH_ICON} />,   needs: ["bills"] },
   { label: "Daily bill",   href: "/records/bills",    icon: <Icon d={LEAVE_ICON} />,  needs: ["bills"] },
   { label: "Sales by payment method", href: "/records/payments", icon: <Icon d={MONEY_ICON} />, needs: ["bills"] },
   { label: "Sales by product",        href: "/records/products", icon: <Icon d={UNITS_ICON} />, needs: ["bills"] },
-  { label: "Import sales", href: "/sales/import", icon: <Icon d={IMPORT_ICON} />, needs: ["sales.import"] },
+  { label: "Bill by country", href: "/records/countries", icon: <Icon d={PEOPLE_ICON} />, needs: ["bills", "sales.manual"] },
   { label: "Cash",         href: "/pos-money",    icon: <Icon d={MONEY_ICON} />,  needs: ["pos.money"] },
 ]
 
 const CUSTOMER_ITEMS: NavItem[] = [
-  { label: "Customer feedback", href: "/feedback", icon: <Icon d={FEEDBACK_ICON} />, needs: ["feedback.record"] },
-  { label: "Traffic",           href: "/traffic",  icon: <Icon d={PEOPLE_ICON} />,   needs: ["traffic"] },
+  { label: "Customer feedback",   href: "/feedback",   icon: <Icon d={FEEDBACK_ICON} />, needs: ["feedback.record"] },
+  { label: "Membership & review", href: "/membership", icon: <Icon d={PEOPLE_ICON} />,   needs: ["traffic", "sales.manual"] },
+  { label: "Traffic",             href: "/traffic",    icon: <Icon d={UNITS_ICON} />,    needs: ["traffic"] },
 ]
 
 /**
  * Warehouse & Logistic — closed except Delivery schedule.
  *
- * `closed` greys the entry; `lib/closed-sections.ts` is what actually
- * refuses, and it is the same list. A grey link is not a permission.
- *
- * Delivery schedule is stage one and stays fully open: logistics, admin and
- * manager schedule there, a KA opens the same screen for their own branch
- * and checks a delivery in, and the discrepancies they raise are listed on
- * it so a shortage still reaches logistics.
+ * `closed` greys the entry, adds a lock and a "Not open yet" tag;
+ * `lib/closed-sections.ts` is what actually refuses. Colour alone was not
+ * enough to read as unavailable, so it is three signals rather than one.
  */
 const WAREHOUSE_ITEMS: NavItem[] = [
   { label: "Delivery schedule",    href: "/deliveries",   icon: <Icon d={TRUCK_ICON} />,  needs: ["delivery.schedule", "receiving"] },
@@ -134,34 +146,45 @@ const WAREHOUSE_ITEMS: NavItem[] = [
   { label: "Stock movement",       href: "/reports",      icon: <Icon d={REPORTS_ICON} />, needs: ["stock.reports"], closed: true },
 ]
 
-/**
- * Management.
- *
- * Roster absorbs /schedule as its first tab, beside the swaps and leave
- * tabs it already had. Two screens called Shifts and Schedule was a
- * distinction nobody outside the code could name.
- */
 const MANAGEMENT_ITEMS: NavItem[] = [
   { label: "Roster",   href: "/shifts",       icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
-  // `leave.request` is held by EVERY role, including logistics and marketing,
-  // who hold neither roster capability and so never see Roster or its tabs.
   { label: "Leave",    href: "/shifts/leave", icon: <Icon d={LEAVE_ICON} />,    needs: ["leave.request"], hiddenBy: ["shifts.manage", "shifts.view_own"] },
   { label: "Overtime", href: "/overtime",     icon: <Icon d={OT_ICON} />,       needs: ["overtime.record"] },
   { label: "Commission", href: "/commission", icon: <Icon d={COMMISSION_ICON} />, needs: ["payout.view"] },
   { label: "Training", href: "/training",     icon: <Icon d={TRAINING_ICON} />, needs: ["training.view"] },
   { label: "Calendar & events", href: "/calendar", icon: <Icon d={CALENDAR_ICON} />, needs: ["calendar.view"] },
+  // The KA list. Pay rate is shown only to those who may see it — pay.view
+  // is admin, manager and people, and `pay_rates` RLS refuses everyone else
+  // including the person it is about. The screen asks for the column; the
+  // database decides whether it arrives.
+  { label: "Kindness Assistant", href: "/kindness-assistant", icon: <Icon d={PEOPLE_ICON} />, needs: ["people.manage", "shifts.manage"] },
 ]
 
+/**
+ * Setting — no item called "Settings".
+ *
+ * The old /settings was one page with four tabs, which meant the menu had
+ * an entry called Settings inside a section called Setting, and the thing
+ * you wanted was a tab you could not see from the menu. Each tab is its
+ * own item now.
+ *
+ * AccCloud sync is gone from here: removed from the menu AND closed. The
+ * product master freezes until it reopens — see lib/closed-sections.ts.
+ */
 const SETTING_ITEMS: NavItem[] = [
-  // Setting > Team is the ONLY place a person is added or removed.
-  { label: "Team",          href: "/people",   icon: <Icon d={PEOPLE_ICON} />,   needs: ["people.manage"] },
-  { label: "AccCloud sync", href: "/sync",     icon: <Icon d={SYNC_ICON} />,     needs: ["acccloud.sync"] },
-  { label: "Settings",      href: "/settings", icon: <Icon d={SETTINGS_ICON} />, needs: ["settings"] },
-  { label: "Activity logs", href: "/activity", icon: <Icon d={HISTORY_ICON} />,  needs: ["settings"] },
+  // Team is /people — the one place a person is added or removed.
+  { label: "Team",         href: "/people",              icon: <Icon d={PEOPLE_ICON} />,   needs: ["people.manage"] },
+  { label: "Store",        href: "/settings/store",      icon: <Icon d={HOME_ICON} />,     needs: ["settings"] },
+  { label: "Product",      href: "/settings/product",    icon: <Icon d={STOCK_ICON} />,    needs: ["settings"] },
+  { label: "Consumable",   href: "/settings/consumable", icon: <Icon d={COUNT_ICON} />,    needs: ["settings"] },
+  { label: "Stock level",  href: "/settings/stock-level", icon: <Icon d={REPORTS_ICON} />, needs: ["settings"] },
+  { label: "Activity logs", href: "/activity",           icon: <Icon d={HISTORY_ICON} />,  needs: ["settings"] },
 ]
 
 export const SECTIONS: { label: string; items: NavItem[] }[] = [
-  { label: "Overview",             items: OVERVIEW_ITEMS },
+  // An empty label renders as a bare link with no heading — Overview is one
+  // entry, not a section containing an entry of the same name.
+  { label: "",                     items: OVERVIEW_ITEMS },
   { label: "Data Record",          items: DATA_RECORD_ITEMS },
   { label: "Customer",             items: CUSTOMER_ITEMS },
   { label: "Warehouse & Logistic", items: WAREHOUSE_ITEMS },

@@ -39,6 +39,13 @@ export const CLOSED_SECTIONS: { prefix: string; reason: string }[] = [
   { prefix: "/adjustments", reason: "Stock adjustments open in a later stage." },
   { prefix: "/stock", reason: "Inventory opens in a later stage." },
   { prefix: "/reports", reason: "Stock reports open in a later stage." },
+  // Removed from the menu AND closed, deliberately. /sync is the only UI
+  // trigger for the AccCloud product refresh — nothing schedules
+  // /api/acccloud/sync — so closing it FREEZES the product master where it
+  // is. Selling prices and group codes stop updating until this line goes.
+  // That was the decision; it is written here because the consequence is
+  // not visible from the nav.
+  { prefix: "/sync", reason: "The AccCloud sync is paused. The product master stays as it is until it reopens." },
 ]
 
 /**

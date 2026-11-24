@@ -1739,6 +1739,75 @@ export type Database = {
           },
         ]
       }
+      membership_counts: {
+        Row: {
+          branch_id: string
+          entry_date: string
+          id: string
+          new_members: number
+          recorded_at: string
+          recorded_by: string | null
+          reviews: number
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id: string
+          entry_date: string
+          id?: string
+          new_members?: number
+          recorded_at?: string
+          recorded_by?: string | null
+          reviews?: number
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string
+          entry_date?: string
+          id?: string
+          new_members?: number
+          recorded_at?: string
+          recorded_by?: string | null
+          reviews?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_counts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_counts_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "daily_entry_status"
+            referencedColumns: ["branch_id"]
+          },
+          {
+            foreignKeyName: "membership_counts_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_counts_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "roster_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "membership_counts_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "staff_details_outstanding"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       migrations_applied: {
         Row: {
           applied_at: string | null

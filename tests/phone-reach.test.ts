@@ -119,6 +119,13 @@ const UNLISTED: Record<string, string> = {
   // reads /count. Nobody navigates to it and it must not be in the nav —
   // a menu entry for "this is shut" would be its own kind of noise.
   "/closed": "where the middleware rewrites a closed section; not a destination",
+  // Split into /settings/store, /product, /consumable, /stock-level, each
+  // its own menu item. The combined page still works and still gates on
+  // `settings`; it is simply not where anybody is sent any more.
+  "/settings": "split into four single-tab routes; no longer a menu item",
+  // Removed from the menu AND closed (lib/closed-sections.ts). The product
+  // master is frozen until it reopens — a decision, not an oversight.
+  "/sync": "AccCloud sync: removed from the menu and closed",
   "/dashboard": "in the phone bar, and ungated — RLS scopes every figure",
   "/schedule": "redirect stub → /shifts",
   "/consumables": "redirect stub → /stock?type=consumable",
