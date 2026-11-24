@@ -62,6 +62,20 @@ function pageChecks(href) {
   for (const f of readdirSync(dir)) {
     if (!/\.tsx?$/.test(f)) continue
     const body = readFileSync(join(dir, f), "utf8")
+    // A REDIRECT STUB cannot enforce anything and does not need to: its
+    // target does, and that target is checked on its own. `/traffic` and
+    // `/consumables` are both one-line redirects into a screen that gates
+    // properly, and reporting them as "gated by the nav, enforced by
+    // nothing" is true of the file and false of the journey.
+    //
+    // Only when the stub is the WHOLE page — a file that redirects and does
+    // nothing else. A page that redirects conditionally is a real page.
+    if (/^\s*(import|\/\*|\*|\/\/|$)/.test(body.split("\n")[0] ?? "")
+        && /\bredirect\s*\(/.test(body)
+        && !/\bcan(?:Any)?\(/.test(body)
+        && body.split("\n").filter((l) => /\breturn\b|<[A-Za-z]/.test(l)).length === 0) {
+      return null
+    }
     for (const m of body.matchAll(/\bcan(?:Any)?\(\s*\w+\s*,\s*(\[[^\]]*\]|"[^"]+")/g)) {
       for (const c of m[1].matchAll(/"([^"]+)"/g)) found.add(c[1])
     }

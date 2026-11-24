@@ -46,10 +46,14 @@ interface Tab {
 const PRIMARY: Tab[] = [
   // Left UNGATED, as Home always was: /dashboard has no capability check of
   // its own, and RLS scopes every figure on it to the branches you may see.
-  { label: "Dashboard", href: "/dashboard", d: "M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z" },
+  { label: "Overview", href: "/dashboard", d: "M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z" },
   { label: "End of day", href: "/daily", d: "M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3 M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2 M9 12h6", needs: ["sales.manual", "bills", "traffic"] },
-  { label: "Stock",   href: "/count",     d: "M9 11l3 3L22 4 M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11", needs: ["stock.count"] },
-  { label: "Receive", href: "/receiving", d: "M21 8v13H3V8 M1 3h22v5H1z M10 12h4", needs: ["receiving"] },
+  // Was Stock (/count) and Receive (/receiving). Both are CLOSED for this
+  // stage, and two dead tabs out of four on a phone is worse than the
+  // five-tab slice that caused the last nav bug. Delivery schedule takes
+  // the slot because it is where a KA now checks a delivery in.
+  { label: "Deliveries", href: "/deliveries", d: "M1 3h15v13H1z M16 8h4l3 3v5h-7V8 M5.5 18.5a2 2 0 100-4 2 2 0 000 4 M18.5 18.5a2 2 0 100-4 2 2 0 000 4", needs: ["receiving", "delivery.schedule"] },
+  { label: "Feedback", href: "/feedback", d: "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z", needs: ["feedback.record"] },
 ]
 
 const MORE_ICON = "M4 6h16 M4 12h16 M4 18h16"
@@ -119,6 +123,20 @@ export default function TabBar({ profile, build }: {
               <div key={label}>
                 <p className="px-4 pt-3 pb-1 text-[11px] text-subtle">{label}</p>
                 {items.map((i) => (
+                  i.closed ? (
+                    // Grey and not navigable. Same decision as the sidebar;
+                    // the page refuses regardless.
+                    <span
+                      key={i.href}
+                      aria-disabled="true"
+                      className="flex items-center gap-3 px-4 min-h-[48px] text-sm
+                                 text-stone/40 cursor-not-allowed select-none"
+                    >
+                      <span className="shrink-0">{i.icon}</span>
+                      <span className="flex-1">{i.label}</span>
+                      <span className="text-[10px] uppercase tracking-wide">soon</span>
+                    </span>
+                  ) : (
                   <Link
                     key={i.href}
                     href={i.href}
@@ -130,6 +148,7 @@ export default function TabBar({ profile, build }: {
                     <span className="shrink-0 text-muted">{i.icon}</span>
                     {i.label}
                   </Link>
+                  )
                 ))}
               </div>
             ))}

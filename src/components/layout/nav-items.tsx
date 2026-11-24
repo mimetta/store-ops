@@ -31,6 +31,13 @@ export interface NavItem {
    * URL, and still makes its own capability check. Used once, for Leave.
    */
   hiddenBy?: readonly Capability[]
+  /**
+   * Built, working, and deliberately shut for this stage. Shown grey and
+   * not navigable. `lib/closed-sections.ts` is the same decision enforced
+   * at the PAGE, which is the half that matters — a grey link is not a
+   * permission, and anybody can type a URL.
+   */
+  closed?: boolean
 }
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -54,7 +61,6 @@ const IMPORT_ICON      = "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M7 10l5 5 5-5 
 const UNITS_ICON       = "M3 3v18h18 M7 14l3-4 3 3 5-7"
 const DASH_ICON        = "M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"
 const MONEY_ICON      = "M12 1v22 M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
-const CONSUMABLE_ICON = "M10 2h4 M12 14v-4 M4 13.4A2 2 0 006 15h12a2 2 0 002-1.6L21 6H3z"
 const REPORTS_ICON    = "M18 20V10 M12 20V4 M6 20v-6"
 const CALENDAR_ICON   = "M8 2v4 M16 2v4 M3 10h18 M21 8a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V8z"
 const LEAVE_ICON      = "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M12 18v-6 M9 15h6"
@@ -71,85 +77,90 @@ const SYNC_ICON       = "M23 4v6h-6 M1 20v-6h6 M3.51 9a9 9 0 0114.85-3.36L23 10 
 const SETTINGS_ICON   = "M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
 const HISTORY_ICON    = "M1 4v6h6 M23 20v-6h-6 M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
 
-const SALES_ITEMS: NavItem[] = [
+const OVERVIEW_ITEMS: NavItem[] = [
   // No `needs`: /dashboard has no capability check of its own and never had
   // one, so gating the link advertised a restriction nothing enforced. RLS
-  // scopes every figure on it to the branches you may see, and a KA seeing
-  // their own branch's dashboard is correct — they key most of it in.
-  { label: "Dashboard",     href: "/dashboard",   icon: <Icon d={DASH_ICON} /> },
-  { label: "End of day",     href: "/daily",       icon: <Icon d={UNITS_ICON} />,       needs: ["sales.manual", "bills", "traffic"] },
-  { label: "Import sales",   href: "/sales/import", icon: <Icon d={IMPORT_ICON} />,     needs: ["sales.import"] },
-  { label: "POS Money",      href: "/pos-money",   icon: <Icon d={MONEY_ICON} />,       needs: ["pos.money"] },
+  // scopes every figure on it to the branches you may see.
+  { label: "Overview", href: "/dashboard", icon: <Icon d={DASH_ICON} /> },
 ]
 
-// Ordered as the work happens: count, then what arrives, then what moves
-// between shops, then the two screens about differences — which belong
-// together because one raises what the other decides — then reports.
-//
-// "FG Stock" and "Consumables" are now "Stock levels", one screen with two
-// tabs. The old names said what the data WAS; the new one says what the
-// screen is FOR, which is the thing somebody is looking for when they cannot
-// find it. "Stock count" and "Stock levels" are different jobs: a count is
-// immutable and gets approved, a level is a figure being corrected on the
-// record.
-const STOCK_ITEMS: NavItem[] = [
-  { label: "Stock count",          href: "/count",        icon: <Icon d={COUNT_ICON} />,   needs: ["stock.count"] },
-  { label: "Receiving",            href: "/receiving",    icon: <Icon d={RECEIVE_ICON} />, needs: ["receiving", "delivery.schedule"] },
-  { label: "Transfers",            href: "/transfers",    icon: <Icon d={TRANSFER_ICON} />, needs: ["transfers"] },
-  { label: "Differences to check", href: "/count/review", icon: <Icon d={DIFF_ICON} />,    needs: ["stock.count"] },
-  { label: "Stock adjustments",    href: "/adjustments",  icon: <Icon d={ADJUST_ICON} />,  needs: ["stock.adjustment.approve"] },
-  { label: "Stock levels",         href: "/stock",        icon: <Icon d={STOCK_ICON} />,   needs: ["stock.count"] },
-  { label: "Consumables",          href: "/stock?type=consumable",  icon: <Icon d={CONSUMABLE_ICON} />, needs: ["stock.count"] },
-  { label: "Stock reports",        href: "/reports",      icon: <Icon d={REPORTS_ICON} />, needs: ["stock.reports"] },
+/**
+ * Data Record — what the AdaPOS import already knows.
+ *
+ * Four of these are read-only views of one upload. Comparing four real
+ * October exports for Talat Noi showed the sales-by-bill report reproduces
+ * the payment report exactly (11 method/bank rows, total 134,919) and the
+ * product report too (34 products, 177 units) once each bill's end-of-bill
+ * discount is spread across its lines in proportion. So there is one
+ * importer and several views of it, and building importers for the other
+ * reports would be building a second answer free to drift from the first.
+ *
+ * PHASE 1 shows what exists today. The four views are Phase 2.
+ */
+const DATA_RECORD_ITEMS: NavItem[] = [
+  { label: "End of day",   href: "/daily",        icon: <Icon d={UNITS_ICON} />,  needs: ["sales.manual", "bills", "traffic"] },
+  { label: "Import sales", href: "/sales/import", icon: <Icon d={IMPORT_ICON} />, needs: ["sales.import"] },
+  { label: "Cash",         href: "/pos-money",    icon: <Icon d={MONEY_ICON} />,  needs: ["pos.money"] },
 ]
 
-const PEOPLE_ITEMS: NavItem[] = [
-  // Swaps and Leave are tabs on /shifts now — see components/retail/ShiftTabs.
-  // Both are "I will not be at my shift" with different reasons, and the
-  // answer to either is on the roster.
-  { label: "Shifts",   href: "/shifts",       icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
+const CUSTOMER_ITEMS: NavItem[] = [
+  { label: "Customer feedback", href: "/feedback", icon: <Icon d={FEEDBACK_ICON} />, needs: ["feedback.record"] },
+  { label: "Traffic",           href: "/traffic",  icon: <Icon d={PEOPLE_ICON} />,   needs: ["traffic"] },
+]
+
+/**
+ * Warehouse & Logistic — closed except Delivery schedule.
+ *
+ * `closed` greys the entry; `lib/closed-sections.ts` is what actually
+ * refuses, and it is the same list. A grey link is not a permission.
+ *
+ * Delivery schedule is stage one and stays fully open: logistics, admin and
+ * manager schedule there, a KA opens the same screen for their own branch
+ * and checks a delivery in, and the discrepancies they raise are listed on
+ * it so a shortage still reaches logistics.
+ */
+const WAREHOUSE_ITEMS: NavItem[] = [
+  { label: "Delivery schedule",    href: "/deliveries",   icon: <Icon d={TRUCK_ICON} />,  needs: ["delivery.schedule", "receiving"] },
+  { label: "Receive",              href: "/receiving",    icon: <Icon d={RECEIVE_ICON} />, needs: ["receiving", "delivery.schedule"], closed: true },
+  { label: "Transfer",             href: "/transfers",    icon: <Icon d={TRANSFER_ICON} />, needs: ["transfers"], closed: true },
+  { label: "Adjustment",           href: "/adjustments",  icon: <Icon d={ADJUST_ICON} />, needs: ["stock.adjustment.approve"], closed: true },
+  { label: "Stock count",          href: "/count",        icon: <Icon d={COUNT_ICON} />,  needs: ["stock.count"], closed: true },
+  { label: "Differences to check", href: "/count/review", icon: <Icon d={DIFF_ICON} />,   needs: ["stock.count"], closed: true },
+  { label: "Inventory",            href: "/stock",        icon: <Icon d={STOCK_ICON} />,  needs: ["stock.count"], closed: true },
+  { label: "Stock movement",       href: "/reports",      icon: <Icon d={REPORTS_ICON} />, needs: ["stock.reports"], closed: true },
+]
+
+/**
+ * Management.
+ *
+ * Roster absorbs /schedule as its first tab, beside the swaps and leave
+ * tabs it already had. Two screens called Shifts and Schedule was a
+ * distinction nobody outside the code could name.
+ */
+const MANAGEMENT_ITEMS: NavItem[] = [
+  { label: "Roster",   href: "/shifts",       icon: <Icon d={SCHEDULE_ICON} />, needs: ["shifts.manage", "shifts.view_own"] },
   // `leave.request` is held by EVERY role, including logistics and marketing,
-  // who hold neither roster capability and so never see the Shifts entry or
-  // its tabs. They keep a direct link; everyone else reaches Leave as a tab.
+  // who hold neither roster capability and so never see Roster or its tabs.
   { label: "Leave",    href: "/shifts/leave", icon: <Icon d={LEAVE_ICON} />,    needs: ["leave.request"], hiddenBy: ["shifts.manage", "shifts.view_own"] },
-  { label: "Overtime", href: "/overtime", icon: <Icon d={OT_ICON} />,       needs: ["overtime.record"] },
+  { label: "Overtime", href: "/overtime",     icon: <Icon d={OT_ICON} />,       needs: ["overtime.record"] },
   { label: "Commission", href: "/commission", icon: <Icon d={COMMISSION_ICON} />, needs: ["payout.view"] },
-  { label: "Training", href: "/training", icon: <Icon d={TRAINING_ICON} />, needs: ["training.view"] },
-  // Moved out of Manage (079): it is readable by every role now, and a KA
-  // seeing a "Manage" section containing one read-only page misdescribes
-  // both. It belongs with shifts and overtime — a public holiday is what
-  // makes an overtime hour pay double.
+  { label: "Training", href: "/training",     icon: <Icon d={TRAINING_ICON} />, needs: ["training.view"] },
   { label: "Calendar & events", href: "/calendar", icon: <Icon d={CALENDAR_ICON} />, needs: ["calendar.view"] },
 ]
 
-const MANAGE_ITEMS: NavItem[] = [
-  { label: "People",            href: "/people",   icon: <Icon d={PEOPLE_ICON} />,   needs: ["people.manage"] },
-  // Under Manage, not Logistics: this is an admin-only integration — product
-  // master, run history, failures — not a shop-floor activity. The demo has it
-  // here too, gated to `admin` alone.
-  { label: "AccCloud sync",     href: "/sync",     icon: <Icon d={SYNC_ICON} />,     needs: ["acccloud.sync"] },
-  { label: "Settings",          href: "/settings", icon: <Icon d={SETTINGS_ICON} />, needs: ["settings"] },
-  { label: "Activity log",      href: "/activity", icon: <Icon d={HISTORY_ICON} />,  needs: ["settings"] },
-]
-
-// Customer feedback is not a sale, not stock, and not about staff. A group of
-// one is honest about that, and the CRM work in the pipeline will join it.
-const CUSTOMER_ITEMS: NavItem[] = [
-  { label: "Customer feedback", href: "/feedback", icon: <Icon d={FEEDBACK_ICON} />, needs: ["feedback.record"] },
-]
-
-// The scheduling side only. /receiving stays under Stock, because a KA
-// receiving a box is doing stock work — this is the head of logistics setting
-// dates, which is the one thing `delivery.schedule` was created for.
-const LOGISTICS_ITEMS: NavItem[] = [
-  { label: "Delivery schedule", href: "/deliveries", icon: <Icon d={TRUCK_ICON} />, needs: ["delivery.schedule"] },
+const SETTING_ITEMS: NavItem[] = [
+  // Setting > Team is the ONLY place a person is added or removed.
+  { label: "Team",          href: "/people",   icon: <Icon d={PEOPLE_ICON} />,   needs: ["people.manage"] },
+  { label: "AccCloud sync", href: "/sync",     icon: <Icon d={SYNC_ICON} />,     needs: ["acccloud.sync"] },
+  { label: "Settings",      href: "/settings", icon: <Icon d={SETTINGS_ICON} />, needs: ["settings"] },
+  { label: "Activity logs", href: "/activity", icon: <Icon d={HISTORY_ICON} />,  needs: ["settings"] },
 ]
 
 export const SECTIONS: { label: string; items: NavItem[] }[] = [
-  { label: "Sales",     items: SALES_ITEMS },
-  { label: "Customers", items: CUSTOMER_ITEMS },
-  { label: "Stock",  items: STOCK_ITEMS },
-  { label: "People", items: PEOPLE_ITEMS },
-  { label: "Logistics", items: LOGISTICS_ITEMS },
-  { label: "Manage", items: MANAGE_ITEMS },
+  { label: "Overview",             items: OVERVIEW_ITEMS },
+  { label: "Data Record",          items: DATA_RECORD_ITEMS },
+  { label: "Customer",             items: CUSTOMER_ITEMS },
+  { label: "Warehouse & Logistic", items: WAREHOUSE_ITEMS },
+  { label: "Management",           items: MANAGEMENT_ITEMS },
+  { label: "Setting",              items: SETTING_ITEMS },
 ]

@@ -34,6 +34,24 @@ export default function Sidebar({ profile, build }: SidebarProps) {
   }
 
   function renderItem(item: NavItem) {
+    // Closed: shown so people can see the shape of what is coming, and not
+    // navigable. A <span> rather than a disabled <Link> because a link that
+    // goes nowhere still looks like a link, and the page refuses anyway —
+    // this is the courtesy, lib/closed-sections.ts is the rule.
+    if (item.closed) {
+      return (
+        <span
+          key={item.href}
+          className="sidebar-link text-stone/40 cursor-not-allowed select-none"
+          aria-disabled="true"
+          title="Opens in a later stage"
+        >
+          <span className="shrink-0">{item.icon}</span>
+          <span className="flex-1">{item.label}</span>
+          <span className="text-[10px] uppercase tracking-wide">soon</span>
+        </span>
+      )
+    }
     return (
       <Link
         key={item.href}

@@ -115,9 +115,12 @@ check(!can(ka, "calendar.manage"), "…and still cannot edit it")
 // is true, which is the point.
 const UNLISTED: Record<string, string> = {
   "/": "redirects to /dashboard",
+  // The middleware REWRITES a closed section here, so the address bar still
+  // reads /count. Nobody navigates to it and it must not be in the nav —
+  // a menu entry for "this is shut" would be its own kind of noise.
+  "/closed": "where the middleware rewrites a closed section; not a destination",
   "/dashboard": "in the phone bar, and ungated — RLS scopes every figure",
   "/schedule": "redirect stub → /shifts",
-  "/traffic": "redirect stub → /daily",
   "/consumables": "redirect stub → /stock?type=consumable",
   "/sales": "redirect stub → /daily",
   "/sales/units": "redirect stub → /daily",
