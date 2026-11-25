@@ -95,7 +95,11 @@ async function navAs(email, password) {
 
 console.log("\n── the nav link, as three real people ──")
 
-const ka = await navAs("training-ka-talatnoi-1@storeops-uat.invalid", "KindTraining2026!")
+// The permanent Talat Noi KA, not a training account. The eight
+// `training-ka-*` accounts were removed after the session, and a probe that
+// depends on a fixture somebody is meant to delete stops working the moment
+// they do.
+const ka = await navAs("ka@storeops-uat.invalid", "Bamboo-River-8365")
 ck(ka.status === 200 && ka.links === 0,
    "a KA at Talat Noi (POS 00003) does NOT see Units sold", `${ka.links} link(s)`)
 

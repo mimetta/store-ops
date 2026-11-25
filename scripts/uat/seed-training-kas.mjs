@@ -19,6 +19,7 @@
  * had asked about earned a full share.
  */
 import { readFileSync } from "node:fs"
+import { randomBytes } from "node:crypto"
 import pg from "pg"
 
 const UAT = "jgijsurgbciuopicqceo", PROD = "gwncamipwckpknxpiksv"
@@ -30,32 +31,180 @@ if (url.includes(PROD)) { console.error("REFUSING: that is production."); proces
 const db = new pg.Client({ connectionString: url })
 await db.connect()
 
-const PASSWORD = "KindTraining2026!"
+// A FRESH password every run, printed once.
+//
+// It used to be the constant `KindTraining2026!`, which was handed to a room
+// of trainees — so it is a password a dozen people know, sitting in git, that
+// the next seed would have re-used. The accounts are disposable and UAT holds
+// no real pay and no real customer, but "everyone in that room can sign in as
+// a KA again" is not a property to leave switched on.
+//
+// One password for all eight is still right: it is read aloud to a room.
+// What changes is that it stops being the SAME one, and stops being in the
+// repository.
+const PASSWORD = "Training-" + randomBytes(6).toString("base64url") + "-2026"
 const TAG = "training-ka"
 
 if (remove) {
-  // Children before parents, and the roster before the people on it.
+  // ── WHY THIS FAILED THE FIRST TIME IT WAS RUN FOR REAL ──────────────────
   //
-  // 046's `guard_published_shift` REFUSES to delete a published shift —
-  // "removing it would take away a shift someone has arranged their week
-  // around" — so the rows are unpublished first. Deleting them without
-  // that fails, which is exactly how re-running 041 broke earlier this
-  // week.
+  // The first version unpublished the shifts before deleting them. 046's
+  // `guard_published_shift` refuses THAT TOO, and says so in as many words:
+  //
+  //   that shift is already published and cannot be un-published
+  //
+  // which is deliberate — "unpublish, edit, republish" is exactly the hole
+  // the guard exists to close, so leaving it open would have made the guard
+  // a formality. The removal path died on its FIRST write and had therefore
+  // never once run. **A removal script counts as written only after it has
+  // removed something**, and this one had only ever been reasoned about.
+  //
+  // ── HOW IT STEPS AROUND THE GUARD, EXACTLY ──────────────────────────────
+  //
+  // Through the guard's OWN documented door, not around it. 046 returns
+  // early when `app.roster_change_reason` is set, because an approved swap
+  // and an approved day off both legitimately move a published shift. Three
+  // properties make it the right instrument here and not a weakening:
+  //
+  //   1. `set_config(..., true)` is TRANSACTION-LOCAL. It cannot leak into a
+  //      later statement on the same pooled connection — the reason 046
+  //      chose it over a session GUC. Nobody else's shift is unguarded for
+  //      even an instant, including anybody sharing this pooler right now.
+  //   2. The deletes are scoped by STAFF ID to these eight accounts. The
+  //      hatch being open does not widen what the statement reaches.
+  //   3. The trigger is never disabled. `alter table ... disable trigger`
+  //      was the obvious alternative and it is the wrong one: it would lift
+  //      the guard for every row and every session for the duration.
+  //
+  // The reason string names the teardown rather than borrowing "swap", so
+  // anybody reading a log sees what actually moved the row.
+  //
+  // ── AND WHY THE TABLE LIST COMES WITH A CATALOGUE SWEEP ─────────────────
+  //
+  // The first version deleted work_schedules and training_progress, which is
+  // what the seed WRITES. It is not what the accounts OWN. A trainee keyed a
+  // country count during testing, and `bill_nationalities.recorded_by` would
+  // have refused the account delete — 059 made these keys RESTRICT precisely
+  // so a person with history cannot be silently erased. 62 foreign keys point
+  // at `profiles.id`; a list written from memory covers the ones somebody
+  // happened to think of.
+  //
+  // So: delete the declared tables, then ASK THE CATALOGUE whether anything
+  // is left, and refuse to go on if it is. An undeclared owner is a decision
+  // for a person — some of those 62 columns are `approved_by` on a row that
+  // belongs to somebody else, and deleting the row to remove the approver
+  // would destroy a real person's record.
   const ids = (await db.query(
-    `select id from profiles where email like $1`,
+    `select p.id from profiles p join auth.users u on u.id = p.id
+      where u.email like $1`,
     [`${TAG}-%@storeops-uat.invalid`])).rows.map((r) => r.id)
 
-  if (ids.length) {
-    await db.query(`update work_schedules set published_at = null, published_by = null
-                     where staff_id = any($1::uuid[])`, [ids])
-    await db.query(`delete from work_schedules where staff_id = any($1::uuid[])`, [ids])
-    await db.query(`delete from training_progress where staff_id = any($1::uuid[])`, [ids])
+  if (!ids.length) {
+    console.log("nothing to remove — no training accounts present")
+    await db.end(); process.exit(0)
   }
-  const ev = await db.query(`delete from calendar_events where title like $1`, [`${TAG}%`])
-  const ts = await db.query(`delete from training_sessions where title like $1`, [`${TAG}%`])
-  const r = await db.query(`delete from auth.users where email like $1`, [`${TAG}-%@storeops-uat.invalid`])
-  console.log(`removed ${r.rowCount} account(s), their roster and progress,`)
-  console.log(`        ${ev.rowCount} calendar event(s), ${ts.rowCount} training session(s)`)
+  console.log(`found ${ids.length} training account(s)`)
+
+  // Tables these accounts own, each with the reason it is theirs to delete.
+  // Children before parents.
+  const OWNED = [
+    ["work_schedules",     "staff_id",    "the seeded published roster"],
+    ["training_progress",  "staff_id",    "their row against the seeded session"],
+    ["bill_nationalities", "recorded_by", "country counts keyed while testing"],
+    ["shop_traffic",       "submitted_by", "visitor counts keyed while testing"],
+    ["membership_counts",  "recorded_by", "member and review counts keyed while testing"],
+  ]
+
+  // Every declared (table, column) must be a real foreign key to profiles.
+  // The first draft of OWNED said `shop_traffic.recorded_by`; the column is
+  // `submitted_by`, and the teardown would have died halfway with the
+  // accounts still present. A list written from memory has to be checked
+  // against the catalogue before it is trusted to delete anything.
+  const { rows: realFks } = await db.query(`
+    select c.conrelid::regclass::text tbl, a.attname col
+      from pg_constraint c
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+     where c.contype = 'f' and c.confrelid = 'public.profiles'::regclass
+       and array_length(c.conkey, 1) = 1`)
+  const known = new Set(realFks.map((f) => `${f.tbl}.${f.col}`))
+  const bogus = OWNED.filter(([t, c]) => !known.has(`${t}.${c}`))
+  if (bogus.length) {
+    console.error("OWNED names something that is not a foreign key to profiles:")
+    for (const [t, c] of bogus) console.error(`  ${t}.${c}`)
+    await db.end(); process.exit(1)
+  }
+
+  await db.query("begin")
+  try {
+    // The guard's own hatch. Transaction-local, so it ends with this COMMIT
+    // and reaches nobody else.
+    await db.query(
+      `select set_config('app.roster_change_reason',
+                         'training-teardown: removing seeded training accounts', true)`)
+
+    const counts = {}
+    for (const [tbl, col, why] of OWNED) {
+      const r = await db.query(`delete from ${tbl} where ${col} = any($1::uuid[])`, [ids])
+      counts[tbl] = r.rowCount
+      if (r.rowCount) console.log(`  ${String(r.rowCount).padStart(4)} ${tbl.padEnd(20)} ${why}`)
+    }
+
+    // The session and the events, by the tag they were seeded with. The
+    // session only goes if NOBODY ELSE has progress against it — a real
+    // person assigned to it afterwards must not lose their row to a
+    // training teardown.
+    const { rows: [others] } = await db.query(`
+      select count(*) n from training_progress tp
+        join training_sessions s on s.id = tp.session_id
+       where s.title like $1`, [`${TAG}%`])
+    let ts = { rowCount: 0 }
+    if (+others.n === 0) {
+      ts = await db.query(`delete from training_sessions where title like $1`, [`${TAG}%`])
+    } else {
+      console.log(`  KEPT the training session — ${others.n} progress row(s) are not ours`)
+    }
+    const ev = await db.query(`delete from calendar_events where title like $1`, [`${TAG}%`])
+
+    // Now the people. profiles.id -> auth.users is CASCADE, so deleting the
+    // auth user takes the profile with it; every OTHER key is RESTRICT, so
+    // this statement is itself the check that nothing was missed.
+    const r = await db.query(
+      `delete from auth.users where email like $1`, [`${TAG}-%@storeops-uat.invalid`])
+
+    // ── the sweep ─────────────────────────────────────────────────────────
+    // Belt and braces, and it answers a different question from the delete
+    // above: that one would have ERRORED on a RESTRICT key, but a key that
+    // is NO ACTION DEFERRABLE, or a column that merely records a name,
+    // would not. Asked of the catalogue so a table added next month is
+    // covered without anybody remembering.
+    const { rows: fks } = await db.query(`
+      select c.conrelid::regclass::text tbl, a.attname col
+        from pg_constraint c
+        join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+       where c.contype = 'f' and c.confrelid = 'public.profiles'::regclass
+         and array_length(c.conkey, 1) = 1`)
+    const left = (await db.query(
+      fks.map((f) => `select '${f.tbl}' t, '${f.col}' c, count(*) n from ${f.tbl}
+                       where ${f.col} = any($1::uuid[])`).join(" union all "),
+      [ids])).rows.filter((x) => +x.n > 0)
+
+    if (left.length) {
+      throw new Error(
+        `rows still owned by the removed accounts:\n` +
+        left.map((x) => `    ${x.n} in ${x.t}.${x.c}`).join("\n") +
+        `\n  Add each to OWNED with a reason, or decide it must be kept.`)
+    }
+
+    await db.query("commit")
+    console.log(`\nremoved ${r.rowCount} account(s), ${counts.work_schedules} shift(s),`)
+    console.log(`        ${counts.training_progress} progress row(s), ${ts.rowCount} session(s),`)
+    console.log(`        ${ev.rowCount} calendar event(s)`)
+    console.log(`        ${fks.length} foreign keys to profiles.id checked — nothing left`)
+  } catch (e) {
+    await db.query("rollback")
+    console.error(`\nREMOVAL FAILED, nothing was removed:\n  ${e.message}`)
+    await db.end(); process.exit(1)
+  }
   await db.end(); process.exit(0)
 }
 

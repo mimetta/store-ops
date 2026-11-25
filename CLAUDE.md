@@ -754,6 +754,74 @@ that column being there. Same family as "a trigger test is not an RLS test" —
 RLS decides which ROWS, a trigger decides the rest, and both have to be
 granted for a feature to work.
 
+## A removal script is written only after it has removed something
+
+`seed-training-kas.mjs --remove` was described as "unpublishes before
+deleting". It had never been run. The first real attempt died on its FIRST
+write:
+
+    that shift is already published and cannot be un-published
+    (guard_published_shift, P0001)
+
+046 refuses un-publishing **on purpose** — "unpublish, edit, republish" is
+the hole the guard exists to close, so leaving it open would make the guard a
+formality. The removal path had been reasoned about and never executed, so
+nothing had ever told anyone. It left the database whole, which is the one
+good thing about failing on statement one.
+
+### Use the guard's own door, and say which door
+
+046 returns early when `app.roster_change_reason` is set, because an approved
+swap and an approved day off legitimately move a published shift. Three
+properties make that the right instrument for a teardown and not a weakening:
+
+- **`set_config(..., true)` is transaction-local.** It cannot leak into a
+  later statement on the same pooled connection — the reason 046 chose it
+  over a session GUC. Nobody else's roster is unguarded for an instant.
+- **The deletes are scoped by staff id.** An open hatch does not widen what
+  the statement reaches.
+- **The trigger is never disabled.** `alter table … disable trigger` was the
+  obvious alternative and is the wrong one: it lifts the guard for every row
+  and every session for the duration.
+
+The reason string names the teardown rather than borrowing "swap", so a log
+says what actually moved the row. Verified after the run: the trigger is
+still `tgenabled = 'O'`, the GUC is empty in a fresh session, and deleting a
+real published shift still raises P0001.
+
+### What the script deletes is not what the accounts OWN
+
+It removed `work_schedules` and `training_progress` — what the seed WRITES.
+A trainee had keyed a country count during testing, and
+`bill_nationalities.recorded_by` would have refused the account delete: 059
+made those keys RESTRICT exactly so a person with history cannot be silently
+erased. **62 foreign keys point at `profiles.id`** (CLAUDE.md said 56; it
+grows), and a list written from memory covers the ones somebody thought of.
+
+So the teardown now declares its tables WITH REASONS, and then asks the
+catalogue whether anything is left — failing, inside the transaction, if it
+is. An undeclared owner is a decision for a person: some of those 62 columns
+are `approved_by` on a row belonging to somebody else, and deleting the row
+to remove the approver would destroy a real person's record.
+
+Two smaller things the same run produced:
+
+- **A declared column name has to be checked against the catalogue too.**
+  `shop_traffic` is `submitted_by`, not `recorded_by`; the teardown would have
+  died halfway with the accounts still present. OWNED is validated against
+  `pg_constraint` before anything is deleted.
+- **Removing a fixture breaks whatever depended on it.** Three probes signed
+  in as training accounts. Two now use permanent UAT accounts;
+  `exercise-training-path` genuinely needs the fixtures and **fails with
+  instructions** rather than skipping — a skip that prints "all passed" is
+  already a named failure here.
+
+### A shared password does not belong in git
+
+One password for eight accounts is correct for a room of trainees. The same
+one, committed, re-used by the next seed is not: everybody in that room could
+sign in again. It is generated fresh per run and printed once.
+
 ## A cleanup the user cannot perform is not a cleanup
 
 `uploadPhoto` put the file in the bucket, then wrote the row, and on a row

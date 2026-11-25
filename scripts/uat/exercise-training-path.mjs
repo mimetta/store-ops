@@ -29,9 +29,28 @@ const { rows: [talat] } = await db.query(`select id from branches where name='Ta
 const { rows: [songwat] } = await db.query(`select id from branches where name='Song Wat'`)
 await db.end()
 
+// ── this probe needs the training fixtures ────────────────────────────────
+//
+// It walks the path a TRAINEE walks — their published roster, their session,
+// the events — so it cannot run without the seed, and the seed is meant to be
+// removed after the session. The password is generated fresh by each seed
+// run and printed once, so it is passed in rather than written here; a
+// password that was read aloud to a room does not belong in the repository.
+//
+// This FAILS rather than skipping. A skip that prints "all passed" is how
+// five assertions went unrun on this project before, and "the fixtures are
+// gone" is a real answer that somebody has to see.
+const TRAINEE = process.env.TRAINEE_EMAIL ?? "training-ka-talatnoi-1@storeops-uat.invalid"
+const TRAINEE_PW = process.env.TRAINEE_PASSWORD
+if (!TRAINEE_PW) {
+  console.error("This probe needs the training fixtures, which are removed after a session.")
+  console.error("  node scripts/uat/seed-training-kas.mjs        # prints a fresh password")
+  console.error("  TRAINEE_PASSWORD=… node scripts/uat/exercise-training-path.mjs")
+  process.exit(1)
+}
 const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 const { data, error } = await sb.auth.signInWithPassword({
-  email: "training-ka-talatnoi-1@storeops-uat.invalid", password: "KindTraining2026!" })
+  email: TRAINEE, password: TRAINEE_PW })
 if (error) { console.error("A trainee cannot sign in:", error.message); process.exit(1) }
 
 const ref = env.NEXT_PUBLIC_SUPABASE_URL.match(/https:\/\/([a-z]+)\./)[1]

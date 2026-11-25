@@ -15,6 +15,12 @@ import { createClient } from "@supabase/supabase-js"
 const env = Object.fromEntries(readFileSync(".env.uat.local", "utf8").split("\n")
   .filter((l) => l.includes("=") && !l.startsWith("#"))
   .map((l) => { const i = l.indexOf("="); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] }))
+// The permanent Talat Noi KA, not a training account. The eight
+// `training-ka-*` accounts were removed after the session, and a probe that
+// depends on a fixture somebody is meant to delete stops working the moment
+// they do.
+const PASSWORD = "Bamboo-River-8365"
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3999"
 const pw = readFileSync(process.env.HOME + "/.store-ops-uat-db-password", "utf8").trim()
 const db = new pg.Client({ connectionString:
@@ -26,14 +32,16 @@ const { rows: [songwat] } = await db.query(`select id from branches where name='
 const { rows: [day] } = await db.query(`select (now() at time zone 'Asia/Bangkok')::date::text d`)
 const DATE = day.d
 
-const signIn = async (email) => {
+const signIn = async (email, password = PASSWORD) => {
   const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  const { error } = await sb.auth.signInWithPassword({ email, password: "KindTraining2026!" })
+  const { error } = await sb.auth.signInWithPassword({ email, password })
   if (error) throw new Error(`${email}: ${error.message}`)
   return sb
 }
-const ka  = await signIn("training-ka-talatnoi-1@storeops-uat.invalid")
-const far = await signIn("training-ka-songwat-1@storeops-uat.invalid")
+const ka  = await signIn("ka@storeops-uat.invalid")
+// The other-branch control. A permanent Song Wat KA from seed-two-branches,
+// not a training account — the eight were removed after the session.
+const far = await signIn("seed-two-branches-songwat-1@storeops-uat.invalid", "StoreOpsUat!2026")
 
 let fail = 0
 const ok = (what, cond, detail = "") => {
