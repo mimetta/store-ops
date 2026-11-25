@@ -5,7 +5,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { Profile } from "@/types/database"
 import { canAny, type Capability } from "@/lib/permissions"
-import { SECTIONS, visibleAtBranch } from "./nav-items"
+import { SECTIONS, visibleAtBranch, Icon, LOCK_ICON, ClosedTag } from "./nav-items"
+import { useCollapsedSections } from "./nav-collapse"
 
 /**
  * Mobile bottom tab bar.
@@ -75,6 +76,7 @@ export default function TabBar({ profile, build, branchHasPos = null }: {
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const { collapsed, toggle } = useCollapsedSections()
 
   const allowed = (needs?: readonly Capability[]) => !needs || canAny(profile, needs)
   const primary = PRIMARY.filter((t) => allowed(t.needs))
@@ -128,10 +130,32 @@ export default function TabBar({ profile, build, branchHasPos = null }: {
                 Close
               </button>
             </div>
-            {more.map(({ label, items }) => (
+            {more.map(({ label, items }) => {
+              const shut = collapsed.has(label)
+              return (
               <div key={label}>
-                <p className="px-4 pt-3 pb-1 text-[11px] text-subtle">{label}</p>
-                {items.map((i) => (
+                {/* The SAME folded state as the sidebar — one hook, one key
+                    in storage. A section folded on a laptop stays folded on
+                    the phone, which is the only answer that does not make
+                    the two surfaces feel like two apps. 48px tall, because
+                    this is a thumb. */}
+                <button
+                  type="button"
+                  onClick={() => toggle(label)}
+                  aria-expanded={!shut}
+                  className="w-full flex items-center gap-2 px-4 min-h-[44px]
+                             text-left text-[11px] text-subtle"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" strokeWidth="3" strokeLinecap="round"
+                       strokeLinejoin="round"
+                       className={`shrink-0 transition-transform ${shut ? "" : "rotate-90"}`}>
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                  <span className="flex-1">{label}</span>
+                  {shut && <span className="text-subtle/70">{items.length}</span>}
+                </button>
+                {!shut && items.map((i) => (
                   i.closed ? (
                     // Grey and not navigable. Same decision as the sidebar;
                     // the page refuses regardless.
@@ -141,9 +165,9 @@ export default function TabBar({ profile, build, branchHasPos = null }: {
                       className="flex items-center gap-3 px-4 min-h-[48px] text-sm
                                  text-stone/40 cursor-not-allowed select-none"
                     >
-                      <span className="shrink-0">{i.icon}</span>
-                      <span className="flex-1">{i.label}</span>
-                      <span className="text-[10px] uppercase tracking-wide">soon</span>
+                      <span className="shrink-0"><Icon d={LOCK_ICON} /></span>
+                      <span className="flex-1 truncate">{i.label}</span>
+                      <ClosedTag />
                     </span>
                   ) : (
                   <Link
@@ -160,7 +184,8 @@ export default function TabBar({ profile, build, branchHasPos = null }: {
                   )
                 ))}
               </div>
-            ))}
+              )
+            })}
 
             {build && (
               <div className="px-4 py-3 mt-1 border-t border-sand">

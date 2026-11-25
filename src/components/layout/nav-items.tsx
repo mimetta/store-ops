@@ -81,6 +81,30 @@ export function visibleAtBranch(
   return !branchHasPos
 }
 
+/**
+ * A closed item wears a padlock and says "Not open yet".
+ *
+ * Here, not in each nav surface, because the sidebar and the More sheet each
+ * rendered their own version of "grey plus the word soon" — two copies of a
+ * label is how the tab bar went on saying "End of day" after the sidebar had
+ * stopped. One component, both places.
+ *
+ * "Not open yet" rather than "soon": soon is a promise about time that
+ * nobody here has made. The tag says what is true — the section exists, it
+ * works, and it is shut for this stage. `lib/closed-sections.ts` carries the
+ * reason, and the page shows it to anyone who types the URL.
+ */
+export const LOCK_ICON = "M5 11h14v10H5z M8 11V7a4 4 0 118 0v4"
+
+export function ClosedTag() {
+  return (
+    <span className="shrink-0 text-[10px] leading-none uppercase tracking-wide
+                     rounded-full border border-stone/25 px-1.5 py-[3px]">
+      Not open yet
+    </span>
+  )
+}
+
 // ── Icons ────────────────────────────────────────────────────────────────────
 
 export function Icon({ d }: { d: string }) {

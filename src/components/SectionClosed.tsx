@@ -22,7 +22,12 @@ export default function SectionClosed({ title, reason }: {
   reason: string
 }) {
   return (
-    <div className="max-w-xl mx-auto mt-12 px-4">
+    // `data-closed-page` is how a test tells this REFUSAL from the nav TAG,
+    // which now carries the same words on every page. Matching the phrase
+    // used to be enough and stopped being enough the moment the tag shipped
+    // — the same shape as a grep for `.slice(0, 5)` finding the comment
+    // explaining it. Match a marker, not a sentence.
+    <div data-closed-page="true" className="max-w-xl mx-auto mt-12 px-4">
       <div className="rounded-xl border border-sand bg-white p-6">
         <p className="text-[11px] uppercase tracking-wide text-subtle">
           Not open yet

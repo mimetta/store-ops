@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation"
 import type { Profile } from "@/types/database"
 import { canAny } from "@/lib/permissions"
 import { visibleAtBranch } from "./nav-items"
-import { SECTIONS, Icon, HOME_ICON, type NavItem } from "./nav-items"
+import { SECTIONS, Icon, HOME_ICON, LOCK_ICON, ClosedTag, type NavItem } from "./nav-items"
+import { useCollapsedSections } from "./nav-collapse"
 
 interface SidebarProps {
   profile: Profile | null
@@ -14,14 +15,6 @@ interface SidebarProps {
   /** Does the signed-in person's branch have a POS? null = unknown (no
    *  branch, or the branch row is not readable). See `visibleAtBranch`. */
   branchHasPos?: boolean | null
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="px-3 pt-4 pb-1 text-[11px] text-subtle">
-      {children}
-    </p>
-  )
 }
 
 export default function Sidebar({ profile, build, branchHasPos = null }: SidebarProps) {
@@ -36,6 +29,9 @@ export default function Sidebar({ profile, build, branchHasPos = null }: Sidebar
     (!item.needs || canAny(profile, item.needs)) &&
     !(item.hiddenBy && canAny(profile, item.hiddenBy)) &&
     visibleAtBranch(profile, item, branchHasPos)
+
+  // Folded sections, remembered, and shared with the phone's More sheet.
+  const { collapsed, toggle } = useCollapsedSections()
 
   function checkActive(href: string): boolean {
     if (href === "/") return pathname === "/"
@@ -53,11 +49,14 @@ export default function Sidebar({ profile, build, branchHasPos = null }: Sidebar
           key={item.href}
           className="sidebar-link text-stone/40 cursor-not-allowed select-none"
           aria-disabled="true"
-          title="Opens in a later stage"
+          title="Not open yet"
         >
-          <span className="shrink-0">{item.icon}</span>
-          <span className="flex-1">{item.label}</span>
-          <span className="text-[10px] uppercase tracking-wide">soon</span>
+          {/* The PADLOCK replaces the item's own icon rather than sitting
+              beside it. A shut door should read as shut at a glance, and two
+              icons in a 218px column is a row that scans as noise. */}
+          <span className="shrink-0"><Icon d={LOCK_ICON} /></span>
+          <span className="flex-1 truncate">{item.label}</span>
+          <ClosedTag />
         </span>
       )
     }
@@ -87,10 +86,35 @@ export default function Sidebar({ profile, build, branchHasPos = null }: Sidebar
         {SECTIONS.map(({ label, items }) => {
           const allowed = items.filter(visible)
           if (allowed.length === 0) return null
+
+          // Overview has no heading — it is one link, not a section — so it
+          // has nothing to click and must not become collapsible.
+          if (!label) return <div key="overview">{allowed.map(renderItem)}</div>
+
+          const shut = collapsed.has(label)
           return (
             <div key={label}>
-              <SectionLabel>{label}</SectionLabel>
-              {allowed.map(renderItem)}
+              <button
+                type="button"
+                onClick={() => toggle(label)}
+                aria-expanded={!shut}
+                className="w-full flex items-center gap-1.5 px-3 pt-4 pb-1 text-left
+                           text-[11px] uppercase tracking-wide text-subtle
+                           hover:text-muted"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="3" strokeLinecap="round"
+                     strokeLinejoin="round"
+                     className={`shrink-0 transition-transform ${shut ? "" : "rotate-90"}`}>
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+                <span className="flex-1">{label}</span>
+                {/* How many are hidden. A fold with no count is a section
+                    somebody forgets they folded, and then reports the screen
+                    inside it as missing. */}
+                {shut && <span className="text-subtle/70">{allowed.length}</span>}
+              </button>
+              {!shut && allowed.map(renderItem)}
             </div>
           )
         })}
