@@ -47,7 +47,11 @@ const PRIMARY: Tab[] = [
   // Left UNGATED, as Home always was: /dashboard has no capability check of
   // its own, and RLS scopes every figure on it to the branches you may see.
   { label: "Overview", href: "/dashboard", d: "M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z" },
-  { label: "End of day", href: "/daily", d: "M9 7H6a2 2 0 00-2 2v9a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-3 M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2 M9 12h6", needs: ["sales.manual", "bills", "traffic"] },
+  // Was "End of day", pointing at the combined form. That form is now the
+  // UNITS entry for a branch with no POS, and the phone bar was the one
+  // place still carrying the old name — which is why "End of day" appeared
+  // on every page a KA opened, including Traffic.
+  { label: "Bill by country", href: "/records/countries", d: "M17 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2 M10 11a4 4 0 100-8 4 4 0 000 8 M22 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75", needs: ["traffic"] },
   // Was Stock (/count) and Receive (/receiving). Both are CLOSED for this
   // stage, and two dead tabs out of four on a phone is worse than the
   // five-tab slice that caused the last nav bug. Delivery schedule takes

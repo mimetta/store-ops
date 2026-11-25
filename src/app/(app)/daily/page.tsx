@@ -205,8 +205,6 @@ export default async function DailyPage({
       savedTotalSales={savedMoney ? Number(savedMoney.total_sales ?? 0) : null}
       savedVipSales={savedMoney ? Number(savedMoney.vip_sales ?? 0) : null}
       canUnits={can(profile, "sales.manual")}
-      canBills={can(profile, "bills") || can(profile, "sales.manual")}
-      canTraffic={can(profile, "traffic") || can(profile, "sales.manual")}
     />
   )
 }

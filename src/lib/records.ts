@@ -73,7 +73,7 @@ export async function resolveScope(searchParams: {
  */
 export const HAND_KEYED_NOTE =
   "This branch has no POS, so there are no bills to read. Its takings are " +
-  "keyed by hand on End of day, and that is where its sales figure lives."
+  "keyed by hand on Daily sales, and that is where its sales figure lives."
 
 /**
  * The signed-in person's profile, for the capability check each view makes.

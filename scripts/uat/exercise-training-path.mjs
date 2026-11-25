@@ -64,7 +64,7 @@ await works("Daily sales",             `/records/sales?${OCT}`, "134,919.00")
 await works("Daily bill",              `/records/bills?${OCT}`, "Daily bill")
 await works("Sales by payment method", `/records/payments?${OCT}`, "134,919.00")
 await works("Sales by product",        `/records/products?${OCT}`, "134,918.50")
-await works("Bill by country (-> End of day)", "/daily", "End of day")
+await works("Bill by country",         "/records/countries", "Bill by country")
 await works("Cash",                    "/pos-money", null)
 
 console.log("\n── CUSTOMER ──")
@@ -76,8 +76,17 @@ await works("Membership & review", "/membership", "Membership")
 {
   const r = await fetch(BASE + "/traffic", { headers: { cookie } })
   const landed = new URL(r.url).pathname
-  ok("Traffic lands on the End of day form", r.status === 200 && landed === "/daily",
-     `HTTP ${r.status} at ${landed}`)
+  const body = await r.text()
+  ok("Traffic opens the Traffic page, not a redirect",
+     r.status === 200 && landed === "/traffic", `HTTP ${r.status} at ${landed}`)
+  // One place to key a thing. The combined form carried four cards, so
+  // "Traffic" used to land on a page titled End of day with Bill by country
+  // on it — two routes to the same keystroke and a title naming neither.
+  ok("…titled Traffic, with Bill by country NOT on it",
+     body.includes(">Traffic<") && !body.includes("Add country"),
+     body.includes("Add country") ? "Bill by country is still on it" : "clean")
+  ok("…and nothing on it says End of day", !body.includes("End of day"),
+     body.includes("End of day") ? "the stale label is back" : "clean")
 }
 
 console.log("\n── MANAGEMENT: what a trainee may and may not see ──")

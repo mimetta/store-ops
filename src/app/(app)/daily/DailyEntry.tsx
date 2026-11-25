@@ -34,7 +34,11 @@ export default function DailyEntry({
   branches, branch, date, minDate, maxDate, products, bills,
   thaiVisitors, foreignVisitors, importedBills, priorBatches, priorUnits,
   savedTotalSales, savedVipSales,
-  canUnits, canBills, canTraffic,
+  // canBills and canTraffic went with their cards. The bill and traffic
+  // STATE below is now always empty and is still threaded into save() —
+  // harmless, because save_daily_entry reads an empty array as "not keyed
+  // on this save", and removing it is a bigger change than this fix.
+  canUnits,
 }: {
   branches: DailyBranch[]
   branch: DailyBranch
@@ -53,8 +57,6 @@ export default function DailyEntry({
   savedTotalSales: number | null
   savedVipSales: number | null
   canUnits: boolean
-  canBills: boolean
-  canTraffic: boolean
 }) {
   const router = useRouter()
 
@@ -148,7 +150,6 @@ export default function DailyEntry({
 
   // Only a POS branch has an independent figure to meet.
   const reconciles = !branch.posFed || billTotal === importedBills
-  const billGap = importedBills - billTotal
 
   const needsAck = !branch.posFed && priorBatches > 0 && enteredUnits.length > 0
   const moneyKeyed = totalSales !== ""
@@ -227,7 +228,11 @@ export default function DailyEntry({
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <h1 className="text-[22px] font-medium mr-auto">End of day</h1>
+        {/* Renamed. The three other cards moved to their own screens and this
+            page is now the UNITS entry for a branch with no POS — "End of
+            day" described a combined form that no longer exists, and a KA
+            sent to Traffic was landing on a page by that name. */}
+        <h1 className="text-[22px] font-medium mr-auto">Units sold</h1>
 
         <label className="pill">
           <span className="text-xs text-muted">Shop</span>
@@ -261,17 +266,17 @@ export default function DailyEntry({
         <span>
           {branch.posFed ? (
             <>
-              {branch.name} takes its sales and bills from the POS import, so there
-              are no units to key. What a POS export does not carry is where the
-              customer was from, or who walked in without buying — so the bill split
-              and the door count are keyed here.
+              {branch.name} takes its figures from the POS import — there is
+              nothing to key here. Bills by country are on Bill by country,
+              and the door count is on Traffic.
             </>
           ) : (
             <>
-              Everything for {fmtDay(date)} in one go.{" "}
+              Units sold at {branch.name} for {fmtDay(date)}.{" "}
               {branch.warehouseId
-                ? "Units sold come out of stock, so the next count has the right expected figure."
+                ? "They come out of stock, so the next count has the right expected figure."
                 : `${branch.name} holds no stock of ours — the partner does — so sales are recorded and nothing moves.`}
+              {" "}The day&rsquo;s takings are on Daily sales.
             </>
           )}
         </span>
@@ -412,88 +417,10 @@ export default function DailyEntry({
         </div>
       )}
 
-      {/* ── bills by country ─────────────────────────────────────────────── */}
-      {canBills && (
-        <div className="card card-pad mb-3">
-          <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
-            <h2 className="text-[15px] font-medium flex-1 min-w-0">Bills by country</h2>
-            <span className="text-xs text-muted">Count of bills, not customers</span>
-          </div>
-          <p className="text-xs text-muted mb-3">
-            {branch.posFed
-              ? `The import found ${importedBills} bills for this day. Say how many came from where.`
-              : "How many bills, and where the customer was from."}
-          </p>
-
-          {bills.map((b) => (
-            <div key={b.code} className="flex items-center gap-2.5 py-2 border-t border-sand">
-              <span className="flex-1 min-w-0 text-ink">{b.label}</span>
-              <input
-                inputMode="numeric" value={billCounts[b.code] ?? ""} placeholder="0"
-                onChange={(e) => num(e.target.value, (v) => setBillCounts((c) => ({ ...c, [b.code]: v })))}
-                aria-label={`Bills from ${b.label}`}
-                className="input-num shrink-0"
-              />
-            </div>
-          ))}
-
-          {/* The reconciliation. A POS branch has a known figure to meet, so
-              the gap is shown as a number rather than left to be noticed. */}
-          <div className={`note mt-3 ${
-            !branch.posFed ? "note-i" : reconciles && anyBills ? "note-g" : "note-a"
-          }`}>
-            <span aria-hidden="true">{!branch.posFed ? "i" : reconciles && anyBills ? "✓" : "!"}</span>
-            <span>
-              {!branch.posFed ? (
-                <><strong className="font-medium">{billTotal}</strong> bills in total.</>
-              ) : reconciles && anyBills ? (
-                <>All <strong className="font-medium">{importedBills}</strong> imported bills are accounted for.</>
-              ) : (
-                <>
-                  <strong className="font-medium">{billTotal}</strong> of{" "}
-                  <strong className="font-medium">{importedBills}</strong> imported bills
-                  attributed —{" "}
-                  {billGap > 0
-                    ? `${billGap} still to place.`
-                    : `${Math.abs(billGap)} more than the import found.`}
-                </>
-              )}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* ── traffic ──────────────────────────────────────────────────────── */}
-      {canTraffic && (
-        <div className="card card-pad mb-3">
-          <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
-            <h2 className="text-[15px] font-medium flex-1 min-w-0">Visitors</h2>
-            <span className="text-xs text-muted">Counted at the door</span>
-          </div>
-          <p className="text-xs text-muted mb-3">
-            Thai versus foreign only. Country detail is on the bills, where the
-            customer is at the counter.
-          </p>
-          <div className="flex gap-2.5 flex-wrap">
-            <label className="flex-1 min-w-[140px]">
-              <span className="text-[11px] text-subtle block mb-1">Thai</span>
-              <input
-                inputMode="numeric" value={thai} placeholder="0"
-                onChange={(e) => num(e.target.value, setThai)}
-                className="input-field" aria-label="Thai visitors"
-              />
-            </label>
-            <label className="flex-1 min-w-[140px]">
-              <span className="text-[11px] text-subtle block mb-1">Foreign</span>
-              <input
-                inputMode="numeric" value={foreign} placeholder="0"
-                onChange={(e) => num(e.target.value, setForeign)}
-                className="input-field" aria-label="Foreign visitors"
-              />
-            </label>
-          </div>
-        </div>
-      )}
+      {/* Bills by country and Visitors were HERE. Both now have their own
+          screens — /records/countries and /traffic — and one place to key a
+          thing is the whole point of the split. Leaving them here as well
+          would be two answers to one question, free to disagree. */}
 
       {/* ── one submit ───────────────────────────────────────────────────── */}
       <div className="card card-pad">

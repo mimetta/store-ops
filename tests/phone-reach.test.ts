@@ -93,10 +93,29 @@ check(can(ka, "sales.manual"),
       "a KA holds sales.manual (backlog D3)",
       "without it /daily is hidden by capability, not by the bar")
 
-const endOfDay = tabbar.find((t) => t.href === "/daily")
-check(!!endOfDay && canAny(ka, endOfDay.needs),
-      "…and End of day is one of the KA's PRIMARY tabs",
-      endOfDay ? "present" : "not in the tab bar at all")
+// The combined "End of day" form is gone: each thing a KA keys has its own
+// screen now. The tab bar carried the old label long after the nav dropped
+// it, and because the bar renders on EVERY page, "End of day" appeared on
+// Traffic, Membership and Bill by country too — the one place a stale name
+// is worst. So the regression test is now about the DAILY KEY-INS being
+// primary, not about one combined form.
+const dailyKeyIns = ["/records/countries", "/traffic", "/pos-money", "/membership"]
+for (const href of dailyKeyIns) {
+  const reachable = tabbar.find((t) => t.href === href) ?? sidebar.find((e) => e.href === href)
+  check(!!reachable && canAny(ka, reachable.needs),
+        `a KA can reach ${href}`,
+        reachable ? reachable.needs.join(", ") : "not in the nav at all")
+}
+const billByCountry = tabbar.find((t) => t.href === "/records/countries")
+check(!!billByCountry && canAny(ka, billByCountry.needs),
+      "…and Bill by country is one of the KA's PRIMARY tabs",
+      billByCountry ? "present" : "not in the tab bar at all")
+
+// Nothing a KA can reach may still say "End of day". A grep of the nav is
+// the cheap half; exercise-training-path fetches the pages as a real KA.
+const staleLabel = [...tabbar, ...sidebar].find((e) => e.label === "End of day")
+check(!staleLabel, "no nav entry is still labelled End of day",
+      staleLabel ? `${staleLabel.label} -> ${staleLabel.href}` : "none")
 
 const calendar = sidebar.find((e) => e.href === "/calendar")
 check(!!calendar && canAny(ka, calendar.needs),

@@ -120,6 +120,12 @@ const DATA_RECORD_ITEMS: NavItem[] = [
   { label: "Sales by product",        href: "/records/products", icon: <Icon d={UNITS_ICON} />, needs: ["bills"] },
 { label: "Bill by country", href: "/records/countries", icon: <Icon d={PEOPLE_ICON} />, needs: ["traffic"] },
   { label: "Cash",         href: "/pos-money",    icon: <Icon d={MONEY_ICON} />,  needs: ["pos.money"] },
+  // Units sold — the one thing from the old combined form with no new home
+  // yet. It appears only at a branch with NO POS (the page says so and keys
+  // nothing at a POS branch), and commission values consignment revenue as
+  // units x price, so it has to stay reachable. Its proper home is Sales by
+  // product; until that is built, this is where it lives.
+  { label: "Units sold",   href: "/daily",        icon: <Icon d={UNITS_ICON} />,  needs: ["sales.manual"] },
 ]
 
 const CUSTOMER_ITEMS: NavItem[] = [

@@ -396,7 +396,7 @@ export default function DashboardClient({
             countries.length === 0 ? (
               <p className="text-[13px] text-muted py-2">
                 No bills have been attributed to a country in this period. The split is
-                keyed on <Link href="/daily" className="underline">End of day</Link>.
+                keyed on <Link href="/records/countries" className="underline">Bill by country</Link>.
               </p>
             ) : (
               <>
@@ -472,7 +472,7 @@ export default function DashboardClient({
             !availability.traffic ? (
               <p className="text-[13px] text-muted py-2">
                 No visitor counts have been recorded. They are keyed on{" "}
-                <Link href="/daily" className="underline">End of day</Link>.
+                <Link href="/traffic" className="underline">Traffic</Link>.
               </p>
             ) : byBranch.map((b) => {
               const t = trafficSplit[b.branchId] ?? { thai: 0, foreign: 0 }
