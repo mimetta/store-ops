@@ -1,8 +1,10 @@
 import RecordFilters, { ThreeWay } from "@/components/records/RecordFilters"
 import { createClient } from "@/lib/supabase/server"
-import { resolveScope, currentProfile, HAND_KEYED_NOTE, NO_BILLS_ACCESS } from "@/lib/records"
+import { resolveScope, currentProfile, NO_BILLS_ACCESS } from "@/lib/records"
 import { can } from "@/lib/permissions"
-import { money, HandKeyed, NoRows } from "@/components/records/shared"
+import { money, NoRows } from "@/components/records/shared"
+import KeyedSalesEntry from "@/components/records/KeyedSalesEntry"
+import { bangkokToday } from "@/lib/day"
 
 /**
  * Daily sales — one row per day, from the bills.
@@ -36,6 +38,67 @@ export default async function DailySalesPage({ searchParams }: {
     ? searchParams.vip : "all"
 
   const supabase = createClient()
+
+  // A branch with no POS has no bills and never will. 069's hand-keyed
+  // figure is what commission reads for it, so the screen offers the ENTRY
+  // rather than explaining the absence — losing this is losing commission
+  // at four of seven branches.
+  if (!scope.posExport) {
+    const keyDate = searchParams.from && searchParams.from === searchParams.to
+      ? searchParams.from : bangkokToday()
+    const { data: existing } = await supabase
+      .from("daily_sales_value")
+      .select("total_sales, vip_sales")
+      .eq("branch_id", scope.branchId).eq("entry_date", keyDate).maybeSingle()
+    const { data: history } = await supabase
+      .from("daily_sales_value")
+      .select("entry_date, total_sales, vip_sales")
+      .eq("branch_id", scope.branchId)
+      .gte("entry_date", scope.from).lte("entry_date", scope.to)
+      .order("entry_date", { ascending: false })
+    const rows = (history ?? []) as { entry_date: string; total_sales: number; vip_sales: number }[]
+    const e = existing as { total_sales: number; vip_sales: number } | null
+
+    return (
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <h1 className="text-[22px] font-medium mb-4">Daily sales</h1>
+        <RecordFilters branches={scope.branches} branchId={scope.branchId}
+                       from={scope.from} to={scope.to} />
+        <KeyedSalesEntry
+          branchId={scope.branchId} branchName={scope.branchName}
+          date={keyDate}
+          existingTotal={e ? Number(e.total_sales) : null}
+          existingVip={e ? Number(e.vip_sales) : null} />
+        <div className="card card-pad mt-3">
+          <h2 className="text-[15px] font-medium mb-1">What was saved</h2>
+          {rows.length === 0 ? (
+            <p className="text-center py-6 text-muted text-[13px]">
+              Nothing keyed for these days. A day with no row has not been
+              answered — which is different from a day that took nothing.
+            </p>
+          ) : (
+            <table className="w-full text-[13px]">
+              <thead><tr className="text-left text-subtle text-[11px]">
+                <th className="py-1.5">Day</th>
+                <th className="py-1.5 text-right">Total</th>
+                <th className="py-1.5 text-right">of which VIP</th>
+              </tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.entry_date} className="border-t border-sand">
+                    <td className="py-2">{r.entry_date}</td>
+                    <td className="py-2 text-right num-c">{money(Number(r.total_sales))}</td>
+                    <td className="py-2 text-right num-c">{money(Number(r.vip_sales))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const { data } = await supabase
     .from("sales_daily_totals")
     .select("bill_date, bills, vip_bills, gross, discount, net, vip_net, non_vip_net")
@@ -88,8 +151,7 @@ export default async function DailySalesPage({ searchParams }: {
         ]} />}
       />
 
-      {!scope.posExport ? <HandKeyed note={HAND_KEYED_NOTE} /> : (
-        <>
+      <>
           <div className="flex gap-2.5 mb-3.5 flex-wrap">
             <Stat label="Total sales" value={money(t.allNet)} hint={`${all.reduce((a,r)=>a+r.bills,0)} bills`} />
             <Stat label="of which VIP" value={money(t.vipNet)}
@@ -140,8 +202,7 @@ export default async function DailySalesPage({ searchParams }: {
               </table>
             )}
           </div>
-        </>
-      )}
+      </>
     </div>
   )
 }

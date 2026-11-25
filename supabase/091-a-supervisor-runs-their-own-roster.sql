@@ -19,17 +19,28 @@
 --
 -- ── WHAT ELSE IT OPENS, SAID OUT LOUD ─────────────────────────────────────
 --
--- A capability is not a screen. Granting this gives a supervisor FOUR
--- things, not one, and all four are reached through the same check:
+-- A capability is not a screen. Granting this gives a supervisor THREE
+-- things at their own branch, and the first draft of this comment got the
+-- count and the content wrong — it said four and included leave approval,
+-- which this does NOT give. Corrected by reading the policies:
 --
---   /shifts              editing the roster, not only reading it
---   /shifts/swaps        the MANAGER view — approving other people's swaps
---   shifts/actions.ts    every write in that module
---   /shifts/leave        the approval side, via the same tab bar
+--   1. SEE the whole branch's roster, not only their own shifts.
+--      `read work_schedules` matched a supervisor on `staff_id =
+--      auth.uid()` alone; it now matches every person at their branch.
 --
--- That was accepted deliberately. It is written here because the grant
--- reads like "supervisors can edit the rota" and does rather more, and the
--- next person to read it should not have to discover the rest.
+--   2. EDIT, PUBLISH and CLEAR that roster. `write work_schedules` is FOR
+--      ALL, and shifts/actions.ts gates setShift, publishRoster,
+--      discardDraft, copyPreviousMonth, saveShiftTimes and markNotWorked
+--      on the same capability. Publishing is the consequential one: it is
+--      what tells people their month.
+--
+--   3. DECIDE other people's shift swaps. `decide_shift_swap_day` (046)
+--      raises without this capability, and the swaps screen's approval
+--      queue appears with it.
+--
+-- NOT leave approval. `leave.approve` is admin, manager and people, and
+-- 091 does not touch it — a supervisor still sees the Leave tab and still
+-- cannot decide a request on it.
 --
 -- ── WHAT IT DOES NOT CHANGE ───────────────────────────────────────────────
 --
@@ -39,10 +50,10 @@
 -- which is the "at their own branch" in the title, and it is enforced by
 -- policies that already exist rather than by this grant.
 --
--- One consequence worth knowing: `decide_day_off`'s `can_access_branch`
--- check stops being a no-op. `074` recorded that all three roles holding
--- `leave.approve` were in `sees_all_branches()`, so the check guarded a
--- scope that did not exist. A branch-scoped approver now exists.
+-- `decide_day_off` is unaffected: it checks `leave.approve`, which a
+-- supervisor does not hold. 074's note that its `can_access_branch` check
+-- is a no-op therefore still stands — every role holding `leave.approve`
+-- is still in `sees_all_branches()`.
 
 begin;
 
