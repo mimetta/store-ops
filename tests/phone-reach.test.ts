@@ -123,6 +123,9 @@ const UNLISTED: Record<string, string> = {
   // its own menu item. The combined page still works and still gates on
   // `settings`; it is simply not where anybody is sent any more.
   "/settings": "split into four single-tab routes; no longer a menu item",
+  // Read-only so far. The MENU item points at /daily so a KA can key the
+  // counts today; this route is wired up properly after training.
+  "/records/countries": "read-only view; the menu item points at /daily until the key-in is built",
   // Removed from the menu AND closed (lib/closed-sections.ts). The product
   // master is frozen until it reopens — a decision, not an oversight.
   "/sync": "AccCloud sync: removed from the menu and closed",

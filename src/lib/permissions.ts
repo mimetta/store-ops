@@ -99,14 +99,14 @@ export type Capability = (typeof CAPABILITIES)[number]
  * every row.
  */
 const CAPABILITY_ROLES: Record<Capability, readonly Role[]> = {
-  "sales.import":             ["admin", "manager", "supervisor"],
+  "sales.import":             ["admin", "manager", "supervisor", "ka"],
   // 079 (backlog D3): a KA keys their own branch's day. Every path this
   // opens is branch-scoped by can_access_branch, so it widens what they may
   // do and never where.
   "sales.manual":             ["admin", "manager", "supervisor", "ka"],
-  "bills":                    ["admin", "manager", "supervisor"],
+  "bills":                    ["admin", "manager", "supervisor", "ka"],
   "pos.money":                ["admin", "manager", "supervisor", "ka"],
-  "traffic":                  ["admin", "manager", "supervisor"],
+  "traffic":                  ["admin", "manager", "supervisor", "ka"],
 
   "stock.count":              ["admin", "manager", "supervisor", "ka"],
   "stock.variance.explain":   ["ka"],

@@ -205,6 +205,10 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
+  ('093', '093', 'data',   'a KA can upload and read their own branch''s figures',
+    (select count(*) from role_capabilities
+      where role = 'ka'
+        and capability in ('sales.import','bills','traffic')) = 3),
   ('092', '092', 'schema', 'new members and Xiaohongshu reviews have a home',
     to_regclass('public.membership_counts') is not null),
   ('091', '091', 'data',   'a supervisor runs the roster at their own branch',

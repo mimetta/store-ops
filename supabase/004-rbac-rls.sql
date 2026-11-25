@@ -100,17 +100,26 @@ $g004_role_capabilities$;
 delete from role_capabilities;
 
 insert into role_capabilities (role, capability) values
+  -- 093 added ka: the person at the shop has the export in their hand.
+  -- Scoped by can_access_branch on sales_bills, so their own branch only.
   ('admin','sales.import'),      ('manager','sales.import'),      ('supervisor','sales.import'),
+  ('ka','sales.import'),
   ('admin','sales.manual'),      ('manager','sales.manual'),      ('supervisor','sales.manual'),
   -- 079 (backlog D3): a KA keys their own branch's day. /daily is gated on
   -- sales.manual|bills|traffic and a KA held none of the three, so the one
   -- screen they touch daily was unreachable. Every path it opens is
   -- branch-scoped by can_access_branch.
   ('ka','sales.manual'),
+  -- 093 added ka: opens the four Data Record views. The DATA was already
+  -- readable to them via sales.manual + can_access_branch; this is the
+  -- screens, not a widening.
   ('admin','bills'),             ('manager','bills'),             ('supervisor','bills'),
+  ('ka','bills'),
   ('admin','pos.money'),         ('manager','pos.money'),         ('supervisor','pos.money'),
   ('ka','pos.money'),
+  -- 093 added ka: Traffic, Membership & review, and the country counts.
   ('admin','traffic'),           ('manager','traffic'),           ('supervisor','traffic'),
+  ('ka','traffic'),
 
   ('admin','stock.count'),       ('manager','stock.count'),       ('supervisor','stock.count'),
   ('ka','stock.count'),
