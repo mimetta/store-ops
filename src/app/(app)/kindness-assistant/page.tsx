@@ -39,9 +39,18 @@ export default async function KindnessAssistantPage() {
   const maySeePay = can(profile, "payout.view")
 
   const supabase = createClient()
-  const { data: people } = await supabase
+  // `branches!profiles_branch_id_fkey`, named explicitly. A bare
+  // `branches(name)` is AMBIGUOUS — PostgREST finds more than one
+  // relationship between these two tables and refuses with
+  // "Could not embed because more than one relationship was found".
+  //
+  // The first version did not read that error, so `people` was null and
+  // the page rendered "No KAs yet" over fourteen of them. An empty list
+  // hiding a failed query is the exact shape this project keeps paying
+  // for, so the error is surfaced below rather than swallowed.
+  const { data: people, error: peopleErr } = await supabase
     .from("profiles")
-    .select("id, full_name, nickname, email, branch_id, employment_type, branches(name)")
+    .select("id, full_name, nickname, email, branch_id, employment_type, branches!profiles_branch_id_fkey(name)")
     .eq("portal_role", "ka")
     .order("full_name")
 
@@ -52,8 +61,14 @@ export default async function KindnessAssistantPage() {
         .select("staff_id, monthly_salary, effective_from")
         .order("effective_from", { ascending: false })).data ?? []
     : []
-  const rateFor = new Map<string, number>()
-  for (const r of rates as { staff_id: string; monthly_salary: number }[]) {
+  // `monthly_salary` is NULLABLE, so the map holds `number | null`. The
+  // first version typed it `number` and wrote `rateFor.get(id)!` — the
+  // non-null assertion silenced the compiler and the page then died at
+  // runtime with "Cannot read properties of null (reading
+  // 'toLocaleString')", rendering an empty shell. A `!` is a promise to
+  // the type checker, and this one was false.
+  const rateFor = new Map<string, number | null>()
+  for (const r of rates as { staff_id: string; monthly_salary: number | null }[]) {
     if (!rateFor.has(r.staff_id)) rateFor.set(r.staff_id, r.monthly_salary)
   }
 
@@ -73,7 +88,14 @@ export default async function KindnessAssistantPage() {
       </p>
 
       <div className="card card-pad">
-        {rows.length === 0 ? (
+        {peopleErr ? (
+          // Never a blank list for a failed read. "No KAs yet" and "the
+          // query broke" look identical on screen and need opposite
+          // actions.
+          <p className="text-center py-6 text-danger-70 text-[13px]">
+            The list could not be loaded: {peopleErr.message}
+          </p>
+        ) : rows.length === 0 ? (
           <p className="text-center py-6 text-muted text-[13px]">No KAs yet.</p>
         ) : (
           <table className="w-full text-[13px]">
@@ -105,8 +127,11 @@ export default async function KindnessAssistantPage() {
                   </td>
                   {maySeePay && (
                     <td className="py-2 text-right num-c">
-                      {rateFor.has(p.id)
-                        ? rateFor.get(p.id)!.toLocaleString("en-GB", { minimumFractionDigits: 2 })
+                      {/* A row with no rate and a row with a NULL rate are
+                          both "no rate" to a reader, and neither may crash
+                          the page. */}
+                      {typeof rateFor.get(p.id) === "number"
+                        ? (rateFor.get(p.id) as number).toLocaleString("en-GB", { minimumFractionDigits: 2 })
                         : <span className="text-subtle">no rate</span>}
                     </td>
                   )}

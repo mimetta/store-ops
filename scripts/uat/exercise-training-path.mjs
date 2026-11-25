@@ -81,9 +81,59 @@ await works("Membership & review", "/membership", "Membership")
 }
 
 console.log("\n── MANAGEMENT: what a trainee may and may not see ──")
-await works("Roster",            "/shifts", null)
-await works("Training",          "/training", null)
-await works("Calendar & events", "/calendar", null)
+// Each of these is asked for CONTENT, not just a 200. A screen that opens
+// empty is a trainee staring at nothing in front of a room, and "it
+// loaded" would have passed.
+const roster = await get("/shifts")
+ok("Roster opens", roster.status === 200 && !roster.body.includes("do not have access"), "")
+ok("…and shows this trainee's own shifts",
+   /\bam\b|\bpm\b|Morning|Afternoon/i.test(roster.body), "a published month exists")
+ok("…and offers NO edit control to a KA",
+   !roster.body.includes("Publish") && !roster.body.includes("Copy last month"),
+   roster.body.includes("Publish") ? "PUBLISH BUTTON VISIBLE TO A KA" : "read-only")
+
+// ── /training and /calendar render CLIENT-SIDE ─────────────────────────
+//
+// Both fetch after hydration, so the server HTML carries no rows and a
+// raw fetch can never see them. Asserting on the HTML reported "no
+// session visible" about a session the trainee can read perfectly well —
+// the test was measuring the wrong artefact, which is the same mistake
+// that made `build {sha}` look broken.
+//
+// So: the PAGE is checked for opening without refusal, and the DATA is
+// checked through the same API the page uses, as the same signed-in
+// trainee. Between them that is the claim. What neither can prove is
+// that the component puts it on screen — only looking does that.
+const training = await get("/training")
+ok("Training opens", training.status === 200 && !training.body.includes("do not have access"), "")
+const { data: sess } = await sb.from("training_sessions").select("id, title")
+ok("…and the trainee can read a session",
+   (sess ?? []).some((x) => x.title.includes("Using Store Ops")),
+   `${(sess ?? []).length} session(s)`)
+const { data: prog } = await sb.from("training_progress").select("id, status")
+ok("…and has their own progress row to mark",
+   (prog ?? []).length === 1 && prog[0].status === "not_started",
+   `${(prog ?? []).length} row(s), ${prog?.[0]?.status ?? "none"}`)
+
+const cal = await get("/calendar")
+ok("Calendar opens", cal.status === 200 && !cal.body.includes("do not have access"), "")
+// `${month}-31` is not a date in a 30-day month, and PostgREST answered
+// with an error I was not reading — so "0 events" was my query failing,
+// not the calendar being empty. The first of NEXT month, exclusive, has
+// no such edge.
+const now = new Date()
+const monthNow = now.toISOString().slice(0, 7)
+const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+  .toISOString().slice(0, 10)
+const { data: evs, error: evErr } = await sb.from("calendar_events")
+  .select("title, event_type, start_date")
+  .gte("start_date", `${monthNow}-01`).lt("start_date", nextMonth)
+ok("…and the trainee can read this month's events",
+   !evErr && (evs ?? []).length >= 4,
+   evErr ? `ERROR ${evErr.message}` : `${(evs ?? []).length} event(s)`)
+ok("…one of them a public holiday",
+   (evs ?? []).some((e) => e.event_type === "holiday"),
+   (evs ?? []).filter((e) => e.event_type === "holiday").map((e) => e.start_date).join(", ") || "none")
 const comm = await get("/commission")
 ok("Commission is refused", comm.body.includes("do not have access") || comm.status !== 200,
    comm.status === 200 ? "rendered" : `HTTP ${comm.status}`)
@@ -106,3 +156,28 @@ for (const p of ["/count", "/stock", "/receiving"]) {
 await sb.auth.signOut()
 console.log(`\n${fail === 0 ? "the whole trainee path works" : `${fail} FAILED`}`)
 process.exit(fail === 0 ? 0 : 1)
+
+
+// ── and the same three as a MANAGER, who should see more ────────────────
+console.log("\n── the same three as manager@ ──")
+{
+  const m = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  const { data: md, error: me } = await m.auth.signInWithPassword({
+    email: process.env.MGR_EMAIL ?? "manager@storeops-uat.invalid",
+    password: process.env.MGR_PASSWORD ?? "" })
+  if (me) {
+    console.log(`  SKIPPED | could not sign in as the manager (${me.message}).`)
+    console.log(`          | MGR_EMAIL/MGR_PASSWORD to include the manager half.`)
+  } else {
+    const mc = `sb-${ref}-auth-token=base64-${Buffer.from(JSON.stringify(md.session)).toString("base64")}`
+    const mget = async (p) => (await fetch(BASE + p, { headers: { cookie: mc } })).text()
+    const r = await mget("/shifts")
+    ok("a manager CAN edit the roster", /Publish|Copy last month/.test(r),
+       /Publish/.test(r) ? "" : "no edit control")
+    ok("a manager sees Commission", !(await mget("/commission")).includes("do not have access"), "")
+    const ka = await mget("/kindness-assistant")
+    ok("a manager sees the KA list", !ka.includes("do not have access"), "")
+    ok("…with the pay-rate column", ka.includes("Pay rate"), ka.includes("Pay rate") ? "" : "column absent")
+    await m.auth.signOut()
+  }
+}
