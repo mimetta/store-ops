@@ -4,7 +4,12 @@
 --
 -- Apply to store-ops-uat and production (KindOS).
 --
--- REQUIRES: 038   (nationalities and bill_nationalities)
+-- REQUIRES: 067   (nationalities and bill_nationalities are 038's, but the
+--                  verify block also checks customer_feedback for orphaned
+--                  country codes, and that table is 067's. The marker has
+--                  to name the LATEST thing the file touches, not the
+--                  earliest — declaring 038 said this was safe on a
+--                  database where customer_feedback does not exist.)
 --
 -- ── WHY ───────────────────────────────────────────────────────────────────
 --

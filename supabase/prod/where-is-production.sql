@@ -205,9 +205,14 @@ with artefact(seq, migration, kind, what, present) as (values
   -- Read out of the installed view definition. There is no new object to
   -- look for — 076 changes what an existing view SAYS, not its shape — so
   -- the absence of COALESCE is the artefact.
-  ('094', '094', 'data',   'the country list is the whole world, not eleven',
-    (select count(*) from nationalities
-      where active and offer_in_counts) > 190),
+  -- NULL, not a count. This file declares REQUIRES: 002 and `nationalities`
+  -- is 038's, so naming it here claims the whole query is safe on a
+  -- database that does not have it — which check:migration-order rightly
+  -- refused. "Cannot be detected from here" is coverage; silence is not.
+  --   select count(*) from nationalities where active and offer_in_counts;
+  --   -- expect 199
+  ('094', '094', 'data',   'the country list is the whole world (count by hand)',
+    null),
   ('093', '093', 'data',   'a KA can upload and read their own branch''s figures',
     (select count(*) from role_capabilities
       where role = 'ka'
