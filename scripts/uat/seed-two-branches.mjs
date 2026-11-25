@@ -111,10 +111,55 @@ async function purge() {
         (select id from profiles where email like $1)`, [`${SEED_TAG}-%`]],
     [`delete from commission_branches where staff_id in
         (select id from profiles where email like $1)`, [`${SEED_TAG}-%`]],
+
+    // ── everything these PEOPLE own, not only what fell in the window ────
+    //
+    // The deletes above are scoped by branch AND by this run's date window.
+    // That is right for branch data and wrong for a person: a shift outside
+    // the window still points at the profile, and 059 made that key RESTRICT
+    // so the profile delete below fails with
+    //
+    //   update or delete on table "profiles" violates foreign key constraint
+    //   "work_schedules_staff_id_fkey"
+    //
+    // which is the guard working. Measured: an earlier roster outside FROM..TO
+    // took the whole --remove down. Same mistake as the training teardown —
+    // delete what the accounts OWN, not what this script happened to write.
+    //
+    // `app.roster_change_reason` is 046's own escape hatch, set
+    // transaction-locally by the caller, because some of these shifts are
+    // published and the guard refuses deleting one otherwise.
+    [`delete from work_schedules where staff_id in
+        (select id from profiles where email like $1)`, [`${SEED_TAG}-%`]],
+    [`delete from leave_requests where staff_id in
+        (select id from profiles where email like $1)`, [`${SEED_TAG}-%`]],
+    [`delete from training_progress where staff_id in
+        (select id from profiles where email like $1)`, [`${SEED_TAG}-%`]],
+    [`delete from shop_traffic where submitted_by in
+        (select id from profiles where email like $1)`, [`${SEED_TAG}-%`]],
+    [`delete from bill_nationalities where recorded_by in
+        (select id from profiles where email like $1)`, [`${SEED_TAG}-%`]],
+
+    // The profile delete is itself the check that nothing was missed: every
+    // remaining key to profiles is RESTRICT, so a leftover row stops this
+    // rather than orphaning quietly.
     [`delete from profiles where email like $1`, [`${SEED_TAG}-%`]],
     [`delete from auth.users where email like $1`, [`${SEED_TAG}-%`]],
   ]
-  for (const [sql, args] of steps) await db.query(sql, args)
+  // One transaction, so the reason below is in force for every step and
+  // ends with the COMMIT. set_config(..., true) cannot leak onto the next
+  // user of this pooled connection, which is why 046 chose it.
+  await db.query("begin")
+  try {
+    await db.query(
+      `select set_config('app.roster_change_reason',
+                         'seed-two-branches teardown', true)`)
+    for (const [sql, args] of steps) await db.query(sql, args)
+    await db.query("commit")
+  } catch (e) {
+    await db.query("rollback")
+    throw e
+  }
 }
 
 await purge()

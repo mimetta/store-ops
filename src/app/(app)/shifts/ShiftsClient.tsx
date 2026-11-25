@@ -92,6 +92,14 @@ export default function ShiftsClient({
   const [busy, start] = useTransition()
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [editing, setEditing] = useState(false)
+  // Who I am in this list, and whether to show only my row. `isMe` is set
+  // by the page; this never re-derives identity from a name.
+  const me = people.find((p) => p.isMe)
+  // Default ON for somebody who cannot edit the roster. A manager opening
+  // the roster wants the shop; a KA wants their week.
+  const [mineOnly, setMineOnly] = useState(!isManager)
+  const shown = mineOnly && me ? [me] : people
+
   const [picking, setPicking] = useState<{ staffId: string; date: string } | null>(null)
   const [timesOpen, setTimesOpen] = useState(false)
   const [draftTimes, setDraftTimes] = useState(templates)
@@ -400,13 +408,46 @@ export default function ShiftsClient({
                 {editing && <span className="text-xs text-brown">Tap a day to change it</span>}
               </div>
 
+              {/* ── My shifts only ───────────────────────────────────────
+                  Seven people across 31 days is a grid you scroll sideways
+                  on a phone to find one row. So this defaults ON for
+                  somebody who cannot edit the roster — they came to see
+                  when they are working — and OFF for a manager, who came to
+                  see the shop.
+
+                  It is a VIEW, not a permission: the rows are still loaded
+                  and one tap brings them back. The count says what is
+                  hidden, because a filter that silently shows one row of
+                  seven is indistinguishable from a roster with one person
+                  on it, and this project has already shipped "no KAs yet"
+                  over fourteen of them. */}
+              {me && people.length > 1 && (
+                <div className="flex items-center gap-2 mb-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setMineOnly((v) => !v)}
+                    aria-pressed={mineOnly}
+                    className={`min-h-[34px] px-3 rounded-full border text-xs transition-colors
+                                ${mineOnly ? "bg-brown text-white border-brown"
+                                           : "bg-white text-muted border-sand"}`}
+                  >
+                    My shifts only
+                  </button>
+                  {mineOnly && (
+                    <span className="text-xs text-muted">
+                      {people.length - 1} other {people.length - 1 === 1 ? "person" : "people"} hidden
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* The month calendar: days as cells, who is on each. The week
                   and the by-person month are the same grid at different
                   widths, so they share one implementation. */}
               {view === "month" && monthSub === "calendar" ? (
                 <MonthCalendar
                   days={days}
-                  people={people}
+                  people={shown}
                   assignments={assignments}
                   templates={templates}
                   holidays={holidays}
@@ -431,7 +472,7 @@ export default function ShiftsClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {people.map((p) => (
+                    {shown.map((p) => (
                       <tr key={p.id} className={`border-t border-sand ${p.isMe ? "bg-panel/60" : ""}`}>
                         <td className="py-1.5 pr-2 sticky left-0 bg-white">
                           <span className="block truncate max-w-[128px] text-ink">
