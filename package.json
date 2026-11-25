@@ -35,6 +35,7 @@
     "exercise:closed": "node --experimental-strip-types scripts/uat/exercise-closed-sections.mjs",
     "exercise:data-record": "node scripts/uat/exercise-data-record.mjs",
     "exercise:training-path": "node scripts/uat/exercise-training-path.mjs",
+    "exercise:countries": "node scripts/uat/exercise-bill-by-country.mjs",
     "seed:training-kas": "node scripts/uat/seed-training-kas.mjs",
     "import:sample-bills": "node --experimental-strip-types scripts/uat/import-sample-bills.mjs",
     "load:pos-groups": "node scripts/uat/load-pos-groups.mjs",

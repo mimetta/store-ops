@@ -1,19 +1,19 @@
 import { createClient } from "@/lib/supabase/server"
 import { can } from "@/lib/permissions"
-import { currentProfile, resolveScope } from "@/lib/records"
-import RecordFilters from "@/components/records/RecordFilters"
-import { NoRows } from "@/components/records/shared"
+import { currentProfile } from "@/lib/records"
+import { bangkokToday } from "@/lib/day"
+import CountriesClient from "./CountriesClient"
 
 /**
- * Bill by country — what a KA counted, not what the POS knows.
+ * Bill by country — its own key-in screen.
  *
  * The POS records no nationality, so this is a hand count and the only
- * source there is. It reads for every branch, POS or not: a consignment
- * branch has no bills and can still be asked where its customers came
- * from, which is why there is no hand-keyed message here.
+ * source there is. It works at EVERY branch: a consignment shop has no
+ * bills and can still be asked where its customers came from, which is
+ * why there is no "hand-keyed" message here.
  */
 export default async function BillByCountryPage({ searchParams }: {
-  searchParams: { branch?: string; from?: string; to?: string }
+  searchParams: { branch?: string; date?: string }
 }) {
   const profile = await currentProfile()
   if (!can(profile, "traffic")) {
@@ -24,65 +24,57 @@ export default async function BillByCountryPage({ searchParams }: {
       </div>
     )
   }
-  const scope = await resolveScope(searchParams)
-  if (!scope) return <NoRows title="Bill by country" what="No branches to show." />
 
   const supabase = createClient()
-  const [{ data: rows }, { data: vocab }] = await Promise.all([
-    supabase.from("bill_nationalities")
-      .select("nationality, bills, entry_date")
-      .eq("branch_id", scope.branchId)
-      .gte("entry_date", scope.from).lte("entry_date", scope.to),
-    supabase.from("nationalities").select("code, label").eq("active", true),
-  ])
-  const label = new Map(((vocab ?? []) as { code: string; label: string }[])
-    .map((v) => [v.code, v.label]))
-
-  const byCountry = new Map<string, number>()
-  for (const r of (rows ?? []) as { nationality: string; bills: number }[]) {
-    byCountry.set(r.nationality, (byCountry.get(r.nationality) ?? 0) + Number(r.bills))
+  const { data: branchRows } = await supabase
+    .from("branches").select("id, name, pos_export").eq("active", true).order("name")
+  const branches = (branchRows ?? []) as { id: string; name: string; pos_export: boolean }[]
+  if (!branches.length) {
+    return <div className="empty"><p className="empty-title">No branches to show.</p></div>
   }
-  const list = [...byCountry.entries()].sort((a, b) => b[1] - a[1])
-  const total = list.reduce((a, [, n]) => a + n, 0)
+
+  // Default to the signed-in person's OWN branch. A KA opening this should
+  // be looking at their shop, not at whichever sorts first alphabetically.
+  const chosen = branches.find((b) => b.id === searchParams.branch)
+    ?? branches.find((b) => b.id === profile?.branch_id)
+    ?? branches[0]
+  const date = searchParams.date || bangkokToday()
+
+  const [{ data: countryRows }, { data: savedRows }, imported] = await Promise.all([
+    // `offer_in_counts` excludes unknown and unrecorded: a KA counting
+    // bills records what they SAW, and "unknown" is not something seen.
+    supabase.from("nationalities")
+      .select("code, label").eq("active", true).eq("offer_in_counts", true)
+      .order("label"),
+    supabase.from("bill_nationalities")
+      .select("nationality, bills").eq("branch_id", chosen.id).eq("entry_date", date),
+    // How many of the day's imported bills carry a country — DERIVED. A
+    // branch with no POS gets null, not 0: "0 of 0" would read as a day
+    // with no sales rather than a branch that never has bills.
+    chosen.pos_export
+      ? supabase.from("sales_bills")
+          .select("id", { count: "exact", head: true })
+          .eq("branch_id", chosen.id).eq("bill_date", date)
+      : Promise.resolve({ count: null }),
+  ])
+
+  const saved = (savedRows ?? []) as { nationality: string; bills: number }[]
+  const importedTotal = chosen.pos_export ? (imported.count ?? 0) : null
+  // The bills a country has been recorded against, which is what the hand
+  // count supplies — so "recorded" is the sum of what was keyed.
+  const importedWithCountry = importedTotal === null
+    ? null : Math.min(saved.reduce((a, s) => a + s.bills, 0), importedTotal)
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <h1 className="text-[22px] font-medium mb-4">Bill by country</h1>
-      <RecordFilters branches={scope.branches} branchId={scope.branchId}
-                     from={scope.from} to={scope.to} />
-      <div className="card card-pad">
-        <div className="flex items-baseline gap-2.5 mb-1 flex-wrap">
-          <h2 className="text-[15px] font-medium flex-1">{list.length} countr{list.length === 1 ? "y" : "ies"}</h2>
-          <span className="num-c text-[15px]">{total} bills</span>
-        </div>
-        {list.length === 0 ? (
-          <p className="text-center py-6 text-muted text-[13px]">
-            Nothing counted for these days. A day with no row has not been
-            asked about, which is different from a day with no customers.
-          </p>
-        ) : (
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="text-left text-subtle text-[11px]">
-                <th className="py-1.5">Country</th>
-                <th className="py-1.5 text-right">Bills</th>
-                <th className="py-1.5 text-right">Share</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map(([code, n]) => (
-                <tr key={code} className="border-t border-sand">
-                  <td className="py-2">{label.get(code) ?? code}</td>
-                  <td className="py-2 text-right num-c">{n}</td>
-                  <td className="py-2 text-right num-c text-muted">
-                    {total === 0 ? "—" : `${((n / total) * 100).toFixed(1)}%`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
+    <CountriesClient
+      branches={branches.map((b) => ({ id: b.id, name: b.name }))}
+      branchId={chosen.id}
+      date={date}
+      countries={(countryRows ?? []) as { code: string; label: string }[]}
+      saved={saved}
+      importedTotal={importedTotal}
+      importedWithCountry={importedWithCountry}
+      posExport={chosen.pos_export}
+    />
   )
 }

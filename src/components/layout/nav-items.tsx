@@ -118,11 +118,7 @@ const DATA_RECORD_ITEMS: NavItem[] = [
   { label: "Daily bill",   href: "/records/bills",    icon: <Icon d={LEAVE_ICON} />,  needs: ["bills"] },
   { label: "Sales by payment method", href: "/records/payments", icon: <Icon d={MONEY_ICON} />, needs: ["bills"] },
   { label: "Sales by product",        href: "/records/products", icon: <Icon d={UNITS_ICON} />, needs: ["bills"] },
-  // Points at the End of day form, the way Traffic already does, because
-  // a KA must be able to KEY this today and /records/countries is
-  // read-only so far. The read view keeps its route and is declared
-  // unlisted; the menu goes where the work happens.
-  { label: "Bill by country", href: "/daily", icon: <Icon d={PEOPLE_ICON} />, needs: ["bills", "sales.manual"] },
+{ label: "Bill by country", href: "/records/countries", icon: <Icon d={PEOPLE_ICON} />, needs: ["traffic"] },
   { label: "Cash",         href: "/pos-money",    icon: <Icon d={MONEY_ICON} />,  needs: ["pos.money"] },
 ]
 
