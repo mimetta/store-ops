@@ -12,7 +12,7 @@
  *
  * `scripts/uat/check-nav-gating.mjs` reads THIS file.
  */
-import type { Capability } from "@/lib/permissions"
+import { branchScope, type Capability, type PermissionSubject } from "@/lib/permissions"
 
 export interface NavItem {
   label: string
@@ -38,6 +38,47 @@ export interface NavItem {
    * permission, and anybody can type a URL.
    */
   closed?: boolean
+  /**
+   * A fact about the BRANCH, not about the person.
+   *
+   * `"no-pos"` means the screen is only about a branch with no POS — the five
+   * consignment shops. A capability cannot express that: a Talat Noi KA and a
+   * consignment KA hold exactly the same ones, and the difference is which
+   * shop they stand in. So this is a second, independent gate.
+   *
+   * It only ever HIDES. The page still makes its own capability check, and
+   * being at a POS branch is not a permission — the screen simply has nothing
+   * to key there, which is why it is hidden rather than refused.
+   */
+  branchKind?: "no-pos"
+}
+
+/**
+ * Does this branch-fact gate let the item through?
+ *
+ * Three answers, not two, and the third is the one that gets collapsed by
+ * mistake — the same trap as a loading profile answering "no" and `<NULL>`
+ * reading as a pass in a verify block:
+ *
+ *   true   this person's branch has a POS
+ *   false  it has none
+ *   null   WE DO NOT KNOW — they have no branch at all, or the branch row is
+ *          not readable to them. Hidden, because "the shop I am standing in
+ *          has no POS" cannot be true of somebody standing in no shop.
+ *
+ * A role that sees every branch sees the item regardless: it is in the nav
+ * for them because some branch somewhere needs it, not because of where they
+ * are.
+ */
+export function visibleAtBranch(
+  profile: PermissionSubject | null | undefined,
+  item: Pick<NavItem, "branchKind">,
+  branchHasPos: boolean | null,
+): boolean {
+  if (!item.branchKind) return true
+  if (branchScope(profile) === "all") return true
+  if (branchHasPos === null) return false
+  return !branchHasPos
 }
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -121,11 +162,16 @@ const DATA_RECORD_ITEMS: NavItem[] = [
 { label: "Bill by country", href: "/records/countries", icon: <Icon d={PEOPLE_ICON} />, needs: ["traffic"] },
   { label: "Cash",         href: "/pos-money",    icon: <Icon d={MONEY_ICON} />,  needs: ["pos.money"] },
   // Units sold — the one thing from the old combined form with no new home
-  // yet. It appears only at a branch with NO POS (the page says so and keys
-  // nothing at a POS branch), and commission values consignment revenue as
-  // units x price, so it has to stay reachable. Its proper home is Sales by
-  // product; until that is built, this is where it lives.
-  { label: "Units sold",   href: "/daily",        icon: <Icon d={UNITS_ICON} />,  needs: ["sales.manual"] },
+  // yet. Commission values consignment revenue as units x price, so it has
+  // to stay reachable. Its proper home is Sales by product; until that is
+  // built, this is where it lives.
+  //
+  // `branchKind` is the gate that matters here. At a POS branch the import
+  // already answers "how many units", so the page keys nothing and the entry
+  // was a link to an empty screen for every KA at Talat Noi and Song Wat.
+  // A capability could not say this: those KAs hold exactly what a
+  // consignment KA holds.
+  { label: "Units sold",   href: "/daily",        icon: <Icon d={UNITS_ICON} />,  needs: ["sales.manual"], branchKind: "no-pos" },
 ]
 
 const CUSTOMER_ITEMS: NavItem[] = [

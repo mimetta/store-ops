@@ -119,6 +119,7 @@ node scripts/uat/exercise-daily-money.mjs  # keys the day's money, then edits it
 node scripts/uat/exercise-pos-money.mjs    # counts a drawer against real bills
 node scripts/uat/exercise-delivery-photos.mjs  # attaches evidence, and fails it
 node scripts/uat/exercise-receiving-chain.mjs  # KA records, MANAGER reads
+node scripts/uat/exercise-units-sold-visibility.mjs  # a nav link that depends on the SHOP
 PROD_DB_URL=… npm run check:drift   # where do UAT and production disagree?
 PROD_DB_URL=… npm run what-has-run [NNN|--stale]  # what ran, and which text
 PROD_DB_URL=… npm run backfill-applied -- --env prod|uat [--yes]
@@ -668,6 +669,60 @@ person actually get there?** `check:nav` asks whether a gated link points at a
 page that checks itself. `check-permission-drift` asks whether two matrices
 agree. Both passed throughout. Neither asks about reachability, and the
 second fault was arithmetic in a slice.
+
+### A screen can belong to a SHOP rather than to a role
+
+Units sold is keyed only where there is no POS — the five consignment
+branches. At Talat Noi or Song Wat the AdaPOS import already answers "how
+many units", so the page keys nothing and the nav entry was **a link to an
+empty screen for every KA at a POS branch**.
+
+**No capability can express that.** A KA at Talat Noi and a KA at Siam
+Discovery hold an identical set; the difference is which shop they stand in.
+So `NavItem` carries a second, independent gate — `branchKind: "no-pos"` —
+and the layout supplies the fact (`branches.pos_branch_code is null`) rather
+than any screen re-deriving it.
+
+Three answers, and the third is the one that gets collapsed:
+
+| `branchHasPos` | |
+|---|---|
+| `true` | their branch has a POS — hidden |
+| `false` | no POS — shown |
+| `null` | **no branch at all, or the row is unreadable** — hidden, because "the shop I am in has no POS" cannot be true of somebody in no shop |
+
+Same family as a gate needing yes / no / **not yet**, and `<NULL>` reading as
+a pass in a verify block. `null` is the COMMON case on production, where every
+profile is still branchless.
+
+A role in `sees_all_branches()` sees it regardless: it is in their nav because
+some shop needs it, not because of where they are standing.
+
+**It hides, it does not forbid.** `/daily` still answers a POS-branch KA by
+URL — standing at a POS branch is not a permission, and the entry was removed
+because the screen has nothing to key there. Asserted, so the nav change is
+not later read as a restriction it is not.
+
+Two tests, because one of them cannot see the thing that broke last time:
+
+- `tests/phone-reach.test.ts` asserts the RULE from the source, and now runs
+  every role in BOTH kinds of shop — a role scoped to one branch gets a
+  different nav in each, and running one of them leaves half the matrix
+  untested. Proved to fire: removing `branchKind` turns 33 passed into 3
+  FAILED.
+- `exercise-units-sold-visibility.mjs` fetches the nav as three real people
+  and counts the LINK. phone-reach re-states the predicate from text and
+  cannot see a rendered page — which is exactly how the phone tab bar went on
+  rendering "End of day" on every screen for weeks after the sidebar dropped
+  it.
+
+**The control is what makes it evidence.** "0 links" is also what a broken
+selector returns, so the script fails separately if NOBODY sees the link. The
+tell that caught the `calendar.view` false alarm was the same shape: seven of
+eight is the signature of a parser, not a database. And count the ANCHOR, not
+the words — "Units sold" is also the heading on `/daily` itself, so
+`includes()` would report the entry as present on the one page it had been
+hidden from.
 
 It covers new screens **by default**: every page under `src/app/(app)` must be
 in the nav or declared in `UNLISTED` with a reason, so a new screen fails the
