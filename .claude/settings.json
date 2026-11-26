@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash(*apply-migration.mjs*)",
+      "Bash(*store-ops-prod-db-url*)",
+      "Bash(*PROD_DB_URL*)",
+      "Bash(*gwncamipwckpknxpiksv*)"
+    ]
+  }
+}

@@ -50,7 +50,8 @@
     "check:rebuilt-tables": "node scripts/uat/check-rebuilt-tables.mjs",
     "check:sql-write-paths": "node scripts/uat/check-sql-write-paths.mjs",
     "check:dark-surfaces": "node scripts/uat/check-dark-surfaces.mjs",
-    "check:written-and-never-read": "node scripts/uat/check-written-and-never-read.mjs"
+    "check:written-and-never-read": "node scripts/uat/check-written-and-never-read.mjs",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

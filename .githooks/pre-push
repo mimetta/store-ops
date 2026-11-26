@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# Refuse to push when `npm test` fails.
+#
+# ── WHY THIS EXISTS ───────────────────────────────────────────────────────
+#
+# Three times in one week a commit went to `main` with the suite red. Every
+# time the sequence was the same: run `npm test`, see the exit code, push
+# anyway. The check was never missing — it was running, it was reporting, and
+# it was being walked past. A rule that depends on somebody reading an exit
+# code they have already decided to act against is not a rule.
+#
+# So the exit code now holds the door instead of asking politely.
+#
+# ── WHAT IT COSTS ─────────────────────────────────────────────────────────
+#
+# The suite takes about a minute. That is the price of every push, and it is
+# the right trade: the alternative has cost three red commits on main and the
+# follow-up commits to fix them.
+#
+# ── THE ESCAPE HATCH, AND WHEN IT IS LEGITIMATE ───────────────────────────
+#
+#   git push --no-verify
+#
+# Git provides it and this hook cannot take it away. There is one honest use:
+# pushing a branch that is deliberately mid-repair. Using it on `main` is the
+# thing this file exists to prevent, so the hook says the branch name out loud
+# when it refuses — a refusal that does not tell you where you are is one you
+# learn to bypass.
+#
+# ── IT TRAVELS WITH THE REPO ──────────────────────────────────────────────
+#
+# `.git/hooks/` is not version-controlled, so a hook written there protects
+# one clone on one machine. This lives in `.githooks/`, which IS committed,
+# and `core.hooksPath` points at it. `npm run prepare` sets that, and npm runs
+# `prepare` automatically after `npm install` — so a fresh clone is covered by
+# the install it was going to do anyway.
+#
+# If `core.hooksPath` is ever unset, this file is inert and SILENT about it.
+# That is the one failure mode it cannot report on its own, so:
+#
+#   git config --get core.hooksPath     # must print .githooks
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "?")
+
+echo "pre-push: running npm test on ${branch}…"
+
+if npm test; then
+  echo "pre-push: suite green — pushing ${branch}."
+  exit 0
+fi
+
+cat >&2 <<EOF
+
+  ══════════════════════════════════════════════════════════════════
+  PUSH REFUSED — npm test exited non-zero on '${branch}'.
+
+  Nothing has been sent. Fix the failure above and push again.
+
+  This has been walked past three times by reading the exit code and
+  pushing anyway, which is why it is a hook now and not a habit.
+  ══════════════════════════════════════════════════════════════════
+
+EOF
+exit 1
