@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { resolveScope, currentProfile, HAND_KEYED_NOTE, NO_BILLS_ACCESS } from "@/lib/records"
 import { can } from "@/lib/permissions"
 import { money, units, HandKeyed, NoRows, RoundingNote } from "@/components/records/shared"
+import KeyedUnitsEntry, { type ProductLine } from "@/components/records/KeyedUnitsEntry"
 
 /**
  * Sales by product — grouped by product group, discount spread.
@@ -37,6 +38,18 @@ export default async function SalesByProductPage({ searchParams }: {
 
   const npd = searchParams.npd === "only" || searchParams.npd === "without"
     ? searchParams.npd : "all"
+
+  // ── the units entry, for a branch with no POS ───────────────────────────
+  //
+  // B3: this was the last card on the old combined form and it had no home.
+  // It belongs here, because "what sold and how much of it" is the question
+  // this page answers — the import answers it at a POS branch and nobody has
+  // asked it at a consignment one.
+  //
+  // `sales.manual` is a SEPARATE capability from the `bills` this page
+  // requires. Somebody could hold one and not the other, so the entry is
+  // gated on its own and the report is gated on its own.
+  const canKeyUnits = !scope.posExport && can(profile, "sales.manual")
 
   const supabase = createClient()
   const [{ data }, { count: markedCount }] = await Promise.all([
@@ -165,7 +178,89 @@ export default async function SalesByProductPage({ searchParams }: {
           </div>
         </>
       )}
+
+      {canKeyUnits && (
+        <KeyedUnits branchId={scope.branchId} branchName={scope.branchName} />
+      )}
     </div>
+  )
+}
+
+/**
+ * The form, and the two facts it needs that the report above does not.
+ *
+ * Its own server component so the product list and the day's prior postings
+ * are fetched only when a branch actually has no POS — a POS branch would
+ * otherwise pay for a products query it never renders.
+ *
+ * The DAY is today in Bangkok, not the report's date range. The report looks
+ * back over a range; keying is always about one day, and `business_today()`
+ * is the rule here — `current_date` has been the wrong answer before.
+ */
+async function KeyedUnits({ branchId, branchName }: { branchId: string; branchName: string }) {
+  const supabase = createClient()
+
+  const { data: today } = await supabase.rpc("business_today")
+  const date = (today as string | null)
+    ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })
+
+  // A branch's warehouse is a ROW IN `warehouses`, not a column on
+  // `branches` — the first version of this read `branches.warehouse_id`,
+  // which does not exist. The Supabase client returns that as an error in a
+  // field nobody was reading, so it failed silently and fell through to the
+  // catalogue, which happens to be the right answer for a consignment branch
+  // and would have been the wrong one everywhere else. Copied from
+  // `/daily` without checking where the value came from; that is the same
+  // habit that fabricated a function body in 080.
+  //
+  // A consignment branch has no warehouse at all and keys against the
+  // catalogue. That is why `sales_postings.warehouse_id` is nullable.
+  const { data: branch, error: branchErr } = await supabase
+    .from("branches")
+    .select("id, warehouses(id, is_default, in_scope)")
+    .eq("id", branchId)
+    .maybeSingle()
+  if (branchErr) throw new Error(`units entry: could not read the branch — ${branchErr.message}`)
+  const warehouseId =
+    (branch as { warehouses?: { id: string; is_default: boolean; in_scope: boolean }[] } | null)
+      ?.warehouses?.find((w) => w.is_default && w.in_scope)?.id ?? null
+
+  const query = warehouseId
+    ? supabase.from("stock_levels")
+        .select("product_id, products!inner(id, sku, name, unit, active)")
+        .eq("warehouse_id", warehouseId)
+    : supabase.from("products")
+        .select("id, sku, name, unit, active").eq("active", true).eq("type", "fg")
+
+  const { data } = await query
+  const products: ProductLine[] = warehouseId
+    ? ((data ?? []) as unknown as {
+        products: { id: string; sku: string; name: string; unit: string | null; active: boolean } | null
+      }[])
+        .filter((r) => r.products?.active)
+        .map((r) => ({ productId: r.products!.id, sku: r.products!.sku,
+                       name: r.products!.name, unit: r.products!.unit }))
+    : ((data ?? []) as { id: string; sku: string; name: string; unit: string | null }[])
+        .map((p) => ({ productId: p.id, sku: p.sku, name: p.name, unit: p.unit }))
+  products.sort((a, b) => a.sku.localeCompare(b.sku))
+
+  // What is already posted for today. A day keyed twice is a real event — a
+  // morning count and an evening one — so this does not block, it asks.
+  const { data: already } = await supabase.rpc("units_posted_on", {
+    p_branch: branchId, p_date: date,
+  })
+  const prior = (Array.isArray(already) ? already[0] : already) as
+    | { batches: number; units: number } | undefined
+
+  return (
+    <KeyedUnitsEntry
+      branchId={branchId}
+      branchName={branchName}
+      date={date}
+      products={products}
+      priorBatches={prior?.batches ?? 0}
+      priorUnits={prior?.units ?? 0}
+    />
   )
 }
 

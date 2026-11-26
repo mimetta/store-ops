@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { Profile } from "@/types/database"
 import { canAny, type Capability } from "@/lib/permissions"
-import { SECTIONS, visibleAtBranch, Icon, LOCK_ICON, ClosedTag } from "./nav-items"
+import { SECTIONS, Icon, LOCK_ICON, ClosedTag } from "./nav-items"
 import { useCollapsedSections } from "./nav-collapse"
 
 /**
@@ -63,12 +63,8 @@ const PRIMARY: Tab[] = [
 
 const MORE_ICON = "M4 6h16 M4 12h16 M4 18h16"
 
-export default function TabBar({ profile, build, branchHasPos = null }: {
+export default function TabBar({ profile, build }: {
   profile: Profile | null
-  /** Does the signed-in person's branch have a POS? null = unknown. The More
-   *  sheet reads the sidebar's SECTIONS, so it needs the same branch gate —
-   *  otherwise an entry hidden in the sidebar reappears one tap away. */
-  branchHasPos?: boolean | null
   /** Which deployment this is — shown at the foot of the More sheet, because
    *  the phone is where the testing happens and where the question
    *  "is this the build with the fix in it" actually has to be answered. */
@@ -91,7 +87,6 @@ export default function TabBar({ profile, build, branchHasPos = null }: {
       items: items.filter(
         (i) => allowed(i.needs)
           && !(i.hiddenBy && canAny(profile, i.hiddenBy))
-          && visibleAtBranch(profile, i, branchHasPos)
           && !primaryHrefs.has(i.href),
       ),
     }))

@@ -21,7 +21,7 @@
  */
 import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
-import { ROLES, canAny, can, branchScope, type Capability, type Role } from "../src/lib/permissions"
+import { ROLES, canAny, can, type Capability, type Role } from "../src/lib/permissions"
 
 let pass = 0, fail = 0
 function check(ok: boolean, name: string, detail = "") {
@@ -40,11 +40,6 @@ function entries(file: string) {
         .matchAll(/"([^"]+)"/g)].map((m) => m[1] as Capability),
       hiddenBy: [...(/hiddenBy:\s*\[([^\]]*)\]/.exec(l)?.[1] ?? "")
         .matchAll(/"([^"]+)"/g)].map((m) => m[1] as Capability),
-      // A fact about the BRANCH, not the person. Parsed here because
-      // reachability now depends on which shop somebody stands in, and a
-      // test that only knows about capabilities would call a correctly
-      // hidden entry "stranded".
-      branchKind: /branchKind:\s*"([^"]+)"/.exec(l)?.[1] ?? null,
     }))
 }
 
@@ -74,20 +69,17 @@ console.log()
  * file reads the nav as TEXT and importing the predicate would let a changed
  * rule agree with itself.
  */
-type Entry = { needs: Capability[]; hiddenBy: Capability[]; branchKind: string | null }
-const atBranch = (who: { portal_role: Role }, e: Entry, hasPos: boolean | null) =>
-  !e.branchKind || branchScope(who) === "all" || (hasPos === false)
-
-// Every role is checked in BOTH kinds of shop. A role scoped to one branch
-// gets a different nav in each, and running only one of them would leave half
-// the matrix untested — which is how an entry that is correct at Talat Noi
-// and a dead link at a consignment shop gets shipped.
-for (const role of ROLES) for (const hasPos of [true, false] as const) {
+// B3 removed the only branch-gated entry: "Units sold" became a section of
+// Sales by product, which is worth opening at either kind of branch, and the
+// FORM is gated inside the page. The nav is back to one gate — capability —
+// so the two-shops loop went with it. `visibleAtBranch` is in git if another
+// screen ever needs a branch-shaped gate.
+type Entry = { needs: Capability[]; hiddenBy: Capability[] }
+for (const role of ROLES) {
   const who = { portal_role: role } as { portal_role: Role }
   const visible = (e: Entry) =>
     (e.needs.length === 0 || canAny(who, e.needs))
     && !(e.hiddenBy.length > 0 && canAny(who, e.hiddenBy))
-    && atBranch(who, e, hasPos)
 
   const wanted = sidebar.filter(visible)
   const primary = tabbar.filter(visible)
@@ -100,7 +92,7 @@ for (const role of ROLES) for (const hasPos of [true, false] as const) {
 
   const stranded = wanted.filter((e) => !reachable.has(e.href))
   check(stranded.length === 0,
-        `${role} at a ${hasPos ? "POS" : "no-POS"} branch: all reachable on a phone`,
+        `${role}: every page it may use is reachable on a phone`,
         stranded.length ? `stranded: ${stranded.map((s) => s.label).join(", ")}`
                         : `${wanted.length} entries, ${primary.length} primary`)
 }
@@ -137,35 +129,6 @@ const staleLabel = [...tabbar, ...sidebar].find((e) => e.label === "End of day")
 check(!staleLabel, "no nav entry is still labelled End of day",
       staleLabel ? `${staleLabel.label} -> ${staleLabel.href}` : "none")
 
-// ── Units sold belongs to a shop, not to a role ───────────────────────────
-//
-// It is keyed only where there is no POS: at Talat Noi or Song Wat the import
-// already answers "how many units", the page keys nothing, and the entry was
-// a link to an empty screen. A capability cannot say this — a KA at a POS
-// branch holds exactly what a consignment KA holds — so the nav carries a
-// second, branch-shaped gate and these four cases are the whole of it.
-const units = sidebar.find((e) => e.href === "/daily")
-check(units?.branchKind === "no-pos",
-      "Units sold is gated on the BRANCH, not only on a capability",
-      units ? `branchKind: ${units.branchKind ?? "none"}` : "not in the nav")
-
-if (units) {
-  const kaAt = (hasPos: boolean | null) => atBranch(ka as { portal_role: Role }, units, hasPos)
-  check(!kaAt(true),  "…a KA at a POS branch does NOT see it", "Talat Noi, Song Wat")
-  check(kaAt(false),  "…a KA at a branch with no POS DOES", "the five consignment shops")
-  check(!kaAt(null),  "…and a branchless KA does not",
-        "no shop means no shop-without-a-POS — hidden, not guessed")
-
-  // A role that sees every branch sees it wherever it is standing: it is in
-  // the nav because some shop needs it, not because of where the person is.
-  for (const role of ["admin", "manager"] as Role[]) {
-    const who = { portal_role: role } as { portal_role: Role }
-    check(canAny(who, units.needs) && atBranch(who, units, true) && atBranch(who, units, null),
-          `…and ${role}, who sees all branches, always does`,
-          branchScope(who))
-  }
-}
-
 const calendar = sidebar.find((e) => e.href === "/calendar")
 check(!!calendar && canAny(ka, calendar.needs),
       "a KA can see the calendar (holidays drive their OT rate)",
@@ -183,6 +146,12 @@ check(!can(ka, "calendar.manage"), "…and still cannot edit it")
 // is true, which is the point.
 const UNLISTED: Record<string, string> = {
   "/": "redirects to /dashboard",
+  // B3: the combined end-of-day form. Its last card — units at a branch with
+  // no POS — moved onto Sales by product, and the route stayed as a redirect
+  // because this URL has been in the nav, a tab bar, a dashboard link and
+  // four scripts, and a KA has it open on a phone. A 404 reads as the app
+  // being broken; a redirect reads as a screen having moved.
+  "/daily": "redirects to /records/products, where the units entry now lives",
   // The middleware REWRITES a closed section here, so the address bar still
   // reads /count. Nobody navigates to it and it must not be in the nav —
   // a menu entry for "this is shut" would be its own kind of noise.

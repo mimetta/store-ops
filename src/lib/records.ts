@@ -41,10 +41,26 @@ export async function resolveScope(searchParams: {
     id: b.id, name: b.name, posExport: b.pos_export,
   }))
 
-  // Default to a branch that HAS bills, not simply the first alphabetically.
-  // Alphabetically first here is Ecotopia, a consignment branch, so every
-  // view would open on "this branch has no POS" and look broken.
+  // YOUR OWN BRANCH FIRST, if you have one.
+  //
+  // The previous default was "the first branch with bills", written for a
+  // reader who sees every branch — for them, opening on Ecotopia's empty
+  // consignment view looks broken. But `branches` is a reference table and
+  // 084 made it readable to anyone with a role, so a KA sees all seven in
+  // the selector. That default therefore landed a Siam Discovery KA on Talat
+  // Noi: another shop's name at the top of the page, and RLS quietly
+  // emptying the figures underneath it.
+  //
+  // It also hid the units entry B3 adds, because that is gated on the SCOPE
+  // being a branch with no POS — and the scope was somebody else's.
+  //
+  // Reading the selector is not reading the data: `sales_product_rows` is
+  // security_invoker, so the rows were always scoped correctly. What was
+  // wrong was which branch the page opened on, which is the question every
+  // other keying screen already answers with "yours".
+  const profile = await currentProfile()
   const chosen = branches.find((b) => b.id === searchParams.branch)
+    ?? branches.find((b) => b.id === profile?.branch_id)
     ?? branches.find((b) => b.posExport)
     ?? branches[0]
 

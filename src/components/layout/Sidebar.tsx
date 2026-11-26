@@ -4,7 +4,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { Profile } from "@/types/database"
 import { canAny } from "@/lib/permissions"
-import { visibleAtBranch } from "./nav-items"
 import { SECTIONS, Icon, HOME_ICON, LOCK_ICON, ClosedTag, type NavItem } from "./nav-items"
 import { useCollapsedSections } from "./nav-collapse"
 
@@ -12,23 +11,15 @@ interface SidebarProps {
   profile: Profile | null
   /** Which deployment this is. See lib/build-stamp.ts. */
   build?: { sha: string; startedAt: string }
-  /** Does the signed-in person's branch have a POS? null = unknown (no
-   *  branch, or the branch row is not readable). See `visibleAtBranch`. */
-  branchHasPos?: boolean | null
 }
 
-export default function Sidebar({ profile, build, branchHasPos = null }: SidebarProps) {
+export default function Sidebar({ profile, build }: SidebarProps) {
   const pathname   = usePathname()
   // Nav visibility comes from the same matrix the pages use — see
   // lib/permissions.ts. Nothing here re-derives permissions from portal_role.
-  //
-  // `visibleAtBranch` is the second gate, and it is deliberately NOT a
-  // capability: Units sold is about a branch with no POS, and every KA holds
-  // the same capabilities whichever shop they stand in.
   const visible = (item: NavItem) =>
     (!item.needs || canAny(profile, item.needs)) &&
-    !(item.hiddenBy && canAny(profile, item.hiddenBy)) &&
-    visibleAtBranch(profile, item, branchHasPos)
+    !(item.hiddenBy && canAny(profile, item.hiddenBy))
 
   // Folded sections, remembered, and shared with the phone's More sheet.
   const { collapsed, toggle } = useCollapsedSections()
