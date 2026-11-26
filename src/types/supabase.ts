@@ -1819,6 +1819,7 @@ export type Database = {
           note: string | null
           recorded_at: string
           repo_commit: string | null
+          sha256_is_prefix: boolean
           source: string
         }
         Insert: {
@@ -1831,6 +1832,7 @@ export type Database = {
           note?: string | null
           recorded_at?: string
           repo_commit?: string | null
+          sha256_is_prefix?: boolean
           source?: string
         }
         Update: {
@@ -1843,6 +1845,7 @@ export type Database = {
           note?: string | null
           recorded_at?: string
           repo_commit?: string | null
+          sha256_is_prefix?: boolean
           source?: string
         }
         Relationships: []
@@ -5175,6 +5178,7 @@ export type Database = {
           note: string | null
           recorded_at: string | null
           repo_commit: string | null
+          sha256_is_prefix: boolean | null
           source: string | null
         }
         Relationships: []

@@ -2,7 +2,9 @@
 -- prod/095a — the four that ran before there was anywhere to record them
 -- ═══════════════════════════════════════════════════════════════════════════
 --
--- PRODUCTION ONLY. REQUIRES: 095   (sha256_is_prefix)
+-- PRODUCTION ONLY.
+--
+-- REQUIRES: 095   (migrations_applied.sha256_is_prefix)
 --
 -- STATUS: applied to production 2026-11-25. Five rows written.
 --

@@ -211,6 +211,10 @@ with artefact(seq, migration, kind, what, present) as (values
   -- refused. "Cannot be detected from here" is coverage; silence is not.
   --   select count(*) from nationalities where active and offer_in_counts;
   --   -- expect 199
+  ('095', '095', 'schema', 'a sha prefix can say that it is one',
+    (select count(*) from information_schema.columns
+      where table_schema = 'public' and table_name = 'migrations_applied'
+        and column_name = 'sha256_is_prefix') = 1),
   ('094', '094', 'data',   'the country list is the whole world (count by hand)',
     null),
   ('093', '093', 'data',   'a KA can upload and read their own branch''s figures',
