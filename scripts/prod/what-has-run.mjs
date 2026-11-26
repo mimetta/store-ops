@@ -61,7 +61,7 @@ if (!(await db.query(`select to_regclass('public.migrations_applied') is not nul
 }
 
 const { rows } = await db.query(
-  `select filename, file_sha256, applied_at, applied_by, source, note
+  `select filename, file_sha256, sha256_is_prefix, applied_at, applied_by, source, note
      from migrations_applied_latest
     ${filter ? "where filename like '%' || $1 || '%'" : ""}
     order by filename`, filter ? [filter] : [])
@@ -73,22 +73,45 @@ const table = rows.map((r) => {
   const disk = onDisk(r.filename)
   // Only a RECORDED sha can be compared. A backfilled NULL means we never
   // knew, which is not the same as "differs" and must not be shown as one.
+  // FIVE outcomes, because a sha PREFIX is a fifth kind of answer.
+  //
+  // 084-087 ran before 083 created the table, so all that survives of them
+  // is what the runner PRINTED: sixteen hex characters. Compared with `=`
+  // that reads as DIFFERS FROM DISK about files that match — a false alarm
+  // in the one tool whose alarms have to mean something. Reported as
+  // "matches disk" it would dress sixteen characters up as sixty-four.
+  //
+  // So a prefix gets its own two outcomes. It cannot prove a match; it CAN
+  // prove a mismatch, and that half is a real check.
   const text = r.file_sha256 === null ? "(unknown)"
     : disk === null ? "file is gone"
-    : disk === r.file_sha256 ? "matches disk"
-    : "DIFFERS FROM DISK"
+    : r.sha256_is_prefix
+      ? (disk.startsWith(r.file_sha256) ? "prefix seen, consistent" : "PREFIX DIFFERS")
+      : disk === r.file_sha256 ? "matches disk"
+      : "DIFFERS FROM DISK"
   return {
     file: r.filename.replace("supabase/", ""),
-    ran: r.applied_at ? new Date(r.applied_at).toISOString().slice(0, 10) : "(unknown)",
+    // IN BANGKOK. `toISOString()` renders in UTC, so a migration applied at
+    // midnight Bangkok displays as the day BEFORE — the backfilled rows for
+    // 084-087 are stored as 2026-11-24 00:00+07 and were printing 2026-11-23.
+    // The stored value was right both times; the renderer asked UTC.
+    // Business day is Bangkok everywhere else in this system.
+    ran: r.applied_at
+      ? new Date(r.applied_at).toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })
+      : "(unknown)",
     text,
     source: r.source,
   }
 })
 
-const shown = staleOnly ? table.filter((t) => t.text === "DIFFERS FROM DISK") : table
+// --stale means "show me what no longer matches". A disproved PREFIX is
+// exactly that, so it belongs in the same list — a check that can only fire
+// on full hashes would go quiet precisely where the evidence is weakest.
+const isStale = (t) => t.text === "DIFFERS FROM DISK" || t.text === "PREFIX DIFFERS"
+const shown = staleOnly ? table.filter(isStale) : table
 console.table(shown)
 
-const stale = table.filter((t) => t.text === "DIFFERS FROM DISK")
+const stale = table.filter(isStale)
 const unknownText = table.filter((t) => t.text === "(unknown)").length
 const unknownDate = table.filter((t) => t.ran === "(unknown)").length
 

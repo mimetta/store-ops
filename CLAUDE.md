@@ -472,6 +472,61 @@ migration to a database not yet at 083 would fail on the insert and roll back
 a perfectly good migration. **The recording must never be able to cost you
 the thing it is recording.**
 
+### An absence has a cause, and the cause is not derivable from the absence
+
+Production's record ran from 083 and did not mention `084`–`087`, while the
+catalogue showed all four were there. I filled the gap with a guess — that
+they had been applied by some route that bypassed `apply-migration.mjs` —
+and stated it as a fact in a list the user was going to act on.
+
+**The real reason was ordinary**: they were applied with the script on
+2026-11-24, BEFORE 083 created `migrations_applied`. There was nowhere to
+record into. The script's insert is guarded on the table existing precisely
+so this case does not cost you the migration, and the cost it does have is
+exactly this silence.
+
+It was available by asking the person who ran them, and the evidence
+survived in their terminal.
+
+### A sha PREFIX is evidence, and it is not a hash (095)
+
+What that terminal held was sixteen hex characters per run, not sixty-four.
+Both obvious places to put them are wrong:
+
+- in `file_sha256` as-is — `what-has-run` compares with `=`, so every row
+  reports **DIFFERS FROM DISK** about a file that matches. A false alarm in
+  the one tool whose alarms have to mean something.
+- compared with `like prefix || '%'` and reported as **matches disk** —
+  which dresses sixteen characters up as sixty-four.
+
+So the row says what it is. `sha256_is_prefix` is a column, two CHECKs bind
+it in both directions (a recorded row may never carry a prefix; a 64-char
+value may never claim to be one), and `what-has-run` grew two outcomes:
+**prefix seen, consistent** and **PREFIX DIFFERS**. The second is why it is
+a check and not a decoration — a prefix cannot prove a match and CAN prove a
+mismatch, and `--stale` lists it.
+
+Three things that went wrong while writing it, all the same shape:
+
+- **The view lists its columns.** A new column on the table is invisible
+  through `migrations_applied_latest` until the view is rewritten, and
+  `what-has-run` reads the view. Appended at the END, because
+  `create or replace view` matches by position.
+- **`applied_at::date` casts in the SESSION timezone.** Stored as midnight
+  Bangkok on the 24th, it read back as the 23rd and the verify reported all
+  five rows as wrongly dated. Then `toISOString().slice(0, 10)` did it again
+  in the renderer. The value was right both times; the question was asked in
+  UTC. Business day is Bangkok — including when the subject is a migration.
+- **"Backfilled" does not mean "prefix".** An assertion said no backfilled
+  row may carry a full hash; 50 rows on UAT legitimately do, because git
+  showed those files had only ever had one content. Scope an assertion to
+  the rows the script WRITES, not to a class it happens to belong to.
+
+And the ABSENT-is-not-FAILED rule, again: on UAT the script correctly writes
+nothing (UAT recorded 084–087 itself), and every assertion then reported 0
+and looked like a broken backfill. It now detects that case and says
+SKIPPED, with the reason.
+
 ### The backfill says "unknown" and means it
 
 `backfill-migrations-applied.mjs` reconstructs what we know. The rule it
