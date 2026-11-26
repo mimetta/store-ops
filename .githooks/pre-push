@@ -41,14 +41,47 @@
 #
 #   git config --get core.hooksPath     # must print .githooks
 
+# ── EVERY REFUSAL LEAVES EVIDENCE ─────────────────────────────────────────
+#
+# A push was refused and the same code passed on retry a minute later, and
+# the failing line was gone — scrolled past in the terminal, and the hook had
+# kept nothing. That is the worst possible outcome: a test that fails
+# sometimes is either flaky or a real bug that only shows up sometimes, and
+# BOTH are worth knowing. Losing the evidence makes it neither.
+#
+# So the run is teed to an APPEND-only log under .git/ — never cleared on
+# success, because the thing you want to compare a flaky failure against is
+# the run before it. .git/ is not version-controlled, so the log is local and
+# nobody has to think about committing it.
+LOG="$(git rev-parse --git-dir)/pre-push-runs.log"
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "?")
+stamp=$(date "+%Y-%m-%d %H:%M:%S")
+head=$(git rev-parse --short HEAD 2>/dev/null || echo "?")
 
 echo "pre-push: running npm test on ${branch}…"
+printf '\n══ %s  %s  %s ══\n' "$stamp" "$branch" "$head" >> "$LOG"
 
-if npm test; then
+# `npm test | tee` makes the shell read TEE's status, not npm's — tee
+# practically always succeeds, so the naive form would let EVERY push
+# through while looking exactly like a working guard. Measured, not
+# assumed: `sh -c 'if false | tee /dev/null; then echo BUG; fi'` prints BUG.
+#
+# $PIPESTATUS is bash-only and this is /bin/sh, so the left side of the pipe
+# — which POSIX runs in a subshell — writes npm's real exit code to a file
+# and the parent reads it back.
+STATUS="$(git rev-parse --git-dir)/pre-push-status"
+rm -f "$STATUS"
+{ npm test 2>&1; echo $? > "$STATUS"; } | tee -a "$LOG"
+code=$(cat "$STATUS" 2>/dev/null || echo 1)
+rm -f "$STATUS"
+
+if [ "$code" -eq 0 ]; then
+  printf 'RESULT: green\n' >> "$LOG"
   echo "pre-push: suite green — pushing ${branch}."
   exit 0
 fi
+
+printf 'RESULT: RED (exit %s)\n' "$code" >> "$LOG"
 
 cat >&2 <<EOF
 
@@ -57,8 +90,11 @@ cat >&2 <<EOF
 
   Nothing has been sent. Fix the failure above and push again.
 
-  This has been walked past three times by reading the exit code and
-  pushing anyway, which is why it is a hook now and not a habit.
+  The full run is appended to:
+    ${LOG}
+
+  If this passes on retry with the same code, that log is the only
+  record of what failed. Read it rather than guessing.
   ══════════════════════════════════════════════════════════════════
 
 EOF
