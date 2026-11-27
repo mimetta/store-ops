@@ -35,7 +35,26 @@ export async function updateSession(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === '/login'
   const isAuthCallback = request.nextUrl.pathname === '/auth/callback'
 
-  if (!user && !isLoginPage && !isAuthCallback) {
+  // ── machine callers ──────────────────────────────────────────────────────
+  //
+  // `/api/v1/*` is for other systems, which have no session and never will.
+  // Without this the session gate REDIRECTS them to /login, and the caller
+  // gets HTTP 200 and a page of HTML — measured: the first run of
+  // exercise-feedback-api got "no key is refused | HTTP 200" and a login
+  // page, because the route never ran at all.
+  //
+  // That is worth saying plainly: the gate did not let an unauthenticated
+  // caller THROUGH, it answered for the route. The route's own key check is
+  // the boundary and it was simply never reached.
+  //
+  // Narrow on purpose. `/api/acccloud/*` keeps the session gate, because
+  // those two routes ARE called by a signed-in person and check a
+  // capability. Only the `v1` prefix, which is the machine-readable
+  // contract, is exempt — and every route under it must authenticate for
+  // itself. `check:api-v1-has-a-key` enforces that.
+  const isMachineApi = request.nextUrl.pathname.startsWith('/api/v1/')
+
+  if (!user && !isLoginPage && !isAuthCallback && !isMachineApi) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

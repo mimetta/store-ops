@@ -152,6 +152,45 @@ export type Database = {
           },
         ]
       }
+      api_access_log: {
+        Row: {
+          branch_code: string | null
+          called_at: string
+          id: number
+          key_name: string | null
+          ok: boolean
+          range_from: string | null
+          range_to: string | null
+          refused: string | null
+          route: string
+          rows_returned: number | null
+        }
+        Insert: {
+          branch_code?: string | null
+          called_at?: string
+          id?: never
+          key_name?: string | null
+          ok: boolean
+          range_from?: string | null
+          range_to?: string | null
+          refused?: string | null
+          route: string
+          rows_returned?: number | null
+        }
+        Update: {
+          branch_code?: string | null
+          called_at?: string
+          id?: never
+          key_name?: string | null
+          ok?: boolean
+          range_from?: string | null
+          range_to?: string | null
+          refused?: string | null
+          route?: string
+          rows_returned?: number | null
+        }
+        Relationships: []
+      }
       bill_nationalities: {
         Row: {
           bills: number
