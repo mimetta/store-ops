@@ -6061,6 +6061,7 @@ export type Database = {
       branch_has_erp_balance: { Args: { p_branch: string }; Returns: boolean }
       branch_is_pos_fed: { Args: { p_branch: string }; Returns: boolean }
       business_today: { Args: never; Returns: string }
+      caller_owns: { Args: { p_rel: unknown }; Returns: boolean }
       can_access_branch: { Args: { target: string }; Returns: boolean }
       check_function_version: {
         Args: { p_function: string; p_migration: string }

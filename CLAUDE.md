@@ -1396,6 +1396,81 @@ boundary it used, and refuses outright when there is neither. The bug was not
 the fallback being missing; it was that the failure mode of `lastIndexOf` is a
 valid index.
 
+## A guard that keys on a column of a table it does not protect
+
+`sales_posting_lines_no_edit` refuses to change a line whose posting has
+been posted. It decides by reading **`sales_postings.posted_at` — a column
+on a different table, which nothing guarded**, and `sales_postings`'s only
+write policy is `has_capability('sales.manual') and can_access_branch(...)`.
+A KA holds `sales.manual`.
+
+Driven as a real signed-in KA through PostgREST, on their own branch:
+
+| | |
+|---|---|
+| `update sales_postings set posted_at = null` | **succeeded** |
+| then `update sales_posting_lines set units_sold = 999` | **succeeded** |
+| then `delete from sales_posting_lines` | **succeeded** |
+| `update sales_postings set posted_at = '2020-01-01'` | **succeeded** |
+
+"Counts are immutable" is a named, non-negotiable rule, and it was one extra
+statement away from not being one. `commission_inputs` values a consignment
+branch as units x price out of those lines, so the bypass rewrote money.
+
+**It was found because a TEARDOWN hit the guard.** Removing a probe row by
+hand was refused, which raised the question of what happens to somebody who
+does not stop there. The guard worked perfectly against the honest path and
+not at all against the dishonest one — which is the general shape: *a guard
+that has only ever been met by people trying to do the right thing has not
+been tested.*
+
+### The class, not the instance
+
+`007` fixed the foreign keys that existed in `007`; `058` found four more.
+So every trigger was read out of the catalogue looking for the same shape —
+deciding from a table it is not attached to — before fixing anything:
+
+    sales_posting_lines_no_edit    reads sales_postings.posted_at
+    delivery_lines_no_edit         reads deliveries.status
+    transfer_lines_no_edit         reads transfers.status
+    stock_count_lines_no_edit      reads stock_counts.status
+
+**All four parent tables had no trigger protecting the column being read.**
+096 closes all four.
+
+### What it refuses, and what it deliberately does not
+
+Only BACKWARDS moves, and only for a non-owner: a timestamp that is set may
+not be cleared or changed; a status that has reached a terminal value may
+not leave it. Forward transitions — null to set, draft to submitted to
+approved — are untouched, because a rule that blocked those would break
+posting, receiving and submitting.
+
+**The owner is exempt, and that is the design, not a loophole.** Every
+legitimate writer of these columns is a SECURITY DEFINER function
+(`post_sales_units`, `receive_delivery`, `set_delivery_status`,
+`send_transfer`, `receive_transfer`) which has already checked the
+capability, the branch and the state machine. Read from the catalogue:
+nothing in `src/` updates these tables except a draft-transfer delete. The
+check is `current_user = the table's owner` read from `pg_class` at runtime,
+not a hardcoded `'postgres'` — a restore under a different owner would
+otherwise lock the sanctioned functions out of their own tables.
+
+### A verify block proves the OPPOSITE here unless it impersonates
+
+The pooler connects as the owner, which is the exempt case, so a plain
+assertion passes whether or not the trigger works — worse than the usual
+BYPASSRLS problem, because the owner's result is the reverse of the claim.
+Every assertion in 096 runs inside `set local role authenticated`, and
+`exercise-posted-is-final.mjs` repeats the same four attacks over HTTP as a
+real session.
+
+One thing the fix made louder: the ORIGINAL guard has no owner exemption, so
+**the owner cannot delete a posted line either**. 096's own teardown failed
+on that and had to clear `posted_at` first — the same two steps a hand
+removal needs. Worth knowing before writing any cleanup that touches posted
+rows.
+
 ## A trigger test is not an RLS test
 
 `064` taught the profiles trigger which COLUMNS `people.manage` may change,

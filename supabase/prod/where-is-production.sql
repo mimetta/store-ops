@@ -211,6 +211,12 @@ with artefact(seq, migration, kind, what, present) as (values
   -- refused. "Cannot be detected from here" is coverage; silence is not.
   --   select count(*) from nationalities where active and offer_in_counts;
   --   -- expect 199
+  ('096', '096', 'schema', 'posted/received/approved cannot be walked back',
+    (select count(*) from pg_trigger where not tgisinternal and tgname in (
+       'sales_postings_posted_at_is_final','deliveries_receipt_is_final',
+       'deliveries_status_is_final','transfers_movement_is_final',
+       'transfers_status_is_final','stock_counts_submission_is_final',
+       'stock_counts_status_is_final')) = 7),
   ('095', '095', 'schema', 'a sha prefix can say that it is one',
     (select count(*) from information_schema.columns
       where table_schema = 'public' and table_name = 'migrations_applied'
