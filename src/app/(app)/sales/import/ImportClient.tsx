@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
+import { UploadChecklist, CheckSlot, StockSlot, type DayMark } from "./Slots"
 import { useRouter } from "next/navigation"
 import { analyseFile, runImport, type Analysis, type ImportResult } from "./actions"
 import { FIELDS, type ColumnMap } from "@/lib/sales-import/fields"
@@ -29,10 +30,14 @@ const baht = (n: number) =>
   "฿" + Math.round(n).toLocaleString("en-GB")
 
 export default function ImportClient({
-  branches, history,
+  branches, history, marks, month, today,
 }: {
   branches: ImportBranch[]
   history: PastImport[]
+  /** Days with bills, per branch, for `month`. Derived from sales_bills. */
+  marks: Record<string, DayMark[]>
+  month: string
+  today: string
 }) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -105,7 +110,7 @@ export default function ImportClient({
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <h1 className="text-[22px] font-medium mr-auto">Import sales</h1>
+        <h1 className="text-[22px] font-medium mr-auto">Import</h1>
         <label className="pill">
           <span className="text-xs text-muted">Import for</span>
           <select
@@ -119,6 +124,20 @@ export default function ImportClient({
           </select>
         </label>
       </div>
+
+      {/* FIRST, because the question somebody opens this page with is "what
+          is missing", not "where do I drop a file". Only at a POS branch —
+          a consignment shop has no bills to be missing. */}
+      {branch.posExport && (
+        <div className="mb-3">
+          <UploadChecklist
+            month={month}
+            days={marks[branchId] ?? []}
+            today={today}
+            branchName={branch.name}
+          />
+        </div>
+      )}
 
       {result?.ok && (
         <div className="note note-g mb-3">
@@ -142,7 +161,11 @@ export default function ImportClient({
       {/* ── choose a file ────────────────────────────────────────────────── */}
       {!analysis?.ok && (
         <div className="card card-pad">
-          <h2 className="text-[15px] font-medium mb-3">Upload a sales report</h2>
+          <h2 className="text-[15px] font-medium mb-1">Sales by bill</h2>
+          <p className="text-[13px] text-muted mb-3">
+            Required. This file is the record — Daily sales, Daily bill, Sales
+            by payment method and Sales by product are all read from it.
+          </p>
 
           <div
             onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
@@ -336,6 +359,39 @@ export default function ImportClient({
           </div>
         </>
       )}
+
+      {/* ── the two optional reports, and the one that is shut ───────────── */}
+      {/*
+          These come AFTER the bill upload on purpose. The bill file is the
+          record and the other two are a second opinion on it — putting a
+          check above the thing it checks invites somebody to upload the
+          payment report and wonder why no figures appeared.
+
+          Only at a POS branch: a consignment shop has no AdaPOS reports at
+          all, and offering a slot for a file that cannot exist is the kind
+          of empty state that reads as broken.
+      */}
+      {branch.posExport && (
+        <div className="grid gap-3 mt-3 md:grid-cols-2">
+          <CheckSlot
+            kind="payment"
+            title="Sales by payment method"
+            blurb="Checks Sales by payment method against the POS, method by method.
+                   Read and thrown away — nothing is saved."
+            branchId={branchId}
+          />
+          <CheckSlot
+            kind="product"
+            title="Sales by product"
+            blurb="Checks Sales by product against the POS, SKU by SKU. Expect a
+                   small difference: the POS rounds each bill, we value each line."
+            branchId={branchId}
+          />
+        </div>
+      )}
+      <div className="mt-3">
+        <StockSlot />
+      </div>
 
       {/* ── history ──────────────────────────────────────────────────────── */}
       <div className="card card-pad mt-3">

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { can, branchScope } from "@/lib/permissions"
 import type { Profile } from "@/types/database"
 import ImportClient, { type ImportBranch, type PastImport } from "./ImportClient"
+import type { DayMark } from "./Slots"
 
 /**
  * Sales import.
@@ -87,6 +88,42 @@ export default async function SalesImportPage() {
     at: p.imported_at,
   }))
 
+  // ── which days are in, for every branch in scope ────────────────────────
+  //
+  // DERIVED from sales_bills, never stored. A second table saying "this day
+  // was uploaded" could disagree with whether the rows are actually there,
+  // and the rows are what every screen reads.
+  //
+  // This month only. The checklist answers "what is missing right now",
+  // which is a question about the month somebody is working in; a full
+  // history would be a different screen and a much larger query.
+  const { data: todayRow } = await supabase.rpc("business_today")
+  const today = (todayRow as string | null)
+    ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })
+  const month = today.slice(0, 7)
+
+  // branch_id and bill_date only — PostgREST cannot GROUP BY, so the count
+  // is done here. A month at the busiest branch is ~1,100 rows, which is a
+  // cheap payload for a figure somebody checks daily.
+  const { data: billDays } = await supabase
+    .from("sales_bills")
+    .select("branch_id, bill_date")
+    .gte("bill_date", `${month}-01`)
+    .lte("bill_date", `${month}-31`)
+
+  const marks: Record<string, DayMark[]> = {}
+  const tally = new Map<string, Map<string, number>>()
+  for (const r of (billDays ?? []) as { branch_id: string; bill_date: string }[]) {
+    const byDay = tally.get(r.branch_id) ?? new Map<string, number>()
+    byDay.set(r.bill_date, (byDay.get(r.bill_date) ?? 0) + 1)
+    tally.set(r.branch_id, byDay)
+  }
+  for (const [branchId, byDay] of tally) {
+    marks[branchId] = [...byDay.entries()]
+      .map(([date, bills]) => ({ date, bills }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+  }
+
   if (branches.length === 0) {
     return (
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -96,5 +133,13 @@ export default async function SalesImportPage() {
     )
   }
 
-  return <ImportClient branches={branches} history={history} />
+  return (
+    <ImportClient
+      branches={branches}
+      history={history}
+      marks={marks}
+      month={month}
+      today={today}
+    />
+  )
 }
